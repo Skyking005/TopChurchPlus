@@ -69,19 +69,7 @@
               </div>
               <div class="col-12">
                 <label class="form-label">專案內容</label>
-                <input id="content" type="hidden" class="project-input">
-                <div class="rich-editor">
-                  <div class="rich-editor-toolbar">
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('bold')"><strong>B</strong></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('italic')"><em>I</em></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('underline')"><u>U</u></button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('insertUnorderedList')">•</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('insertOrderedList')">1.</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="insertProjectContentTable()">表格</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('removeFormat')">清除格式</button>
-                  </div>
-                  <div id="contentEditor" class="rich-editor-body project-rich-input" contenteditable="true"></div>
-                </div>
+                <textarea id="content" class="form-control project-input advanced-editor" rows="10"></textarea>
               </div>
 
               <div class="col-md-4">

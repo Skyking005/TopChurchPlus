@@ -74,14 +74,15 @@ function toggleIncomeRequired() {
   }
 
   function setProjectContentReadonly(readonly) {
-    const editor = document.getElementById('contentEditor');
-    if (editor) {
-      editor.setAttribute('contenteditable', readonly ? 'false' : 'true');
+    ensureProjectContentEditor();
+
+    if (window.CKEDITOR && CKEDITOR.instances.content) {
+      CKEDITOR.instances.content.setReadOnly(readonly);
+      return;
     }
 
-    document.querySelectorAll('.rich-editor-control').forEach(btn => {
-      btn.disabled = readonly;
-    });
+    const textarea = document.getElementById('content');
+    if (textarea) textarea.disabled = readonly;
   }
 
   function renderPeopleRows(rows) {
