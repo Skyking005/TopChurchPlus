@@ -1,4 +1,72 @@
 <script>
+const SYSTEM_FEATURES = [
+  {
+    key: 'project',
+    title: '專案管理系統',
+    desc: '專案建立、預算、會議與文件匯出',
+    action: 'openProjectSystem'
+  },
+  {
+    key: 'finance',
+    title: '財務系統',
+    desc: '採購申請、預借、支出證明與請款流程',
+    action: 'openPurchaseSystem'
+  },
+  {
+    key: 'asset',
+    title: '資產管理系統',
+    desc: '資產清冊、保管、盤點與維護紀錄',
+    action: 'openComingSoonSystem',
+    mode: '瀏覽'
+  },
+  {
+    key: 'venue',
+    title: '場地預約系統',
+    desc: '場地借用、時段查詢與預約管理',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'forms',
+    title: '表單系統',
+    desc: '行政表單、申請資料與流程追蹤',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'counter',
+    title: '櫃台系統',
+    desc: '櫃台值勤、接待與服務紀錄',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'pastoral',
+    title: '牧養管理系統',
+    desc: '牧養關懷、名單與跟進紀錄',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'education',
+    title: '教育管理系統',
+    desc: '課程、學員、教材與教育行政',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'media',
+    title: '媒體管理系統',
+    desc: '媒體排程、素材、製作與發布管理',
+    action: 'openComingSoonSystem'
+  }
+];
+
+const ROLE_FEATURE_ACCESS = {
+  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
+  '全職同工': ['project', 'finance', 'asset', 'venue', 'forms', 'counter'],
+  '技術同工': ['asset'],
+  '牧養同工': ['pastoral'],
+  '教育同工': ['education'],
+  '媒體同工': ['media'],
+  '義工': ['counter']
+};
+
 function handleLogin() {
   const btn = event.target;
   const email = document.getElementById('loginEmail').value.trim();
@@ -68,10 +136,38 @@ function loadInitialData() {
 
 function backToFeatureMenu() {
   document.getElementById('mainTitle').textContent = '系統功能選擇';
+  renderFeatureMenu();
   document.getElementById('featureSelectionView').classList.remove('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
+}
+
+function renderFeatureMenu() {
+  const grid = document.getElementById('featureGrid');
+  if (!grid || !currentUser) return;
+
+  const allowedKeys = ROLE_FEATURE_ACCESS[currentUser.role] || [];
+  const features = SYSTEM_FEATURES.filter(feature => allowedKeys.includes(feature.key));
+  grid.innerHTML = '';
+
+  if (!features.length) {
+    grid.innerHTML = '<div class="feature-empty">目前帳號尚未被授權任何系統入口，請洽管理員。</div>';
+    return;
+  }
+
+  features.forEach(feature => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'feature-option';
+    button.onclick = () => window[feature.action](feature);
+    button.innerHTML = `
+      <span class="feature-title">${escapeHtml(feature.title)}</span>
+      <span class="feature-desc">${escapeHtml(feature.desc)}</span>
+      ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
+    `;
+    grid.appendChild(button);
+  });
 }
 
 function openProjectSystem() {
@@ -84,7 +180,7 @@ function openProjectSystem() {
 }
 
 function openPurchaseSystem() {
-  document.getElementById('mainTitle').textContent = '採購系統';
+  document.getElementById('mainTitle').textContent = '財務系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
@@ -92,5 +188,9 @@ function openPurchaseSystem() {
   document.getElementById('purchaseListView').classList.remove('d-none');
   document.getElementById('purchaseDetailView').classList.add('d-none');
   loadPurchaseSystem();
+}
+
+function openComingSoonSystem(feature) {
+  alert(`${feature.title}入口已建立，功能將於後續階段開放。`);
 }
 </script>
