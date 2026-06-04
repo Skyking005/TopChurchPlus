@@ -15,7 +15,7 @@ const PARAMETER_TYPE_OPTIONS = [
 ];
 
 function openParameterModal() {
-  if (!currentUser || !currentUser.isAdmin) return;
+  if (!currentUser || !currentUser.isSuperAdmin) return;
 
   const typeSelect = document.getElementById('parameterType');
   typeSelect.innerHTML = '';

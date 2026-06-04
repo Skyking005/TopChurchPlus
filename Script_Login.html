@@ -58,6 +58,7 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
   '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
   '全職同工': ['project', 'finance', 'asset', 'venue', 'forms', 'counter'],
   '技術同工': ['asset'],
@@ -96,7 +97,7 @@ function handleLogin() {
         document.getElementById('addProjectBtn').classList.add('d-none');
       }
 
-      document.getElementById('paramManageBtn').classList.toggle('d-none', !user.isAdmin);
+      document.getElementById('paramManageBtn').classList.toggle('d-none', !user.isSuperAdmin);
       backToFeatureMenu();
     })
     .withFailureHandler(err => {

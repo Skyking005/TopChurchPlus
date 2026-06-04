@@ -55,7 +55,8 @@ app.post('/login', async (req, res, next) => {
       role: user.role,
       roles,
       deviceType,
-      isAdmin: roles.includes('管理員')
+      isAdmin: roles.includes('管理員') || roles.includes('超級管理者'),
+      isSuperAdmin: roles.includes('超級管理者')
     });
   } catch (err) {
     next(err);
@@ -85,7 +86,7 @@ app.get('/projects', async (req, res, next) => {
       throw new Error('缺少登入者資訊，無法查詢專案清單');
     }
 
-    if (!hasRole(currentUser, '管理員')) {
+    if (!hasAnyRole(currentUser, ['管理員', '超級管理者'])) {
       joins.push('JOIN project_permissions pp ON pp.project_id = p.project_id');
       values.push(currentUser.name);
       where.push(`pp.name = $${values.length}`);
@@ -348,7 +349,7 @@ app.patch('/projects/:projectId/meetings/:meetingId/status', async (req, res, ne
 
 app.get('/params/:type', async (req, res, next) => {
   try {
-    assertAdmin(parseUser(req));
+    assertSuperAdmin(parseUser(req));
     res.json(await getParamValues(req.params.type));
   } catch (err) {
     next(err);
@@ -357,7 +358,7 @@ app.get('/params/:type', async (req, res, next) => {
 
 app.post('/params/:type', async (req, res, next) => {
   try {
-    assertAdmin(req.body.currentUser);
+    assertSuperAdmin(req.body.currentUser);
     const value = normalizeValue(req.body.value);
     const type = normalizeParamType(req.params.type);
     const existing = await getParamValues(type);
@@ -374,7 +375,7 @@ app.post('/params/:type', async (req, res, next) => {
 
 app.put('/params/:type', async (req, res, next) => {
   try {
-    assertAdmin(req.body.currentUser);
+    assertSuperAdmin(req.body.currentUser);
     const type = normalizeParamType(req.params.type);
     const oldValue = normalizeValue(req.body.oldValue);
     const newValue = normalizeValue(req.body.newValue);
@@ -391,7 +392,7 @@ app.put('/params/:type', async (req, res, next) => {
 
 app.delete('/params/:type/:value', async (req, res, next) => {
   try {
-    assertAdmin(parseUser(req));
+    assertSuperAdmin(parseUser(req));
     const type = normalizeParamType(req.params.type);
     const value = decodeURIComponent(req.params.value);
     const result = await pool.query('DELETE FROM params WHERE category = $1 AND value = $2', [type, value]);
@@ -475,6 +476,11 @@ function hasRole(user, role) {
   return roles.includes(role);
 }
 
+function hasAnyRole(user, rolesToCheck) {
+  const roles = normalizeRoles(user && user.roles, user && user.role);
+  return rolesToCheck.some(role => roles.includes(role));
+}
+
 async function getProjectDetail(projectId, currentUser) {
   const project = await getProject(projectId);
   if (!project) throw new Error('找不到此專案資料');
@@ -493,7 +499,7 @@ async function getProjectDetail(projectId, currentUser) {
     budget: budget.map(toBudgetRow),
     meetings,
     projectPermissions: permissions.map(toPermissionRow),
-    projectAccess: hasRole(currentUser, '管理員') ? '完全控制' : access,
+    projectAccess: hasAnyRole(currentUser, ['管理員', '超級管理者']) ? '完全控制' : access,
     permission: await getProjectPermission(project, currentUser, access)
   };
 }
@@ -746,7 +752,7 @@ async function getProject(projectId) {
 }
 
 async function assertProjectAccess(projectId, currentUser) {
-  if (hasRole(currentUser, '管理員')) return '完全控制';
+  if (hasAnyRole(currentUser, ['管理員', '超級管理者'])) return '完全控制';
   const { rows } = await pool.query(
     'SELECT permission FROM project_permissions WHERE project_id = $1 AND name = $2',
     [projectId, currentUser.name]
@@ -757,7 +763,7 @@ async function assertProjectAccess(projectId, currentUser) {
 
 async function assertFullControl(projectId, currentUser) {
   assertDesktop(currentUser);
-  if (hasRole(currentUser, '管理員')) return true;
+  if (hasAnyRole(currentUser, ['管理員', '超級管理者'])) return true;
   const access = await assertProjectAccess(projectId, currentUser);
   if (access !== '完全控制') throw new Error('您沒有此專案的完全控制權限');
   return true;
@@ -769,13 +775,15 @@ function assertDesktop(currentUser) {
   }
 }
 
-function assertAdmin(currentUser) {
+function assertSuperAdmin(currentUser) {
   assertDesktop(currentUser);
-  if (!currentUser.isAdmin && !hasRole(currentUser, '管理員')) throw new Error('只有管理員可以操作參數管理');
+  if (!currentUser.isSuperAdmin && !hasRole(currentUser, '超級管理者')) {
+    throw new Error('只有超級管理者可以操作系統層級設定');
+  }
 }
 
 async function getProjectPermission(project, user, projectAccess) {
-  const access = hasRole(user, '管理員') ? '完全控制' : projectAccess;
+  const access = hasAnyRole(user, ['管理員', '超級管理者']) ? '完全控制' : projectAccess;
   if (user.deviceType === 'mobile') {
     return { canEdit: false, canChangeStatus: false, canViewFinance: access !== '不含收支瀏覽', access, statusOptions: [project.status], readonlyReason: '手機版僅提供瀏覽模式' };
   }
