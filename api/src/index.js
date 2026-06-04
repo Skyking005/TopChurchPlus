@@ -71,30 +71,43 @@ app.get('/initial-data', async (req, res, next) => {
 
 app.get('/projects', async (req, res, next) => {
   try {
+    const currentUser = parseUser(req);
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const projectType = String(req.query.projectType || '').trim();
     const unit = String(req.query.unit || '').trim();
     const where = [];
     const values = [];
+    const joins = [];
+
+    if (!currentUser || !currentUser.name) {
+      throw new Error('缺少登入者資訊，無法查詢專案清單');
+    }
+
+    if (currentUser.role !== '管理員') {
+      joins.push('JOIN project_permissions pp ON pp.project_id = p.project_id');
+      values.push(currentUser.name);
+      where.push(`pp.name = $${values.length}`);
+    }
 
     if (keyword) {
       values.push(`%${keyword}%`);
-      where.push(`(lower(project_id) LIKE $${values.length} OR lower(project_name) LIKE $${values.length} OR lower(content) LIKE $${values.length} OR lower(login_user) LIKE $${values.length})`);
+      where.push(`(lower(p.project_id) LIKE $${values.length} OR lower(p.project_name) LIKE $${values.length} OR lower(p.content) LIKE $${values.length} OR lower(p.login_user) LIKE $${values.length})`);
     }
     if (projectType) {
       values.push(projectType);
-      where.push(`project_type = $${values.length}`);
+      where.push(`p.project_type = $${values.length}`);
     }
     if (unit) {
       values.push(unit);
-      where.push(`$${values.length} = ANY(units)`);
+      where.push(`$${values.length} = ANY(p.units)`);
     }
 
     const sql = `
-      SELECT project_id, login_user, project_name, project_type, start_date, end_date, units, status
-      FROM projects
+      SELECT DISTINCT p.project_id, p.login_user, p.project_name, p.project_type, p.start_date, p.end_date, p.units, p.status
+      FROM projects p
+      ${joins.join(' ')}
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      ORDER BY project_id DESC
+      ORDER BY p.project_id DESC
     `;
     const { rows } = await pool.query(sql, values);
     res.json(rows.map(toProjectListItem));

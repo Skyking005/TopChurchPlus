@@ -19,7 +19,7 @@ function loadProjects() {
         unlockActionButtons();
         showError(err);
       })
-      .getProjects(filters);
+      .getProjects(filters, currentUser);
   }
 
   function renderProjects() {

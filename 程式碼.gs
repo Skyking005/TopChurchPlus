@@ -30,13 +30,13 @@ function getInitialData() {
   return apiRequest('get', '/initial-data');
 }
 
-function getProjects(filters) {
+function getProjects(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/projects', null, {
     keyword: filters.keyword || '',
     projectType: filters.projectType || '',
     unit: filters.unit || ''
-  });
+  }, currentUser);
 }
 
 function getProjectDetail(projectId, currentUser) {
