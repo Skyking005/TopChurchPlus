@@ -76,8 +76,8 @@ function toggleIncomeRequired() {
   function setProjectContentReadonly(readonly) {
     ensureProjectContentEditor();
 
-    if (window.CKEDITOR && CKEDITOR.instances.content) {
-      CKEDITOR.instances.content.setReadOnly(readonly);
+    if (isProjectContentEditorReady()) {
+      $('#content').summernote(readonly ? 'disable' : 'enable');
       return;
     }
 
