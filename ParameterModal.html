@@ -1,64 +1,64 @@
 
 <section id="systemView" class="d-none">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">ç³»çµ±ç®¡ç</h5>
+    <h5 class="mb-0">系統管理</h5>
   </div>
 
   <ul class="nav nav-tabs mb-3" role="tablist">
-    <li class="nav-item" role="presentation"><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#parameterManagePane">åæ¸ç®¡ç</button></li>
-    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">ä½ç½®ç®¡ç</button></li>
-    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userManagePane" onclick="loadSystemUsers()">ä½¿ç¨èç®¡ç</button></li>
-    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">ä½¿ç¨èæ¬éè¨­ç½®</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#parameterManagePane">參數管理</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">位置管理</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userManagePane" onclick="loadSystemUsers()">使用者管理</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">使用者權限設置</button></li>
   </ul>
 
   <div class="tab-content">
     <div id="parameterManagePane" class="tab-pane fade show active">
       <div class="card mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
-          <div class="col-md-5"><label class="form-label">åæ¸é¡å</label><select id="parameterType" class="form-select" onchange="loadParameterItems()"></select></div>
-          <div class="col-md-5"><label class="form-label">æ°å¢åæ¸</label><input id="newParameterValue" class="form-control"></div>
-          <div class="col-md-2 d-grid"><button id="addParameterBtn" type="button" class="btn btn-primary" onclick="addParameterItem()">??</button></div>
+          <div class="col-md-5"><label class="form-label">參數類型</label><select id="parameterType" class="form-select" onchange="loadParameterItems()"></select></div>
+          <div class="col-md-5"><label class="form-label">新增參數</label><input id="newParameterValue" class="form-control"></div>
+          <div class="col-md-2 d-grid"><button id="addParameterBtn" type="button" class="btn btn-primary" onclick="addParameterItem()">新增</button></div>
         </div>
       </div></div>
       <div id="parameterModalError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>åæ¸å§å®¹</th><th class="text-end">åè½</th></tr></thead><tbody id="parameterTableBody"></tbody></table></div></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>參數內容</th><th class="text-end">功能</th></tr></thead><tbody id="parameterTableBody"></tbody></table></div></div>
     </div>
 
     <div id="locationManagePane" class="tab-pane fade">
       <div class="card mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
-          <div class="col-md-2"><label class="form-label">??</label><input id="locationHall" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label">???</label><input id="locationMain" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label">???</label><input id="locationSub" class="form-control"></div>
-          <div class="col-md-2"><label class="form-label">??</label><input id="locationSortOrder" type="number" class="form-control" value="0"></div>
-          <div class="col-md-2"><div class="form-check mt-4"><input id="locationIsBookable" class="form-check-input" type="checkbox"><label class="form-check-label" for="locationIsBookable">???</label></div></div>
+          <div class="col-md-2"><label class="form-label">會堂</label><input id="locationHall" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">主位置</label><input id="locationMain" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">子位置</label><input id="locationSub" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">排序</label><input id="locationSortOrder" type="number" class="form-control" value="0"></div>
+          <div class="col-md-2"><div class="form-check mt-4"><input id="locationIsBookable" class="form-check-input" type="checkbox"><label class="form-check-label" for="locationIsBookable">可借用</label></div></div>
           <input id="editingLocationId" type="hidden">
-          <div class="col-md-12 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary" onclick="resetLocationForm()">æ¸ç©º</button><button id="saveLocationBtn" type="button" class="btn btn-primary" onclick="saveLocationItem()">å²å­ä½ç½®</button></div>
+          <div class="col-md-12 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary" onclick="resetLocationForm()">清空</button><button id="saveLocationBtn" type="button" class="btn btn-primary" onclick="saveLocationItem()">儲存位置</button></div>
         </div>
       </div></div>
       <div id="locationModalError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>??</th><th>???</th><th>???</th><th>???</th><th class="text-end">??</th></tr></thead><tbody id="locationTableBody"></tbody></table></div></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>會堂</th><th>主位置</th><th>子位置</th><th>可借用</th><th class="text-end">功能</th></tr></thead><tbody id="locationTableBody"></tbody></table></div></div>
     </div>
 
     <div id="userManagePane" class="tab-pane fade">
       <div class="card mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
-          <div class="col-md-2"><label class="form-label">??</label><input id="systemUserStaffId" class="form-control"></div>
+          <div class="col-md-2"><label class="form-label">序號</label><input id="systemUserStaffId" class="form-control"></div>
           <div class="col-md-3"><label class="form-label">Email</label><input id="systemUserEmail" class="form-control"></div>
-          <div class="col-md-2"><label class="form-label">??</label><input id="systemUserName" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label">??</label><select id="systemUserPosition" class="form-select"></select></div>
-          <div class="col-md-2 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary w-50" onclick="resetSystemUserForm()">??</button><button id="saveSystemUserBtn" type="button" class="btn btn-primary w-50" onclick="saveSystemUser()">??</button></div>
+          <div class="col-md-2"><label class="form-label">姓名</label><input id="systemUserName" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">職稱</label><select id="systemUserPosition" class="form-select"></select></div>
+          <div class="col-md-2 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary w-50" onclick="resetSystemUserForm()">清空</button><button id="saveSystemUserBtn" type="button" class="btn btn-primary w-50" onclick="saveSystemUser()">儲存</button></div>
         </div>
       </div></div>
       <div id="systemUserError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>??</th><th>??</th><th>Email</th><th>??</th><th class="text-end">??</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>序號</th><th>姓名</th><th>Email</th><th>職稱</th><th class="text-end">功能</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
     </div>
 
     <div id="userRoleManagePane" class="tab-pane fade">
       <div class="card mb-3"><div class="card-body"><div class="row g-3">
-        <div class="col-md-4"><label class="form-label">???</label><select id="roleUserSelect" class="form-select" onchange="renderSelectedUserRoles()"></select></div>
-        <div class="col-md-8"><label class="form-label">æ¬éèº«å</label><div id="roleCheckboxGroup" class="checkbox-group"></div></div>
-        <div class="col-md-12 text-end"><button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">å²å­æ¬é</button></div>
+        <div class="col-md-4"><label class="form-label">使用者</label><select id="roleUserSelect" class="form-select" onchange="renderSelectedUserRoles()"></select></div>
+        <div class="col-md-8"><label class="form-label">權限身分</label><div id="roleCheckboxGroup" class="checkbox-group"></div></div>
+        <div class="col-md-12 text-end"><button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">儲存權限</button></div>
       </div></div></div>
       <div id="systemRoleError" class="text-danger small mb-2"></div>
     </div>

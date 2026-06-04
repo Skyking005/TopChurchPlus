@@ -83,7 +83,7 @@ function renderParameterItems(items) {
   items.forEach(value => {
     const encodedValue = encodeURIComponent(value);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(value)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editParameterItem('${encodedValue}')">??</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteParameterItem('${encodedValue}')">??</button></td>`;
+    tr.innerHTML = `<td>${escapeHtml(value)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editParameterItem('${encodedValue}')">編輯</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteParameterItem('${encodedValue}')">刪除</button></td>`;
     body.appendChild(tr);
   });
 }
@@ -96,7 +96,7 @@ function addParameterItem() {
   const btn = document.getElementById('addParameterBtn');
   errorBox.textContent = '';
   if (!value) { errorBox.textContent = '請填寫參數內容'; return; }
-  setButtonLoading(btn, true, '???...');
+  setButtonLoading(btn, true, '儲存中...');
   google.script.run.withSuccessHandler(res => { setButtonLoading(btn, false); input.value = ''; alert(res.message); refreshParametersAfterChange(); })
     .withFailureHandler(err => { setButtonLoading(btn, false); errorBox.textContent = err.message || err; })
     .addParameterItem({ currentUser, type, value });
@@ -146,7 +146,7 @@ function renderLocationItems(locations) {
   locations.forEach(location => {
     const encodedId = encodeURIComponent(location.locationId);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(location.hall)}</td><td>${escapeHtml(location.mainLocation)}</td><td>${escapeHtml(location.subLocation)}</td><td>${location.isBookable ? '?' : '?'}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editLocationItem('${encodedId}')">??</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteLocationItem('${encodedId}')">??</button></td>`;
+    tr.innerHTML = `<td>${escapeHtml(location.hall)}</td><td>${escapeHtml(location.mainLocation)}</td><td>${escapeHtml(location.subLocation)}</td><td>${location.isBookable ? '是' : '否'}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editLocationItem('${encodedId}')">編輯</button><button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteLocationItem('${encodedId}')">刪除</button></td>`;
     body.appendChild(tr);
   });
 }
@@ -180,7 +180,7 @@ function saveLocationItem() {
   const location = { hall: document.getElementById('locationHall').value.trim(), mainLocation: document.getElementById('locationMain').value.trim(), subLocation: document.getElementById('locationSub').value.trim(), sortOrder: document.getElementById('locationSortOrder').value, isBookable: document.getElementById('locationIsBookable').checked };
   errorBox.textContent = '';
   if (!location.hall || !location.mainLocation) { errorBox.textContent = '請填寫會堂與主位置'; return; }
-  setButtonLoading(btn, true, '???...');
+  setButtonLoading(btn, true, '儲存中...');
   const runner = google.script.run.withSuccessHandler(res => { setButtonLoading(btn, false); alert(res.message); resetLocationForm(); loadLocationItems(); if (typeof loadAssetLocations === 'function') loadAssetLocations(); })
     .withFailureHandler(err => { setButtonLoading(btn, false); errorBox.textContent = err.message || err; });
   if (locationId) runner.updateLocationItem({ currentUser, locationId, location }); else runner.addLocationItem({ currentUser, location });
@@ -214,7 +214,7 @@ function renderSystemUsers() {
   systemUsers.forEach(user => {
     const encodedStaffId = encodeURIComponent(user.staffId);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(user.staffId)}</td><td>${escapeHtml(user.name)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.position)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemUser('${encodedStaffId}')">??</button></td>`;
+    tr.innerHTML = `<td>${escapeHtml(user.staffId)}</td><td>${escapeHtml(user.name)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.position)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemUser('${encodedStaffId}')">編輯</button></td>`;
     body.appendChild(tr);
   });
 }
@@ -246,7 +246,7 @@ function saveSystemUser() {
   const user = { staffId: staffIdInput.value.trim(), email: document.getElementById('systemUserEmail').value.trim(), name: document.getElementById('systemUserName').value.trim(), position: document.getElementById('systemUserPosition').value };
   errorBox.textContent = '';
   if (!user.staffId || !user.email || !user.name) { errorBox.textContent = '請填寫序號、Email 與姓名'; return; }
-  setButtonLoading(btn, true, '???...');
+  setButtonLoading(btn, true, '儲存中...');
   google.script.run.withSuccessHandler(res => { setButtonLoading(btn, false); alert(res.message); resetSystemUserForm(); loadSystemUsers(); reloadInitialDataOnly(); })
     .withFailureHandler(err => { setButtonLoading(btn, false); errorBox.textContent = err.message || err; })
     .saveSystemUser({ currentUser, user });
@@ -290,7 +290,7 @@ function saveSelectedUserRoles() {
   errorBox.textContent = '';
   if (!staffId) { errorBox.textContent = '請選擇使用者'; return; }
   if (!roles.length) { errorBox.textContent = '請至少選擇一個權限身分'; return; }
-  setButtonLoading(btn, true, '???...');
+  setButtonLoading(btn, true, '儲存中...');
   google.script.run.withSuccessHandler(res => { setButtonLoading(btn, false); alert(res.message); loadSystemUsers(); reloadInitialDataOnly(); })
     .withFailureHandler(err => { setButtonLoading(btn, false); errorBox.textContent = err.message || err; })
     .saveSystemUserRoles({ currentUser, staffId, roles });
