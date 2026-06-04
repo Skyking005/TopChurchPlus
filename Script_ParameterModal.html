@@ -205,7 +205,7 @@ function renderLocationItems(locations) {
       <td>${escapeHtml(location.hall)}</td>
       <td>${escapeHtml(location.mainLocation)}</td>
       <td>${escapeHtml(location.subLocation)}</td>
-      <td>${location.isBookable ? '?' : '?'}</td>
+      <td>${location.isBookable ? '是' : '否'}</td>
       <td class="text-end">
         <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editLocationItem('${encodedId}')">編輯</button>
         <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteLocationItem('${encodedId}')">刪除</button>
