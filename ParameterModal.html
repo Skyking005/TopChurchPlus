@@ -14,6 +14,12 @@
           <li class="nav-item" role="presentation">
             <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">位置管理</button>
           </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userManagePane" onclick="loadSystemUsers()">使用者管理</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">使用者權限設置</button>
+          </li>
         </ul>
 
         <div class="tab-content">
@@ -23,12 +29,10 @@
                 <label class="form-label">參數類型</label>
                 <select id="parameterType" class="form-select" onchange="loadParameterItems()"></select>
               </div>
-
               <div class="col-md-5">
                 <label class="form-label">新增參數</label>
                 <input id="newParameterValue" class="form-control">
               </div>
-
               <div class="col-md-2 d-grid">
                 <button id="addParameterBtn" type="button" class="btn btn-primary" onclick="addParameterItem()">新增</button>
               </div>
@@ -96,6 +100,71 @@
                 <tbody id="locationTableBody"></tbody>
               </table>
             </div>
+          </div>
+
+          <div id="userManagePane" class="tab-pane fade">
+            <div class="row g-3 align-items-end mb-3">
+              <div class="col-md-2">
+                <label class="form-label">序號</label>
+                <input id="systemUserStaffId" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Email</label>
+                <input id="systemUserEmail" class="form-control">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">姓名</label>
+                <input id="systemUserName" class="form-control">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">職稱</label>
+                <input id="systemUserPosition" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">主要身分</label>
+                <select id="systemUserPrimaryRole" class="form-select"></select>
+              </div>
+              <div class="col-md-12 d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetSystemUserForm()">清空</button>
+                <button id="saveSystemUserBtn" type="button" class="btn btn-primary" onclick="saveSystemUser()">儲存使用者</button>
+              </div>
+            </div>
+
+            <div id="systemUserError" class="text-danger small mb-2"></div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>序號</th>
+                    <th>姓名</th>
+                    <th>Email</th>
+                    <th>職稱</th>
+                    <th>主要身分</th>
+                    <th class="text-end">功能</th>
+                  </tr>
+                </thead>
+                <tbody id="systemUserTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="userRoleManagePane" class="tab-pane fade">
+            <div class="row g-3 mb-3">
+              <div class="col-md-4">
+                <label class="form-label">使用者</label>
+                <select id="roleUserSelect" class="form-select" onchange="renderSelectedUserRoles()"></select>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">權限身分</label>
+                <div id="roleCheckboxGroup" class="checkbox-group"></div>
+              </div>
+              <div class="col-md-12 text-end">
+                <button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">儲存權限</button>
+              </div>
+            </div>
+
+            <div id="systemRoleError" class="text-danger small mb-2"></div>
           </div>
         </div>
       </div>

@@ -204,6 +204,22 @@ function deleteLocationItem(payload) {
   );
 }
 
+function getSystemUsers(currentUser) {
+  return apiRequest('get', '/system/users', null, null, currentUser);
+}
+
+function saveSystemUser(payload) {
+  return apiRequest('post', '/system/users', payload);
+}
+
+function saveSystemUserRoles(payload) {
+  return apiRequest(
+    'put',
+    `/system/users/${encodeURIComponent(payload.staffId)}/roles`,
+    payload
+  );
+}
+
 function exportPurchaseDoc(payload) {
   const purchaseId = payload.purchaseId;
   const docType = payload.docType;

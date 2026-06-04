@@ -387,6 +387,79 @@ app.delete('/locations/:locationId', async (req, res, next) => {
   }
 });
 
+app.get('/system/users', async (req, res, next) => {
+  try {
+    assertSuperAdmin(parseUser(req));
+    res.json(await getAccounts());
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/system/users', async (req, res, next) => {
+  try {
+    assertSuperAdmin(req.body.currentUser);
+    const user = req.body.user || {};
+    const staffId = normalizeValue(user.staffId);
+    const email = normalizeValue(user.email).toLowerCase();
+    const name = normalizeValue(user.name);
+    const position = String(user.position || '').trim();
+    const role = normalizeValue(user.role || '使用者');
+
+    await pool.query(
+      `INSERT INTO accounts (staff_id, email, name, position, role, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (staff_id) DO UPDATE SET
+         email = EXCLUDED.email,
+         name = EXCLUDED.name,
+         position = EXCLUDED.position,
+         role = EXCLUDED.role,
+         updated_at = now()`,
+      [staffId, email, name, position, role]
+    );
+
+    await pool.query(
+      `INSERT INTO account_roles (staff_id, role)
+       VALUES ($1, $2)
+       ON CONFLICT (staff_id, role) DO NOTHING`,
+      [staffId, role]
+    );
+
+    res.json({ success: true, message: '使用者已儲存' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put('/system/users/:staffId/roles', async (req, res, next) => {
+  try {
+    assertSuperAdmin(req.body.currentUser);
+    const staffId = req.params.staffId;
+    const roles = normalizeRoles(req.body.roles, null);
+    if (!roles.length) throw new Error('請至少選擇一個權限身分');
+
+    const exists = await pool.query('SELECT staff_id FROM accounts WHERE staff_id = $1', [staffId]);
+    if (!exists.rows[0]) throw new Error('找不到使用者資料');
+
+    await tx(async client => {
+      await client.query('DELETE FROM account_roles WHERE staff_id = $1', [staffId]);
+      for (const role of roles) {
+        await client.query(
+          `INSERT INTO account_roles (staff_id, role)
+           VALUES ($1, $2)
+           ON CONFLICT (staff_id, role) DO NOTHING`,
+          [staffId, role]
+        );
+      }
+      await client.query('UPDATE accounts SET role = $1, updated_at = now() WHERE staff_id = $2', [roles[0], staffId]);
+    });
+
+    res.json({ success: true, message: '使用者權限已儲存' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.get('/projects/:projectId/meetings', async (req, res, next) => {
   try {
     const currentUser = parseUser(req);

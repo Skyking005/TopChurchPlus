@@ -1,5 +1,6 @@
 <script>
 let parameterModalInstance = null;
+let systemUsers = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -17,9 +18,33 @@ const PARAMETER_TYPE_OPTIONS = [
   { key: 'assetStatuses', label: '資產狀態' }
 ];
 
+const SYSTEM_ROLE_OPTIONS = [
+  '超級管理者',
+  '管理員',
+  '全職同工',
+  '技術同工',
+  '牧養同工',
+  '教育同工',
+  '媒體同工',
+  '義工',
+  '使用者',
+  '一般使用者'
+];
+
 function openParameterModal() {
   if (!currentUser || !currentUser.isSuperAdmin) return;
 
+  renderParameterTypeOptions();
+  renderSystemRoleOptions();
+  document.getElementById('newParameterValue').value = '';
+  document.getElementById('parameterModalError').textContent = '';
+
+  parameterModalInstance = new bootstrap.Modal(document.getElementById('parameterModal'));
+  parameterModalInstance.show();
+  loadParameterItems();
+}
+
+function renderParameterTypeOptions() {
   const typeSelect = document.getElementById('parameterType');
   typeSelect.innerHTML = '';
 
@@ -29,16 +54,19 @@ function openParameterModal() {
     opt.textContent = item.label;
     typeSelect.appendChild(opt);
   });
+}
 
-  document.getElementById('newParameterValue').value = '';
-  document.getElementById('parameterModalError').textContent = '';
+function renderSystemRoleOptions() {
+  const select = document.getElementById('systemUserPrimaryRole');
+  if (!select) return;
+  select.innerHTML = '';
 
-  parameterModalInstance = new bootstrap.Modal(
-    document.getElementById('parameterModal')
-  );
-
-  parameterModalInstance.show();
-  loadParameterItems();
+  SYSTEM_ROLE_OPTIONS.forEach(role => {
+    const opt = document.createElement('option');
+    opt.value = role;
+    opt.textContent = role;
+    select.appendChild(opt);
+  });
 }
 
 function loadParameterItems() {
@@ -49,12 +77,8 @@ function loadParameterItems() {
   document.getElementById('parameterTableBody').innerHTML = '';
 
   google.script.run
-    .withSuccessHandler(items => {
-      renderParameterItems(items || []);
-    })
-    .withFailureHandler(err => {
-      errorBox.textContent = err.message || err;
-    })
+    .withSuccessHandler(items => renderParameterItems(items || []))
+    .withFailureHandler(err => { errorBox.textContent = err.message || err; })
     .getParameterItems(type, currentUser);
 }
 
@@ -64,7 +88,7 @@ function renderParameterItems(items) {
 
   if (!items.length) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="2" class="text-muted">尚無參數</td>';
+    tr.innerHTML = '<td colspan="2" class="text-muted">目前沒有參數</td>';
     body.appendChild(tr);
     return;
   }
@@ -91,14 +115,12 @@ function addParameterItem() {
   const btn = document.getElementById('addParameterBtn');
 
   errorBox.textContent = '';
-
   if (!value) {
-    errorBox.textContent = '請輸入參數內容';
+    errorBox.textContent = '請填寫參數內容';
     return;
   }
 
   setButtonLoading(btn, true, '新增中...');
-
   google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
@@ -120,7 +142,6 @@ function editParameterItem(encodedOldValue) {
   const errorBox = document.getElementById('parameterModalError');
 
   if (newValue === null) return;
-
   const value = newValue.trim();
   if (!value) {
     errorBox.textContent = '參數內容不可空白';
@@ -132,9 +153,7 @@ function editParameterItem(encodedOldValue) {
       alert(res.message);
       refreshParametersAfterChange();
     })
-    .withFailureHandler(err => {
-      errorBox.textContent = err.message || err;
-    })
+    .withFailureHandler(err => { errorBox.textContent = err.message || err; })
     .updateParameterItem({ currentUser, type, oldValue, newValue: value });
 }
 
@@ -143,16 +162,14 @@ function deleteParameterItem(encodedValue) {
   const errorBox = document.getElementById('parameterModalError');
   const value = decodeURIComponent(encodedValue);
 
-  if (!confirm(`確定刪除「${value}」？`)) return;
+  if (!confirm(`確定要刪除「${value}」？`)) return;
 
   google.script.run
     .withSuccessHandler(res => {
       alert(res.message);
       refreshParametersAfterChange();
     })
-    .withFailureHandler(err => {
-      errorBox.textContent = err.message || err;
-    })
+    .withFailureHandler(err => { errorBox.textContent = err.message || err; })
     .deleteParameterItem({ currentUser, type, value });
 }
 
@@ -170,7 +187,6 @@ function refreshParametersAfterChange() {
     .getInitialData();
 }
 
-
 function loadLocationItems() {
   const errorBox = document.getElementById('locationModalError');
   if (!errorBox) return;
@@ -181,9 +197,7 @@ function loadLocationItems() {
       currentAssetLocations = locations || [];
       renderLocationItems(currentAssetLocations);
     })
-    .withFailureHandler(err => {
-      errorBox.textContent = err.message || err;
-    })
+    .withFailureHandler(err => { errorBox.textContent = err.message || err; })
     .getAssetLocations(currentUser);
 }
 
@@ -290,10 +304,188 @@ function deleteLocationItem(encodedLocationId) {
       loadLocationItems();
       loadAssetLocations();
     })
-    .withFailureHandler(err => {
-      errorBox.textContent = err.message || err;
-    })
+    .withFailureHandler(err => { errorBox.textContent = err.message || err; })
     .deleteLocationItem({ currentUser, locationId });
 }
 
+function loadSystemUsers() {
+  const userError = document.getElementById('systemUserError');
+  const roleError = document.getElementById('systemRoleError');
+  if (userError) userError.textContent = '';
+  if (roleError) roleError.textContent = '';
+
+  google.script.run
+    .withSuccessHandler(users => {
+      systemUsers = users || [];
+      renderSystemUsers();
+      renderRoleUserSelect();
+      renderSelectedUserRoles();
+    })
+    .withFailureHandler(err => {
+      if (userError) userError.textContent = err.message || err;
+      if (roleError) roleError.textContent = err.message || err;
+    })
+    .getSystemUsers(currentUser);
+}
+
+function renderSystemUsers() {
+  const body = document.getElementById('systemUserTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+
+  if (!systemUsers.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="6" class="text-muted">目前沒有使用者資料</td>';
+    body.appendChild(tr);
+    return;
+  }
+
+  systemUsers.forEach(user => {
+    const encodedStaffId = encodeURIComponent(user.staffId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(user.staffId)}</td>
+      <td>${escapeHtml(user.name)}</td>
+      <td>${escapeHtml(user.email)}</td>
+      <td>${escapeHtml(user.position)}</td>
+      <td>${escapeHtml(user.role)}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemUser('${encodedStaffId}')">編輯</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function resetSystemUserForm() {
+  document.getElementById('systemUserStaffId').value = '';
+  document.getElementById('systemUserStaffId').disabled = false;
+  document.getElementById('systemUserEmail').value = '';
+  document.getElementById('systemUserName').value = '';
+  document.getElementById('systemUserPosition').value = '';
+  document.getElementById('systemUserPrimaryRole').value = '使用者';
+  document.getElementById('systemUserError').textContent = '';
+}
+
+function editSystemUser(encodedStaffId) {
+  const staffId = decodeURIComponent(encodedStaffId);
+  const user = systemUsers.find(item => String(item.staffId) === String(staffId));
+  if (!user) return;
+
+  document.getElementById('systemUserStaffId').value = user.staffId;
+  document.getElementById('systemUserStaffId').disabled = true;
+  document.getElementById('systemUserEmail').value = user.email || '';
+  document.getElementById('systemUserName').value = user.name || '';
+  document.getElementById('systemUserPosition').value = user.position || '';
+  document.getElementById('systemUserPrimaryRole').value = user.role || '使用者';
+}
+
+function saveSystemUser() {
+  const btn = document.getElementById('saveSystemUserBtn');
+  const errorBox = document.getElementById('systemUserError');
+  const staffIdInput = document.getElementById('systemUserStaffId');
+  const user = {
+    staffId: staffIdInput.value.trim(),
+    email: document.getElementById('systemUserEmail').value.trim(),
+    name: document.getElementById('systemUserName').value.trim(),
+    position: document.getElementById('systemUserPosition').value.trim(),
+    role: document.getElementById('systemUserPrimaryRole').value
+  };
+
+  errorBox.textContent = '';
+  if (!user.staffId || !user.email || !user.name) {
+    errorBox.textContent = '請填寫序號、Email 與姓名';
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      resetSystemUserForm();
+      loadSystemUsers();
+      reloadInitialDataOnly();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveSystemUser({ currentUser, user });
+}
+
+function renderRoleUserSelect() {
+  const select = document.getElementById('roleUserSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = '';
+
+  systemUsers.forEach(user => {
+    const opt = document.createElement('option');
+    opt.value = user.staffId;
+    opt.textContent = `${user.staffId} ${user.name} ${user.position || ''}`.trim();
+    select.appendChild(opt);
+  });
+
+  if (currentValue) select.value = currentValue;
+}
+
+function renderSelectedUserRoles() {
+  const select = document.getElementById('roleUserSelect');
+  const container = document.getElementById('roleCheckboxGroup');
+  if (!select || !container) return;
+
+  const user = systemUsers.find(item => String(item.staffId) === String(select.value));
+  const selected = new Set(user ? user.roles || [] : []);
+  container.innerHTML = '';
+
+  SYSTEM_ROLE_OPTIONS.forEach(role => {
+    const id = `system_role_${role}`;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'form-check';
+    wrapper.innerHTML = `
+      <input class="form-check-input system-role-checkbox" type="checkbox" id="${escapeAttr(id)}" value="${escapeAttr(role)}" ${selected.has(role) ? 'checked' : ''}>
+      <label class="form-check-label" for="${escapeAttr(id)}">${escapeHtml(role)}</label>
+    `;
+    container.appendChild(wrapper);
+  });
+}
+
+function saveSelectedUserRoles() {
+  const btn = document.getElementById('saveUserRolesBtn');
+  const errorBox = document.getElementById('systemRoleError');
+  const staffId = document.getElementById('roleUserSelect').value;
+  const roles = [...document.querySelectorAll('.system-role-checkbox:checked')].map(el => el.value);
+
+  errorBox.textContent = '';
+  if (!staffId) {
+    errorBox.textContent = '請選擇使用者';
+    return;
+  }
+  if (!roles.length) {
+    errorBox.textContent = '請至少選擇一個權限身分';
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      loadSystemUsers();
+      reloadInitialDataOnly();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveSystemUserRoles({ currentUser, staffId, roles });
+}
+
+function reloadInitialDataOnly() {
+  google.script.run
+    .withSuccessHandler(data => { initialData = data; })
+    .withFailureHandler(showError)
+    .getInitialData();
+}
 </script>

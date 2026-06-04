@@ -19,6 +19,12 @@ const SYSTEM_FEATURES = [
     action: 'openAssetSystem'
   },
   {
+    key: 'system',
+    title: '系統管理',
+    desc: '參數、位置、使用者與權限身分設定',
+    action: 'openSystemManagement'
+  },
+  {
     key: 'venue',
     title: '場地預約系統',
     desc: '場地借用、時段查詢與預約管理',
@@ -57,7 +63,7 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'system'],
   '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
   '全職同工': ['project', 'finance', 'asset', 'venue', 'forms', 'counter'],
   '技術同工': ['asset'],
@@ -96,8 +102,7 @@ function handleLogin() {
         document.getElementById('addProjectBtn').classList.add('d-none');
       }
 
-      document.getElementById('paramManageBtn').classList.toggle('d-none', !user.isSuperAdmin);
-      backToFeatureMenu();
+            backToFeatureMenu();
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
@@ -204,6 +209,11 @@ function openPurchaseSystem() {
   document.getElementById('purchaseListView').classList.remove('d-none');
   document.getElementById('purchaseDetailView').classList.add('d-none');
   loadPurchaseSystem();
+}
+
+
+function openSystemManagement() {
+  openParameterModal();
 }
 
 function openComingSoonSystem(feature) {
