@@ -8,7 +8,7 @@ set "GIT_EXE=%LOCALAPPDATA%\GitHubDesktop\app-3.5.2\resources\app\git\cmd\git.ex
 set "DEPLOY_DESC=auto deploy"
 
 if exist "%GIT_EXE%" (
-  for /f "usebackq delims=" %%i in (`"%GIT_EXE%" log -1 --pretty^=format:"%%h %%s"`) do set "DEPLOY_DESC=%%i"
+  for /f "usebackq delims=" %%i in (`"%GIT_EXE%" log -1 --oneline`) do set "DEPLOY_DESC=%%i"
 )
 
 "%NODE_EXE%" "%CLASP_JS%" push -f
