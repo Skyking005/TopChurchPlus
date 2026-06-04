@@ -1,0 +1,122 @@
+<script>
+let permissionModalInstance = null;
+
+function openPermissionModal() {
+  if (!getCurrentProjectId()) {
+    alert('請先儲存專案後再新增管理權限');
+    return;
+  }
+
+  const staffSelect = document.getElementById('permissionStaffId');
+  const permissionSelect = document.getElementById('permissionType');
+  const errorBox = document.getElementById('permissionModalError');
+
+  errorBox.textContent = '';
+  staffSelect.innerHTML = '';
+  permissionSelect.innerHTML = '';
+
+  getSortedAccounts().forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.staffId;
+    opt.textContent = [a.name, a.position || '未填職位'].join(' ');
+    staffSelect.appendChild(opt);
+  });
+
+  initialData.params.projectPermissions.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p;
+    opt.textContent = p;
+    permissionSelect.appendChild(opt);
+  });
+
+  permissionModalInstance = new bootstrap.Modal(
+    document.getElementById('permissionModal')
+  );
+
+  permissionModalInstance.show();
+}
+function submitProjectPermission() {
+  if (!getCurrentProjectId()) {
+    document.getElementById('permissionModalError').textContent = '請先儲存專案後再新增管理權限';
+    return;
+  }
+
+  const staffId = document.getElementById('permissionStaffId').value;
+  const permission = document.getElementById('permissionType').value;
+  const errorBox = document.getElementById('permissionModalError');
+  const btn = document.getElementById('confirmAddPermissionBtn');
+
+  errorBox.textContent = '';
+
+  if (!staffId) {
+    errorBox.textContent = '請選擇人員';
+    return;
+  }
+
+  if (!permission) {
+    errorBox.textContent = '請選擇專案權限';
+    return;
+  }
+
+  setButtonLoading(btn, true, '新增中...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (permissionModalInstance) permissionModalInstance.hide();
+
+      alert(res.message);
+      reloadCurrentProject();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addProjectPermission({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      staffId,
+      permission
+    });
+}
+function addProjectPermission(staffId, permission) {
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentProject();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .addProjectPermission({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      staffId,
+      permission
+    });
+}
+
+function deleteProjectPermission(staffId) {
+  if (!confirm('確定要刪除此專案權限？')) return;
+
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentProject();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .deleteProjectPermission({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      staffId
+    });
+}
+</script>

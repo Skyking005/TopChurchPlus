@@ -1,0 +1,756 @@
+<script>
+let allPurchases = [];
+let currentPurchasePage = 1;
+let currentPurchaseDetail = null;
+let advanceModalInstance = null;
+let expenseProofModalInstance = null;
+let paymentModalInstance = null;
+
+function loadPurchaseSystem() {
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      setupPurchaseOptions();
+      loadPurchases();
+    })
+    .withFailureHandler(showError)
+    .getInitialData();
+}
+
+function ensurePurchaseOptionsReady(callback) {
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      setupPurchaseOptions();
+      if (callback) callback();
+    })
+    .withFailureHandler(showError)
+    .getInitialData();
+}
+
+function setupPurchaseOptions() {
+  const params = initialData.params || {};
+  const currentHall = document.getElementById('purchaseHall') ? document.getElementById('purchaseHall').value : '';
+  const currentDepartment = document.getElementById('purchaseDepartment') ? document.getElementById('purchaseDepartment').value : '';
+  const currentApplicant = document.getElementById('purchaseApplicant') ? document.getElementById('purchaseApplicant').value : '';
+  const units = normalizeOptionList(params.units);
+  const departments = normalizeOptionList(params.departments).length ? normalizeOptionList(params.departments) : getDefaultDepartments();
+
+  fillSelectWithPlaceholder('purchaseHall', units, '請選擇會堂', '尚未建立會堂參數');
+  fillSelectWithPlaceholder('purchaseDepartment', departments, '請選擇部門', '尚未建立部門參數');
+  fillPurchaseApplicantSelect();
+  fillSelect('advancePaymentMethod', getAdvancePaymentMethods(), false);
+  fillSelect('paymentMethod', getPaymentMethods(), false);
+  setSelectValue('purchaseHall', currentHall);
+  setSelectValue('purchaseDepartment', currentDepartment);
+  setSelectValue('purchaseApplicant', currentApplicant);
+  updatePurchaseOptionsStatus(units.length, departments.length, (initialData.accounts || []).length);
+}
+
+function normalizeOptionList(values) {
+  return [...new Set((values || []).map(v => String(v || '').trim()).filter(Boolean))];
+}
+
+function fillSelectWithPlaceholder(id, options, placeholder, emptyText) {
+  const select = document.getElementById(id);
+  select.innerHTML = '';
+
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = options.length ? placeholder : emptyText;
+  select.appendChild(first);
+
+  options.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  });
+}
+
+function setSelectValue(id, value) {
+  const select = document.getElementById(id);
+  if (!select || !value) return;
+
+  const exists = [...select.options].some(opt => opt.value === value);
+  if (!exists) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = value;
+    select.appendChild(opt);
+  }
+
+  select.value = value;
+}
+
+function updatePurchaseOptionsStatus(unitCount, departmentCount, accountCount) {
+  const status = document.getElementById('purchaseOptionsStatus');
+  if (!status) return;
+
+  status.textContent = `下拉資料：會堂 ${unitCount} 筆，部門 ${departmentCount} 筆，申請人 ${accountCount} 筆`;
+  status.classList.toggle('text-danger', unitCount === 0 || departmentCount === 0 || accountCount === 0);
+  status.classList.toggle('text-muted', unitCount > 0 && departmentCount > 0 && accountCount > 0);
+}
+
+function getDefaultDepartments() {
+  return ['秘書部', '牧養部', '教育部', '行政部', '財務部', '資訊部', '技術部', '媒體部'];
+}
+
+function fillPurchaseApplicantSelect() {
+  const select = document.getElementById('purchaseApplicant');
+  select.innerHTML = '';
+
+  const accounts = getSortedAccounts();
+  if (!accounts.length && currentUser) {
+    const opt = document.createElement('option');
+    opt.value = getCurrentUserNameWithPosition();
+    opt.textContent = getCurrentUserNameWithPosition();
+    select.appendChild(opt);
+    return;
+  }
+
+  accounts.forEach(account => {
+    const label = getAccountNameWithPosition(account);
+    const opt = document.createElement('option');
+    opt.value = label;
+    opt.textContent = label;
+    select.appendChild(opt);
+  });
+}
+
+function getAccountNameWithPosition(account) {
+  return [account.name, account.position].filter(Boolean).join(' ');
+}
+
+function getCurrentUserNameWithPosition() {
+  const matched = (initialData.accounts || []).find(account => account.name === currentUser.name);
+  return matched ? getAccountNameWithPosition(matched) : [currentUser.name, currentUser.position].filter(Boolean).join(' ');
+}
+
+function getAdvancePaymentMethods() {
+  const defaults = ['已匯款交付借款人', '逕行匯款給廠商', '以現金交付借款人'];
+  return (initialData.params.paymentMethods || defaults).filter(v => defaults.includes(v));
+}
+
+function getPaymentMethods() {
+  const defaults = ['現金交付墊款人', '匯款交付墊款人'];
+  const values = initialData.params.paymentMethods || defaults;
+  return values.filter(v => defaults.includes(v));
+}
+
+function loadPurchases() {
+  google.script.run
+    .withSuccessHandler(rows => {
+      allPurchases = rows || [];
+      currentPurchasePage = 1;
+      renderPurchases();
+    })
+    .withFailureHandler(showError)
+    .getPurchases({
+      keyword: document.getElementById('purchaseSearchKeyword').value
+    });
+}
+
+function renderPurchases() {
+  renderDesktopPurchases();
+  renderMobilePurchases();
+  renderPurchasePager();
+}
+
+function getPagedPurchases() {
+  const start = (currentPurchasePage - 1) * pageSize;
+  return allPurchases.slice(start, start + pageSize);
+}
+
+function renderDesktopPurchases() {
+  const tbody = document.getElementById('purchaseTableBody');
+  tbody.innerHTML = '';
+
+  getPagedPurchases().forEach(p => {
+    const isClosed = p.status === '已結案';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button class="project-link" onclick="openPurchase('${escapeAttr(p.purchaseId)}')">${escapeHtml(p.purchaseId)}</button></td>
+      <td>${escapeHtml(p.summary)}</td>
+      <td><span class="status-badge ${isClosed ? 'status-已結案' : 'status-進行中'}">${escapeHtml(p.status)}</span></td>
+      <td class="text-end">${formatMoney(p.totalAmount)}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="openPurchase('${escapeAttr(p.purchaseId)}')">明細</button>
+        ${isClosed ? '' : `<button class="btn btn-sm btn-outline-danger" onclick="closePurchaseFromList('${escapeAttr(p.purchaseId)}')">結案</button>`}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMobilePurchases() {
+  const container = document.getElementById('mobilePurchaseList');
+  container.innerHTML = '';
+
+  getPagedPurchases().forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'project-card-mobile';
+    card.onclick = () => openPurchase(p.purchaseId);
+    card.innerHTML = `
+      <h6>${escapeHtml(p.summary)}</h6>
+      <div class="project-meta">採購編號：${escapeHtml(p.purchaseId)}</div>
+      <div class="project-meta">狀態：${escapeHtml(p.status)}</div>
+      <div class="project-meta">總計金額：${formatMoney(p.totalAmount)}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderPurchasePager() {
+  const totalPages = Math.max(1, Math.ceil(allPurchases.length / pageSize));
+  document.getElementById('purchasePager').textContent = `${currentPurchasePage} / ${totalPages}`;
+  document.getElementById('purchasePageInfo').textContent = `共 ${allPurchases.length} 筆`;
+}
+
+function prevPurchasePage() {
+  if (currentPurchasePage > 1) {
+    currentPurchasePage -= 1;
+    renderPurchases();
+  }
+}
+
+function nextPurchasePage() {
+  const totalPages = Math.ceil(allPurchases.length / pageSize);
+  if (currentPurchasePage < totalPages) {
+    currentPurchasePage += 1;
+    renderPurchases();
+  }
+}
+
+function openNewPurchase() {
+  ensurePurchaseOptionsReady(() => {
+    google.script.run
+      .withSuccessHandler(renderPurchaseDetail)
+      .withFailureHandler(showError)
+      .getPurchaseDetail('', currentUser);
+  });
+}
+
+function openPurchase(purchaseId) {
+  ensurePurchaseOptionsReady(() => {
+    google.script.run
+      .withSuccessHandler(renderPurchaseDetail)
+      .withFailureHandler(showError)
+      .getPurchaseDetail(purchaseId, currentUser);
+  });
+}
+
+function renderPurchaseDetail(data) {
+  currentPurchaseDetail = data;
+  const p = data.purchase;
+
+  document.getElementById('purchaseListView').classList.add('d-none');
+  document.getElementById('purchaseDetailView').classList.remove('d-none');
+
+  document.getElementById('purchaseId').value = p['採購編號'] || '';
+  setupPurchaseOptions();
+  setSelectValue('purchaseHall', p['會堂'] || '');
+  setSelectValue('purchaseDepartment', p['部門'] || '');
+  setSelectValue('purchaseApplicant', p['申請人'] || getCurrentUserNameWithPosition());
+  document.getElementById('purchaseRequestDate').value = p['申請日期'] || todayString();
+  document.getElementById('purchaseStatus').value = p['請購狀態'] || '申請中';
+  document.getElementById('purchaseTotalAmount').value = formatMoney(p['總計金額'] || 0);
+  document.getElementById('purchaseSummary').value = p['採購摘要'] || '';
+  document.getElementById('purchaseReason').value = p['申請詳細原因'] || '';
+
+  renderPurchaseItemRows(data.items || []);
+  renderPurchaseSubLists(data);
+  applyPurchaseClosedState();
+}
+
+function backToPurchaseList() {
+  document.getElementById('purchaseDetailView').classList.add('d-none');
+  document.getElementById('purchaseListView').classList.remove('d-none');
+  loadPurchases();
+}
+
+function renderPurchaseItemRows(rows) {
+  const body = document.getElementById('purchaseItemBody');
+  body.innerHTML = '';
+  const source = rows.length ? rows : Array.from({ length: 3 }, () => ({}));
+  source.forEach(row => addPurchaseItemRow(row));
+  calculatePurchaseTotal();
+}
+
+function addPurchaseItemRow(data = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="form-control purchase-item-name purchase-input" value="${escapeAttr(data['項目'])}"></td>
+    <td><input type="number" class="form-control purchase-item-qty purchase-input" value="${escapeAttr(data['數量'] || '')}" oninput="updatePurchaseItemSubtotal(this)"></td>
+    <td><input type="number" class="form-control purchase-item-price purchase-input" value="${escapeAttr(data['單價'] || '')}" oninput="updatePurchaseItemSubtotal(this)"></td>
+    <td><input class="form-control purchase-item-subtotal text-end" value="${escapeAttr(data['總價'] || '')}" disabled></td>
+    <td><input class="form-control purchase-item-note purchase-input" value="${escapeAttr(data['備註'])}"></td>
+    <td><button class="btn btn-sm btn-outline-danger purchase-edit-only" onclick="removePurchaseRow(this)">刪除</button></td>
+  `;
+  document.getElementById('purchaseItemBody').appendChild(tr);
+}
+
+function updatePurchaseItemSubtotal(input) {
+  const tr = input.closest('tr');
+  const qty = Number(tr.querySelector('.purchase-item-qty').value || 0);
+  const price = Number(tr.querySelector('.purchase-item-price').value || 0);
+  tr.querySelector('.purchase-item-subtotal').value = qty * price;
+  calculatePurchaseTotal();
+}
+
+function calculatePurchaseTotal() {
+  const total = collectPurchaseItems().reduce((sum, row) => sum + Number(row['總價'] || 0), 0);
+  document.getElementById('purchaseTotalAmount').value = formatMoney(total);
+}
+
+function collectPurchaseItems() {
+  return [...document.querySelectorAll('#purchaseItemBody tr')]
+    .map(tr => ({
+      '項目': tr.querySelector('.purchase-item-name').value.trim(),
+      '數量': Number(tr.querySelector('.purchase-item-qty').value || 0),
+      '單價': Number(tr.querySelector('.purchase-item-price').value || 0),
+      '總價': Number(tr.querySelector('.purchase-item-subtotal').value || 0),
+      '備註': tr.querySelector('.purchase-item-note').value.trim()
+    }))
+    .filter(row => row['項目'] || row['數量'] || row['單價'] || row['備註']);
+}
+
+function collectPurchase() {
+  return {
+    '採購編號': document.getElementById('purchaseId').value,
+    '會堂': document.getElementById('purchaseHall').value,
+    '部門': document.getElementById('purchaseDepartment').value,
+    '申請人': document.getElementById('purchaseApplicant').value,
+    '申請日期': document.getElementById('purchaseRequestDate').value,
+    '採購摘要': document.getElementById('purchaseSummary').value.trim(),
+    '申請詳細原因': document.getElementById('purchaseReason').value.trim(),
+    '請購狀態': document.getElementById('purchaseStatus').value || '申請中'
+  };
+}
+
+function saveCurrentPurchase() {
+  const btn = document.getElementById('savePurchaseBtn');
+  const purchase = collectPurchase();
+  const items = collectPurchaseItems();
+
+  if (!purchase['採購摘要']) return alert('請填寫採購摘要');
+  if (!items.length) return alert('請至少新增一筆請購詳情');
+
+  setButtonLoading(btn, true, '保存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      openPurchase(res.purchaseId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .savePurchase({ currentUser, purchase, items });
+}
+
+function closeCurrentPurchase() {
+  const purchaseId = document.getElementById('purchaseId').value;
+  if (!purchaseId) return alert('請先保存採購申請');
+  closePurchaseFromList(purchaseId, () => openPurchase(purchaseId));
+}
+
+function closePurchaseFromList(purchaseId, afterClose) {
+  if (!confirm('確定要將此採購案結案？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      if (afterClose) afterClose();
+      else loadPurchases();
+    })
+    .withFailureHandler(showError)
+    .closePurchase({ currentUser, purchaseId });
+}
+
+function renderPurchaseSubLists(data) {
+  renderSimpleSubList('advanceList', data.advances || [], '預借編號', '預借總金額', 'advance');
+  renderSimpleSubList('expenseProofList', data.expenseProofs || [], '支出證明編號', '實付金額', 'expenseProof');
+  renderSimpleSubList('paymentRequestList', data.payments || [], '請款編號', '請款總金額', 'payment');
+}
+
+function renderSimpleSubList(containerId, rows, idKey, amountKey, docType) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (!rows.length) {
+    container.innerHTML = '<div class="text-muted">尚無資料</div>';
+    return;
+  }
+
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.className = 'purchase-sub-item';
+    const encodedId = encodeURIComponent(row[idKey]);
+    item.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <div class="fw-bold">${escapeHtml(row[idKey])}</div>
+          <div class="text-muted">${amountKey}：${formatMoney(row[amountKey] || 0)}</div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary" onclick="exportPurchaseDocument('${docType}', '${encodedId}', this)">匯出 Doc</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function applyPurchaseClosedState() {
+  const isClosed = document.getElementById('purchaseStatus').value === '已結案';
+  const hasPurchaseId = Boolean(document.getElementById('purchaseId').value);
+  document.querySelectorAll('.purchase-open-only').forEach(el => el.classList.toggle('d-none', isClosed || !document.getElementById('purchaseId').value));
+  document.querySelectorAll('.purchase-saved-only').forEach(el => el.classList.toggle('d-none', !hasPurchaseId));
+  document.querySelectorAll('.purchase-input, .purchase-edit-only').forEach(el => {
+    el.disabled = isClosed;
+    if (el.tagName === 'BUTTON') el.classList.toggle('d-none', isClosed);
+  });
+  document.getElementById('savePurchaseBtn').classList.toggle('d-none', isClosed);
+}
+
+function exportPurchaseDocument(docType, encodedDocId = '', btn = null) {
+  const purchaseId = document.getElementById('purchaseId').value;
+  if (!purchaseId) return alert('請先保存採購申請後再匯出 Doc');
+
+  const button = btn || document.getElementById('exportPurchaseDocBtn');
+  setButtonLoading(button, true, '匯出中...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(button, false);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        alert('已建立文件，但未取得連結');
+      }
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(button, false);
+      showError(err);
+    })
+    .exportPurchaseDoc({
+      currentUser,
+      purchaseId,
+      docType,
+      docId: encodedDocId ? decodeURIComponent(encodedDocId) : ''
+    });
+}
+
+function openAdvanceModal() {
+  if (!requireSavedPurchase()) return;
+  document.getElementById('advancePurchaseId').value = document.getElementById('purchaseId').value;
+  document.getElementById('advanceHall').value = document.getElementById('purchaseHall').value;
+  document.getElementById('advanceBorrower').value = currentUser.name;
+  document.getElementById('advanceRequestDate').value = todayString();
+  document.getElementById('advanceClearDate').value = '';
+  document.getElementById('advanceTotal').value = '0';
+  document.getElementById('advanceBank').value = '';
+  document.getElementById('advanceBranch').value = '';
+  document.getElementById('advanceAccountName').value = '';
+  document.getElementById('advanceAccountNo').value = '';
+  document.getElementById('advanceModalError').textContent = '';
+  document.getElementById('advanceItemBody').innerHTML = '';
+  addAdvanceItemRow();
+  toggleAdvanceBankInfo();
+  advanceModalInstance = new bootstrap.Modal(document.getElementById('advanceModal'));
+  advanceModalInstance.show();
+}
+
+function addAdvanceItemRow(data = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="advance-row-index"></td>
+    <td><input class="form-control advance-reason" value="${escapeAttr(data['事由'])}"></td>
+    <td><input type="number" class="form-control advance-amount" value="${escapeAttr(data['金額'] || '')}" oninput="calculateAdvanceTotal()"></td>
+    <td><input class="form-control advance-note" value="${escapeAttr(data['備註/說明'])}"></td>
+    <td><button class="btn btn-sm btn-outline-danger" onclick="removePurchaseRow(this); calculateAdvanceTotal(); refreshRowIndexes('advanceItemBody', 'advance-row-index')">刪除</button></td>
+  `;
+  document.getElementById('advanceItemBody').appendChild(tr);
+  refreshRowIndexes('advanceItemBody', 'advance-row-index');
+}
+
+function calculateAdvanceTotal() {
+  const total = collectAdvanceItems().reduce((sum, row) => sum + Number(row['金額'] || 0), 0);
+  document.getElementById('advanceTotal').value = formatMoney(total);
+}
+
+function collectAdvanceItems() {
+  return [...document.querySelectorAll('#advanceItemBody tr')]
+    .map(tr => ({
+      '事由': tr.querySelector('.advance-reason').value.trim(),
+      '金額': Number(tr.querySelector('.advance-amount').value || 0),
+      '備註/說明': tr.querySelector('.advance-note').value.trim()
+    }))
+    .filter(row => row['事由'] || row['金額'] || row['備註/說明']);
+}
+
+function submitAdvance() {
+  const btn = document.getElementById('confirmAdvanceBtn');
+  const errorBox = document.getElementById('advanceModalError');
+  const advance = {
+    '請款會堂': document.getElementById('advanceHall').value,
+    '借款人': document.getElementById('advanceBorrower').value,
+    '申請日期': document.getElementById('advanceRequestDate').value,
+    '預計核銷日期': document.getElementById('advanceClearDate').value,
+    '支付方式': document.getElementById('advancePaymentMethod').value,
+    '匯款銀行': document.getElementById('advanceBank').value.trim(),
+    '分行': document.getElementById('advanceBranch').value.trim(),
+    '帳戶名稱': document.getElementById('advanceAccountName').value.trim(),
+    '帳號': document.getElementById('advanceAccountNo').value.trim()
+  };
+  const items = collectAdvanceItems();
+  errorBox.textContent = '';
+  if (!items.length) return errorBox.textContent = '請至少新增一筆預借詳情';
+
+  setButtonLoading(btn, true, '保存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      advanceModalInstance.hide();
+      alert(res.message);
+      openPurchase(document.getElementById('purchaseId').value);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addPurchaseAdvance({ currentUser, purchaseId: document.getElementById('purchaseId').value, advance, items });
+}
+
+function openExpenseProofModal() {
+  if (!requireSavedPurchase()) return;
+  document.getElementById('proofPurchaseId').value = document.getElementById('purchaseId').value;
+  document.getElementById('proofHall').value = document.getElementById('purchaseHall').value;
+  document.getElementById('proofRequestDate').value = todayString();
+  document.getElementById('proofPaidAmount').value = '0';
+  document.getElementById('proofNoReceiptReason').value = '';
+  document.getElementById('proofRecipientName').value = '';
+  document.getElementById('proofRecipientId').value = '';
+  document.getElementById('proofRecipientAddress').value = '';
+  document.getElementById('proofModalError').textContent = '';
+  document.getElementById('proofItemBody').innerHTML = '';
+  addProofItemRow();
+  expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
+  expenseProofModalInstance.show();
+}
+
+function addProofItemRow(data = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="proof-row-index"></td>
+    <td><input class="form-control proof-item" value="${escapeAttr(data['項目'])}"></td>
+    <td><input type="number" class="form-control proof-amount" value="${escapeAttr(data['費用'] || '')}" oninput="calculateProofTotal()"></td>
+    <td><button class="btn btn-sm btn-outline-danger" onclick="removePurchaseRow(this); calculateProofTotal(); refreshRowIndexes('proofItemBody', 'proof-row-index')">刪除</button></td>
+  `;
+  document.getElementById('proofItemBody').appendChild(tr);
+  refreshRowIndexes('proofItemBody', 'proof-row-index');
+}
+
+function calculateProofTotal() {
+  const total = collectProofItems().reduce((sum, row) => sum + Number(row['費用'] || 0), 0);
+  document.getElementById('proofPaidAmount').value = formatMoney(total);
+}
+
+function collectProofItems() {
+  return [...document.querySelectorAll('#proofItemBody tr')]
+    .map(tr => ({
+      '項目': tr.querySelector('.proof-item').value.trim(),
+      '費用': Number(tr.querySelector('.proof-amount').value || 0)
+    }))
+    .filter(row => row['項目'] || row['費用']);
+}
+
+function submitExpenseProof() {
+  const btn = document.getElementById('confirmProofBtn');
+  const errorBox = document.getElementById('proofModalError');
+  const proof = {
+    '請款會堂': document.getElementById('proofHall').value,
+    '申請日期': document.getElementById('proofRequestDate').value,
+    '實付金額': Number(document.getElementById('proofPaidAmount').value.replaceAll(',', '') || 0),
+    '不能取得單據原因': document.getElementById('proofNoReceiptReason').value.trim(),
+    '姓名': document.getElementById('proofRecipientName').value.trim(),
+    '身分證字號': document.getElementById('proofRecipientId').value.trim(),
+    '地址': document.getElementById('proofRecipientAddress').value.trim()
+  };
+  const items = collectProofItems();
+  errorBox.textContent = '';
+  if (!items.length) return errorBox.textContent = '請至少新增一筆支出證明詳情';
+
+  setButtonLoading(btn, true, '保存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      expenseProofModalInstance.hide();
+      alert(res.message);
+      openPurchase(document.getElementById('purchaseId').value);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addPurchaseExpenseProof({ currentUser, purchaseId: document.getElementById('purchaseId').value, proof, items });
+}
+
+function openPaymentModal() {
+  if (!requireSavedPurchase()) return;
+  document.getElementById('paymentPurchaseId').value = document.getElementById('purchaseId').value;
+  document.getElementById('paymentHall').value = document.getElementById('purchaseHall').value;
+  document.getElementById('paymentClaimant').value = currentUser.name;
+  document.getElementById('paymentRequestDate').value = todayString();
+  document.getElementById('paymentTotal').value = '0';
+  document.getElementById('paymentOffsetAmount').value = '';
+  document.getElementById('paymentBehalfAmount').value = '';
+  document.getElementById('paymentReturnAmount').value = '';
+  document.getElementById('paymentBank').value = '';
+  document.getElementById('paymentBranch').value = '';
+  document.getElementById('paymentAccountName').value = '';
+  document.getElementById('paymentAccountNo').value = '';
+  document.getElementById('paymentModalError').textContent = '';
+  document.getElementById('paymentItemBody').innerHTML = '';
+  fillPaymentAdvanceOptions();
+  addPaymentItemRow();
+  togglePaymentAdvanceFields();
+  togglePaymentBankInfo();
+  paymentModalInstance = new bootstrap.Modal(document.getElementById('paymentModal'));
+  paymentModalInstance.show();
+}
+
+function fillPaymentAdvanceOptions() {
+  const select = document.getElementById('paymentAdvanceId');
+  select.innerHTML = '<option value="">請選擇預借單</option>';
+  (currentPurchaseDetail.advances || []).forEach(row => {
+    const option = document.createElement('option');
+    option.value = row['預借編號'];
+    option.dataset.amount = row['預借總金額'];
+    option.textContent = `${row['預借編號']} ${formatMoney(row['預借總金額'])}`;
+    select.appendChild(option);
+  });
+  syncSelectedAdvanceAmount();
+}
+
+function addPaymentItemRow(data = {}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="form-control payment-item-name" value="${escapeAttr(data['項目'])}"></td>
+    <td><input type="number" class="form-control payment-item-qty" value="${escapeAttr(data['數量'] || '')}" oninput="updatePaymentItemSubtotal(this)"></td>
+    <td><input type="number" class="form-control payment-item-price" value="${escapeAttr(data['單價'] || '')}" oninput="updatePaymentItemSubtotal(this)"></td>
+    <td><input class="form-control payment-item-subtotal text-end" value="${escapeAttr(data['總價'] || '')}" disabled></td>
+    <td><input class="form-control payment-item-note" value="${escapeAttr(data['備註'])}"></td>
+    <td><button class="btn btn-sm btn-outline-danger" onclick="removePurchaseRow(this); calculatePaymentTotal()">刪除</button></td>
+  `;
+  document.getElementById('paymentItemBody').appendChild(tr);
+}
+
+function updatePaymentItemSubtotal(input) {
+  const tr = input.closest('tr');
+  const qty = Number(tr.querySelector('.payment-item-qty').value || 0);
+  const price = Number(tr.querySelector('.payment-item-price').value || 0);
+  tr.querySelector('.payment-item-subtotal').value = qty * price;
+  calculatePaymentTotal();
+}
+
+function calculatePaymentTotal() {
+  const total = collectPaymentItems().reduce((sum, row) => sum + Number(row['總價'] || 0), 0);
+  document.getElementById('paymentTotal').value = formatMoney(total);
+}
+
+function collectPaymentItems() {
+  return [...document.querySelectorAll('#paymentItemBody tr')]
+    .map(tr => ({
+      '項目': tr.querySelector('.payment-item-name').value.trim(),
+      '數量': Number(tr.querySelector('.payment-item-qty').value || 0),
+      '單價': Number(tr.querySelector('.payment-item-price').value || 0),
+      '總價': Number(tr.querySelector('.payment-item-subtotal').value || 0),
+      '備註': tr.querySelector('.payment-item-note').value.trim()
+    }))
+    .filter(row => row['項目'] || row['數量'] || row['單價'] || row['備註']);
+}
+
+function submitPaymentRequest() {
+  const btn = document.getElementById('confirmPaymentBtn');
+  const errorBox = document.getElementById('paymentModalError');
+  const payment = {
+    '請款會堂': document.getElementById('paymentHall').value,
+    '請款人': document.getElementById('paymentClaimant').value,
+    '申請日期': document.getElementById('paymentRequestDate').value,
+    '是否有預借': document.getElementById('paymentHasAdvance').value,
+    '支付方式': document.getElementById('paymentMethod').value,
+    '預借編號': document.getElementById('paymentAdvanceId').value,
+    '前已預借金額': Number(document.getElementById('paymentAdvanceAmount').value.replaceAll(',', '') || 0),
+    '轉正': Number(document.getElementById('paymentOffsetAmount').value || 0),
+    '代支': Number(document.getElementById('paymentBehalfAmount').value || 0),
+    '繳回': Number(document.getElementById('paymentReturnAmount').value || 0),
+    '匯款銀行': document.getElementById('paymentBank').value.trim(),
+    '分行': document.getElementById('paymentBranch').value.trim(),
+    '帳戶名稱': document.getElementById('paymentAccountName').value.trim(),
+    '帳號': document.getElementById('paymentAccountNo').value.trim()
+  };
+  const items = collectPaymentItems();
+  errorBox.textContent = '';
+  if (!items.length) return errorBox.textContent = '請至少新增一筆請款詳情';
+
+  setButtonLoading(btn, true, '保存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      paymentModalInstance.hide();
+      alert(res.message);
+      openPurchase(document.getElementById('purchaseId').value);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addPurchasePaymentRequest({ currentUser, purchaseId: document.getElementById('purchaseId').value, payment, items });
+}
+
+function toggleAdvanceBankInfo() {
+  const method = document.getElementById('advancePaymentMethod').value;
+  document.getElementById('advanceBankInfo').classList.toggle('d-none', method === '以現金交付借款人');
+}
+
+function togglePaymentAdvanceFields() {
+  const hasAdvance = document.getElementById('paymentHasAdvance').value === '是';
+  document.getElementById('paymentAdvanceInfo').classList.toggle('d-none', !hasAdvance);
+}
+
+function togglePaymentBankInfo() {
+  const method = document.getElementById('paymentMethod').value;
+  document.getElementById('paymentBankInfo').classList.toggle('d-none', method !== '匯款交付墊款人');
+}
+
+function syncSelectedAdvanceAmount() {
+  const selected = document.getElementById('paymentAdvanceId').selectedOptions[0];
+  document.getElementById('paymentAdvanceAmount').value = selected && selected.dataset.amount ? formatMoney(selected.dataset.amount) : '0';
+}
+
+function requireSavedPurchase() {
+  if (!document.getElementById('purchaseId').value) {
+    alert('請先保存採購申請，再新增相關申請單');
+    return false;
+  }
+  return true;
+}
+
+function removePurchaseRow(btn) {
+  btn.closest('tr').remove();
+  calculatePurchaseTotal();
+}
+
+function refreshRowIndexes(bodyId, className) {
+  document.querySelectorAll(`#${bodyId} .${className}`).forEach((el, index) => {
+    el.textContent = index + 1;
+  });
+}
+
+function formatMoney(value) {
+  return Number(value || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+}
+
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+</script>

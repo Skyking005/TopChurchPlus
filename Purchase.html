@@ -1,0 +1,297 @@
+    <section id="purchaseView" class="d-none">
+      <section id="purchaseListView">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-8">
+                <label class="form-label">關鍵字</label>
+                <input id="purchaseSearchKeyword" class="form-control" placeholder="搜尋採購編號、摘要、申請人、部門">
+              </div>
+              <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" onclick="loadPurchases()">搜尋</button>
+              </div>
+              <div class="col-md-2 d-grid">
+                <button id="addPurchaseBtn" class="btn btn-success" onclick="openNewPurchase()">新增採購申請</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">採購清單</h5>
+          <span id="purchasePageInfo" class="text-muted"></span>
+        </div>
+
+        <div class="card desktop-only">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>採購編號</th>
+                  <th>採購摘要</th>
+                  <th>請購狀態</th>
+                  <th class="text-end">總計金額</th>
+                  <th class="text-end">功能</th>
+                </tr>
+              </thead>
+              <tbody id="purchaseTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="mobilePurchaseList" class="mobile-only"></div>
+
+        <div class="pagination-area">
+          <button class="btn btn-outline-secondary btn-sm" onclick="prevPurchasePage()">上一頁</button>
+          <span id="purchasePager"></span>
+          <button class="btn btn-outline-secondary btn-sm" onclick="nextPurchasePage()">下一頁</button>
+        </div>
+      </section>
+
+      <section id="purchaseDetailView" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <button class="btn btn-outline-secondary" onclick="backToPurchaseList()">返回採購清單</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-danger purchase-open-only" onclick="closeCurrentPurchase()">結案</button>
+            <button class="btn btn-outline-primary purchase-open-only" onclick="openAdvanceModal()">預借單</button>
+            <button class="btn btn-outline-primary purchase-open-only" onclick="openPaymentModal()">請款單</button>
+            <button class="btn btn-outline-primary purchase-open-only" onclick="openExpenseProofModal()">支出證明單</button>
+            <button id="exportPurchaseDocBtn" class="btn btn-outline-primary purchase-saved-only" onclick="exportPurchaseDocument('purchase')">匯出採購單</button>
+            <button id="savePurchaseBtn" class="btn btn-success" onclick="saveCurrentPurchase()">保存採購</button>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header">採購基本資料</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label">採購編號</label>
+                <input id="purchaseId" class="form-control" disabled>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">會堂</label>
+                <select id="purchaseHall" class="form-select purchase-input"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">部門</label>
+                <select id="purchaseDepartment" class="form-select purchase-input"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">申請人</label>
+                <select id="purchaseApplicant" class="form-select purchase-input"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">申請日期</label>
+                <input id="purchaseRequestDate" type="date" class="form-control purchase-input">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">請購狀態</label>
+                <input id="purchaseStatus" class="form-control" disabled>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">總計金額</label>
+                <input id="purchaseTotalAmount" class="form-control text-end" disabled>
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">採購摘要</label>
+                <input id="purchaseSummary" class="form-control purchase-input">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label">申請詳細原因</label>
+                <textarea id="purchaseReason" class="form-control purchase-input" rows="4"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header section-header">
+            <span>請購詳情</span>
+            <button class="btn btn-sm btn-outline-primary purchase-edit-only" onclick="addPurchaseItemRow()">新增列</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>項目</th>
+                  <th style="width: 110px;">數量</th>
+                  <th style="width: 130px;">單價</th>
+                  <th style="width: 130px;">總價</th>
+                  <th>備註</th>
+                  <th style="width: 70px;"></th>
+                </tr>
+              </thead>
+              <tbody id="purchaseItemBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-lg-4">
+            <div class="card h-100">
+              <div class="card-header section-header">
+                <span>預借申請清單</span>
+                <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openAdvanceModal()">新增</button>
+              </div>
+              <div class="card-body">
+                <div id="advanceList" class="purchase-sub-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card h-100">
+              <div class="card-header section-header">
+                <span>支出證明申請清單</span>
+                <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openExpenseProofModal()">新增</button>
+              </div>
+              <div class="card-body">
+                <div id="expenseProofList" class="purchase-sub-list"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4">
+            <div class="card h-100">
+              <div class="card-header section-header">
+                <span>請款申請清單</span>
+                <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openPaymentModal()">新增</button>
+              </div>
+              <div class="card-body">
+                <div id="paymentRequestList" class="purchase-sub-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <div class="modal fade" id="advanceModal" tabindex="-1">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">預借申請</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-3"><label class="form-label">請購編號</label><input id="advancePurchaseId" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">請款會堂</label><input id="advanceHall" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">借款人</label><input id="advanceBorrower" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">申請日期</label><input id="advanceRequestDate" type="date" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">預借總金額</label><input id="advanceTotal" class="form-control text-end" disabled></div>
+              <div class="col-md-3"><label class="form-label">預計核銷日期</label><input id="advanceClearDate" type="date" class="form-control"></div>
+              <div class="col-md-6"><label class="form-label">支付方式</label><select id="advancePaymentMethod" class="form-select" onchange="toggleAdvanceBankInfo()"></select></div>
+            </div>
+            <div id="advanceBankInfo" class="row g-3 mb-3">
+              <div class="col-md-3"><label class="form-label">匯款銀行</label><input id="advanceBank" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">分行</label><input id="advanceBranch" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">帳戶名稱</label><input id="advanceAccountName" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">帳號</label><input id="advanceAccountNo" class="form-control"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">預借詳情</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="addAdvanceItemRow()">新增列</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead><tr><th>項次</th><th>事由</th><th>金額</th><th>備註/說明</th><th></th></tr></thead>
+                <tbody id="advanceItemBody"></tbody>
+              </table>
+            </div>
+            <div id="advanceModalError" class="text-danger"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button id="confirmAdvanceBtn" class="btn btn-primary" onclick="submitAdvance()">保存預借</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="expenseProofModal" tabindex="-1">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">支出證明申請</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-3"><label class="form-label">請購編號</label><input id="proofPurchaseId" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">請款會堂</label><input id="proofHall" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">申請日期</label><input id="proofRequestDate" type="date" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">實付金額</label><input id="proofPaidAmount" class="form-control text-end" disabled></div>
+              <div class="col-md-12"><label class="form-label">不能取得單據原因</label><textarea id="proofNoReceiptReason" class="form-control" rows="2"></textarea></div>
+              <div class="col-md-4"><label class="form-label">姓名</label><input id="proofRecipientName" class="form-control"></div>
+              <div class="col-md-4"><label class="form-label">身分證字號</label><input id="proofRecipientId" class="form-control"></div>
+              <div class="col-md-4"><label class="form-label">地址</label><input id="proofRecipientAddress" class="form-control"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">支出證明詳情</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="addProofItemRow()">新增列</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead><tr><th>項次</th><th>項目</th><th>費用</th><th></th></tr></thead>
+                <tbody id="proofItemBody"></tbody>
+              </table>
+            </div>
+            <div id="proofModalError" class="text-danger"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button id="confirmProofBtn" class="btn btn-primary" onclick="submitExpenseProof()">保存支出證明</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="paymentModal" tabindex="-1">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">請款申請</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3 mb-3">
+              <div class="col-md-3"><label class="form-label">請購編號</label><input id="paymentPurchaseId" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">請款會堂</label><input id="paymentHall" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">請款人</label><input id="paymentClaimant" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">申請日期</label><input id="paymentRequestDate" type="date" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">請款總金額</label><input id="paymentTotal" class="form-control text-end" disabled></div>
+              <div class="col-md-3"><label class="form-label">是否有預借</label><select id="paymentHasAdvance" class="form-select" onchange="togglePaymentAdvanceFields()"><option>否</option><option>是</option></select></div>
+              <div class="col-md-3"><label class="form-label">支付方式</label><select id="paymentMethod" class="form-select" onchange="togglePaymentBankInfo()"></select></div>
+            </div>
+            <div id="paymentAdvanceInfo" class="row g-3 mb-3">
+              <div class="col-md-4"><label class="form-label">前已預借金額</label><select id="paymentAdvanceId" class="form-select" onchange="syncSelectedAdvanceAmount()"></select></div>
+              <div class="col-md-2"><label class="form-label">金額</label><input id="paymentAdvanceAmount" class="form-control text-end" disabled></div>
+              <div class="col-md-2"><label class="form-label">轉正</label><input id="paymentOffsetAmount" type="number" class="form-control"></div>
+              <div class="col-md-2"><label class="form-label">代支</label><input id="paymentBehalfAmount" type="number" class="form-control"></div>
+              <div class="col-md-2"><label class="form-label">繳回</label><input id="paymentReturnAmount" type="number" class="form-control"></div>
+            </div>
+            <div id="paymentBankInfo" class="row g-3 mb-3">
+              <div class="col-md-3"><label class="form-label">匯款銀行</label><input id="paymentBank" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">分行</label><input id="paymentBranch" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">帳戶名稱</label><input id="paymentAccountName" class="form-control"></div>
+              <div class="col-md-3"><label class="form-label">帳號</label><input id="paymentAccountNo" class="form-control"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">請款詳細內容</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="addPaymentItemRow()">新增列</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead><tr><th>項目</th><th>數量</th><th>單價</th><th>總價</th><th>備註</th><th></th></tr></thead>
+                <tbody id="paymentItemBody"></tbody>
+              </table>
+            </div>
+            <div id="paymentModalError" class="text-danger"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button id="confirmPaymentBtn" class="btn btn-primary" onclick="submitPaymentRequest()">保存請款</button>
+          </div>
+        </div>
+      </div>
+    </div>

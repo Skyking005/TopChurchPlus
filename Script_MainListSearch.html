@@ -1,0 +1,93 @@
+<script>
+function loadProjects() {
+    lockActionButtons();
+
+    const filters = {
+      keyword: document.getElementById('searchKeyword').value,
+      projectType: document.getElementById('searchType').value,
+      unit: document.getElementById('searchUnit').value
+    };
+
+    google.script.run
+      .withSuccessHandler(projects => {
+        allProjects = projects;
+        currentPage = 1;
+        renderProjects();
+        unlockActionButtons();
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .getProjects(filters);
+  }
+
+  function renderProjects() {
+    renderDesktopProjects();
+    renderMobileProjects();
+    renderPageInfo();
+  }
+
+  function getPagedProjects() {
+    const start = (currentPage - 1) * pageSize;
+    return allProjects.slice(start, start + pageSize);
+  }
+
+  function renderDesktopProjects() {
+    const tbody = document.getElementById('projectTableBody');
+    tbody.innerHTML = '';
+
+    getPagedProjects().forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><button class="project-link" onclick="openProject('${p.projectId}')">${p.projectId}</button></td>
+        <td>${escapeHtml(p.projectName)}</td>
+        <td>${escapeHtml(p.projectType)}</td>
+        <td>${escapeHtml(p.startDate)} - ${escapeHtml(p.endDate)}</td>
+        <td><span class="status-badge status-${p.status}">${p.status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderMobileProjects() {
+    const container = document.getElementById('mobileProjectList');
+    container.innerHTML = '';
+
+    getPagedProjects().forEach(p => {
+      const card = document.createElement('div');
+      card.className = 'project-card-mobile';
+      card.onclick = () => openProject(p.projectId);
+
+      card.innerHTML = `
+        <h6>${escapeHtml(p.projectName)}</h6>
+        <div class="project-meta">計畫編號：${escapeHtml(p.projectId)}</div>
+        <div class="project-meta">類型：${escapeHtml(p.projectType)}</div>
+        <div class="project-meta">單位：${escapeHtml(p.unit)}</div>
+        <div class="project-meta">時間：${escapeHtml(p.startDate)} - ${escapeHtml(p.endDate)}</div>
+        <div><span class="status-badge status-${p.status}">${p.status}</span></div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function renderPageInfo() {
+    const totalPage = Math.max(Math.ceil(allProjects.length / pageSize), 1);
+    document.getElementById('pageInfo').textContent = `${currentPage} / ${totalPage}`;
+  }
+
+  function prevPage() {
+    if (currentPage > 1) {
+      currentPage--;
+      renderProjects();
+    }
+  }
+
+  function nextPage() {
+    const totalPage = Math.ceil(allProjects.length / pageSize);
+    if (currentPage < totalPage) {
+      currentPage++;
+      renderProjects();
+    }
+  }
+</script>

@@ -1,0 +1,96 @@
+<script>
+function handleLogin() {
+  const btn = event.target;
+  const email = document.getElementById('loginEmail').value.trim();
+  const deviceType = 'desktop';
+  const errorBox = document.getElementById('loginError');
+
+  errorBox.textContent = '';
+
+  if (!email) {
+    errorBox.textContent = '請輸入電子信箱';
+    return;
+  }
+
+  setButtonLoading(btn, true, '登入中...');
+
+  google.script.run
+    .withSuccessHandler(user => {
+      setButtonLoading(btn, false);
+      currentUser = user;
+
+      document.getElementById('loginView').classList.add('d-none');
+      document.getElementById('mainView').classList.remove('d-none');
+      document.getElementById('userInfo').textContent =
+        `${user.name}｜${user.role}｜${user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式'}`;
+
+      if (user.deviceType === 'mobile') {
+        document.getElementById('addProjectBtn').classList.add('d-none');
+      }
+
+      document.getElementById('paramManageBtn').classList.toggle('d-none', !user.isAdmin);
+      backToFeatureMenu();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      currentUser = null;
+
+      document.getElementById('loginView').classList.remove('d-none');
+      document.getElementById('mainView').classList.add('d-none');
+      errorBox.textContent = err.message || err;
+    })
+    .login(email, deviceType);
+}
+
+function logout() {
+  currentUser = null;
+  location.reload();
+}
+
+function loadInitialData() {
+  if (initialData) {
+    setupSearchOptions();
+    setupDetailOptions();
+    loadProjects();
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      setupSearchOptions();
+      setupDetailOptions();
+      loadProjects();
+    })
+    .withFailureHandler(showError)
+    .getInitialData();
+}
+
+function backToFeatureMenu() {
+  document.getElementById('mainTitle').textContent = '系統功能選擇';
+  document.getElementById('featureSelectionView').classList.remove('d-none');
+  document.getElementById('purchaseView').classList.add('d-none');
+  document.getElementById('overviewView').classList.add('d-none');
+  document.getElementById('detailView').classList.add('d-none');
+}
+
+function openProjectSystem() {
+  document.getElementById('mainTitle').textContent = '專案管理系統';
+  document.getElementById('featureSelectionView').classList.add('d-none');
+  document.getElementById('purchaseView').classList.add('d-none');
+  document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('overviewView').classList.remove('d-none');
+  loadInitialData();
+}
+
+function openPurchaseSystem() {
+  document.getElementById('mainTitle').textContent = '採購系統';
+  document.getElementById('featureSelectionView').classList.add('d-none');
+  document.getElementById('overviewView').classList.add('d-none');
+  document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('purchaseView').classList.remove('d-none');
+  document.getElementById('purchaseListView').classList.remove('d-none');
+  document.getElementById('purchaseDetailView').classList.add('d-none');
+  loadPurchaseSystem();
+}
+</script>

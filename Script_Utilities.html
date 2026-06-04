@@ -1,0 +1,140 @@
+<script>
+function backToOverview() {
+    document.getElementById('detailView').classList.add('d-none');
+    document.getElementById('overviewView').classList.remove('d-none');
+    loadProjects();
+  }
+
+  function toDateInputValue(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    const text = String(value).split('/').join('-');
+    return text.slice(0, 10);
+  }
+
+  function escapeHtml(text) {
+    return String(text || '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function escapeAttr(text) {
+    return escapeHtml(text);
+  }
+
+  function showError(err) {
+    alert(err.message || err);
+  }
+  function setButtonLoading(button, isLoading, loadingText = '處理中...') {
+  if (!button) return;
+
+  if (isLoading) {
+    button.dataset.originalText = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = loadingText;
+  } else {
+    button.disabled = false;
+    button.innerHTML = button.dataset.originalText || button.innerHTML;
+  }
+}
+
+function lockActionButtons() {
+  document.querySelectorAll('button').forEach(btn => {
+    btn.disabled = true;
+  });
+}
+
+function unlockActionButtons() {
+  document.querySelectorAll('button').forEach(btn => {
+    btn.disabled = false;
+  });
+
+  if (currentPermission) {
+    applyPermission(currentPermission);
+  }
+}
+function validateProject(project) {
+
+  if (!project['專案名稱']) {
+    throw new Error('請填寫專案名稱');
+  }
+
+  if (!project['專案執行開始時間']) {
+    throw new Error('請填寫開始時間');
+  }
+
+  if (!project['專案執行結束時間']) {
+    throw new Error('請填寫結束時間');
+  }
+
+  if (getSelectedUnits().length === 0) {
+    throw new Error('請至少選擇一個執行單位');
+  }
+
+  if (!stripHtml(project['專案內容'])) {
+    throw new Error('請填寫專案內容');
+  }
+
+  if (!project['收支差額處理方式']) {
+    throw new Error('請選擇收支差額處理方式');
+  }
+
+  const startDate = new Date(project['專案執行開始時間']);
+  const endDate = new Date(project['專案執行結束時間']);
+
+  if (endDate < startDate) {
+    throw new Error('結束日期不可早於開始日期');
+  }
+
+  if (
+    project['專案是否收費'] === '是' &&
+    collectIncome().length === 0
+  ) {
+    throw new Error('收費專案至少需要一筆收入資料');
+  }
+
+  if (
+    document.getElementById('projectType').value === '其他' &&
+    !document.getElementById('otherProjectType').value.trim()
+  ) {
+    throw new Error('請填寫其他專案類型');
+  }
+
+  if (
+    document.getElementById('differenceMethod').value === '其他' &&
+    !document.getElementById('otherDifferenceMethod').value.trim()
+  ) {
+    throw new Error('請填寫其他差額支應方式');
+  }
+  collectIncome().forEach((row, index) => {if (!row['會堂']) {throw new Error(`收入資料第 ${index + 1} 筆未選擇會堂`);}});
+  collectBudget().forEach((row, index) => {if (!row['會堂']) {throw new Error(`支出資料第 ${index + 1} 筆未選擇會堂`);}});
+
+  return true;
+}
+
+function getCurrentProjectId() {
+  return document.getElementById('projectId').value;
+}
+
+function reloadCurrentProject() {
+  const projectId = getCurrentProjectId();
+
+  google.script.run
+    .withSuccessHandler(renderProjectDetail)
+    .withFailureHandler(showError)
+    .getProjectDetail(projectId, currentUser);
+}
+
+function stripHtml(value) {
+  const div = document.createElement('div');
+  div.innerHTML = String(value || '');
+  return div.textContent.trim();
+}
+</script>

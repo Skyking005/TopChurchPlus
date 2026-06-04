@@ -1,0 +1,169 @@
+<script>
+let parameterModalInstance = null;
+
+const PARAMETER_TYPE_OPTIONS = [
+  { key: 'projectTypes', label: '專案類型' },
+  { key: 'duties', label: '職責' },
+  { key: 'units', label: '會堂' },
+  { key: 'differenceMethods', label: '收支差額處理方式' },
+  { key: 'meetingStatus', label: '會議狀態' },
+  { key: 'projectStatus', label: '專案狀態' },
+  { key: 'projectPermissions', label: '專案權限' },
+  { key: 'departments', label: '部門' },
+  { key: 'purchaseStatus', label: '採購狀態' },
+  { key: 'paymentMethods', label: '支付方式' }
+];
+
+function openParameterModal() {
+  if (!currentUser || !currentUser.isAdmin) return;
+
+  const typeSelect = document.getElementById('parameterType');
+  typeSelect.innerHTML = '';
+
+  PARAMETER_TYPE_OPTIONS.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.key;
+    opt.textContent = item.label;
+    typeSelect.appendChild(opt);
+  });
+
+  document.getElementById('newParameterValue').value = '';
+  document.getElementById('parameterModalError').textContent = '';
+
+  parameterModalInstance = new bootstrap.Modal(
+    document.getElementById('parameterModal')
+  );
+
+  parameterModalInstance.show();
+  loadParameterItems();
+}
+
+function loadParameterItems() {
+  const type = document.getElementById('parameterType').value;
+  const errorBox = document.getElementById('parameterModalError');
+
+  errorBox.textContent = '';
+  document.getElementById('parameterTableBody').innerHTML = '';
+
+  google.script.run
+    .withSuccessHandler(items => {
+      renderParameterItems(items || []);
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+    })
+    .getParameterItems(type, currentUser);
+}
+
+function renderParameterItems(items) {
+  const body = document.getElementById('parameterTableBody');
+  body.innerHTML = '';
+
+  if (!items.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="2" class="text-muted">尚無參數</td>';
+    body.appendChild(tr);
+    return;
+  }
+
+  items.forEach(value => {
+    const encodedValue = encodeURIComponent(value);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(value)}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editParameterItem('${encodedValue}')">編輯</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteParameterItem('${encodedValue}')">刪除</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function addParameterItem() {
+  const type = document.getElementById('parameterType').value;
+  const input = document.getElementById('newParameterValue');
+  const value = input.value.trim();
+  const errorBox = document.getElementById('parameterModalError');
+  const btn = document.getElementById('addParameterBtn');
+
+  errorBox.textContent = '';
+
+  if (!value) {
+    errorBox.textContent = '請輸入參數內容';
+    return;
+  }
+
+  setButtonLoading(btn, true, '新增中...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      input.value = '';
+      alert(res.message);
+      refreshParametersAfterChange();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addParameterItem({ currentUser, type, value });
+}
+
+function editParameterItem(encodedOldValue) {
+  const type = document.getElementById('parameterType').value;
+  const oldValue = decodeURIComponent(encodedOldValue);
+  const newValue = prompt('請輸入新的參數內容', oldValue);
+  const errorBox = document.getElementById('parameterModalError');
+
+  if (newValue === null) return;
+
+  const value = newValue.trim();
+  if (!value) {
+    errorBox.textContent = '參數內容不可空白';
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      refreshParametersAfterChange();
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+    })
+    .updateParameterItem({ currentUser, type, oldValue, newValue: value });
+}
+
+function deleteParameterItem(encodedValue) {
+  const type = document.getElementById('parameterType').value;
+  const errorBox = document.getElementById('parameterModalError');
+  const value = decodeURIComponent(encodedValue);
+
+  if (!confirm(`確定刪除「${value}」？`)) return;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      refreshParametersAfterChange();
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+    })
+    .deleteParameterItem({ currentUser, type, value });
+}
+
+function refreshParametersAfterChange() {
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      setupSearchOptions();
+      setupDetailOptions();
+      loadParameterItems();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('parameterModalError').textContent = err.message || err;
+    })
+    .getInitialData();
+}
+</script>

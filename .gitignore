@@ -1,0 +1,8 @@
+.clasp.json
+project-management-export.json
+*.log
+node_modules/
+.env
+.env.*
+api/node_modules/
+文書範本/

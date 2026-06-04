@@ -1,0 +1,11 @@
+api/**
+database/**
+文書範本/**
+project-management-export.json
+README.md
+package.json
+Dockerfile
+docker-compose.yml
+.git/**
+.gitignore
+push-to-google.cmd

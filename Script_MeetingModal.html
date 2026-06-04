@@ -1,0 +1,347 @@
+<script>
+let meetingModalInstance = null;
+
+function openMeetingModal() {
+  if (!getCurrentProjectId()) {
+    alert('請先儲存專案後再預約會議');
+    return;
+  }
+
+  meetingViewOnly = false;
+
+  document.getElementById('meetingId').value = '';
+  document.getElementById('meetingTime').value = '';
+  document.getElementById('meetingTopic').value = '';
+  document.getElementById('meetingAgenda').value = '';
+  document.getElementById('meetingDecision').value = '';
+  document.getElementById('meetingModalError').textContent = '';
+
+  renderMeetingAttendeesCheckboxes([]);
+  setMeetingModalReadonly(false);
+
+  meetingModalInstance = new bootstrap.Modal(
+    document.getElementById('meetingModal')
+  );
+
+  meetingModalInstance.show();
+}
+
+function addMeeting(meeting) {
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentMeetings();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .addMeeting({
+      currentUser,
+      meeting
+    });
+}
+let currentMeetings = [];
+
+function editMeeting(encodedMeetingId) {
+  const meetingId = decodeURIComponent(encodedMeetingId);
+  const meeting = currentMeetings.find(r => String(r['會議編號']) === String(meetingId));
+
+  if (!meeting) {
+    alert('找不到此會議資料');
+    return;
+  }
+
+  document.getElementById('meetingId').value = meeting['會議編號'] || '';
+  document.getElementById('meetingTime').value = toDateTimeLocalValue(meeting['會議時間']);
+  document.getElementById('meetingTopic').value = meeting['會議主題'] || '';
+  document.getElementById('meetingAgenda').value = meeting['討論議題'] || '';
+  document.getElementById('meetingDecision').value = meeting['會議決議'] || '';
+  document.getElementById('meetingModalError').textContent = '';
+
+  const selectedNames = String(meeting['與會者'] || '')
+    .split(',')
+    .map(v => v.trim())
+    .filter(Boolean);
+
+  if (meetingViewOnly) {
+    renderMeetingAttendeesReadonly(selectedNames);
+  } else {
+    renderMeetingAttendeesCheckboxes(selectedNames);
+  }
+
+  setMeetingModalReadonly(meetingViewOnly);
+
+  meetingModalInstance = new bootstrap.Modal(
+    document.getElementById('meetingModal')
+  );
+
+  meetingModalInstance.show();
+}
+
+function setMeetingModalReadonly(isReadonly) {
+  document.getElementById('meetingTime').disabled = isReadonly;
+  document.getElementById('meetingTopic').disabled = isReadonly;
+  document.getElementById('meetingAgenda').disabled = isReadonly;
+  document.getElementById('meetingDecision').disabled = isReadonly;
+
+  document.querySelectorAll('.meeting-attendee-checkbox').forEach(el => {
+    el.disabled = isReadonly;
+  });
+
+  document.getElementById('confirmMeetingBtn').style.display = isReadonly ? 'none' : '';
+}
+
+function renderMeetingAttendeesReadonly(names) {
+  const container = document.getElementById('meetingAttendeesGroup');
+  container.innerHTML = '';
+
+  if (!names.length) {
+    container.textContent = '無與會者資料';
+    return;
+  }
+
+  names.forEach(name => {
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-secondary me-2 mb-2';
+    badge.textContent = name;
+    container.appendChild(badge);
+  });
+}
+
+function toDateTimeLocalValue(value) {
+  if (!value) return '';
+
+  const d = new Date(value);
+
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+  }
+
+  return String(value).replace(' ', 'T').slice(0, 16);
+}
+
+function updateMeeting(meetingId, meeting) {
+
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentMeetings();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .updateMeeting({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      meetingId,
+      meeting
+    });
+}
+
+function cancelMeeting(encodedMeetingId) {
+  if (!confirm('確定要取消此會議？')) return;
+
+  const meetingId = decodeURIComponent(encodedMeetingId);
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentMeetings();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .cancelMeeting({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      meetingId
+    });
+}
+
+function completeMeeting(encodedMeetingId) {
+  if (!confirm('確定要將此會議標記為完成？')) return;
+
+  const meetingId = decodeURIComponent(encodedMeetingId);
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      reloadCurrentMeetings();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .completeMeeting({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      meetingId
+    });
+}
+function sendMeetingInvite(encodedMeetingId) {
+  if (!confirm('確定要寄送會議邀請？')) return;
+
+  const meetingId = decodeURIComponent(encodedMeetingId);
+  lockActionButtons();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      unlockActionButtons();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .sendMeetingInvite({
+      currentUser,
+      projectId: getCurrentProjectId(),
+      meetingId
+    });
+}
+
+function submitMeeting() {
+  if (!getCurrentProjectId()) {
+    document.getElementById('meetingModalError').textContent = '請先儲存專案後再預約會議';
+    return;
+  }
+
+  const errorBox = document.getElementById('meetingModalError');
+  const btn = document.getElementById('confirmMeetingBtn');
+
+  errorBox.textContent = '';
+
+  const meetingId = document.getElementById('meetingId').value;
+
+const attendees = getSelectedMeetingAttendees();
+
+const meeting = {
+  '會議編號': meetingId,
+  '計畫編號': getCurrentProjectId(),
+  '會議時間': document.getElementById('meetingTime').value,
+  '會議主題': document.getElementById('meetingTopic').value.trim(),
+  '討論議題': document.getElementById('meetingAgenda').value.trim(),
+  '會議決議': document.getElementById('meetingDecision').value.trim(),
+  '與會者': attendees.join(','),
+  '會議狀態': meetingId ? '' : '預約中'
+};
+
+  if (!meeting['會議時間']) {
+    errorBox.textContent = '請填寫會議時間';
+    return;
+  }
+
+  if (!meeting['會議主題']) {
+    errorBox.textContent = '請填寫會議主題';
+    return;
+  }
+
+if (attendees.length === 0) {
+  errorBox.textContent = '請至少選擇一位與會者';
+  return;
+}
+
+  setButtonLoading(btn, true, '儲存中...');
+
+  if (meetingId) {
+    google.script.run
+      .withSuccessHandler(res => {
+        setButtonLoading(btn, false);
+        if (meetingModalInstance) meetingModalInstance.hide();
+        alert(res.message);
+        reloadCurrentProject();
+      })
+      .withFailureHandler(err => {
+        setButtonLoading(btn, false);
+        errorBox.textContent = err.message || err;
+      })
+      .updateMeeting({
+        currentUser,
+        projectId: getCurrentProjectId(),
+        meetingId,
+        meeting
+      });
+  } else {
+    google.script.run
+      .withSuccessHandler(res => {
+        setButtonLoading(btn, false);
+        if (meetingModalInstance) meetingModalInstance.hide();
+        alert(res.message);
+        reloadCurrentProject();
+      })
+      .withFailureHandler(err => {
+        setButtonLoading(btn, false);
+        errorBox.textContent = err.message || err;
+      })
+      .addMeeting({
+        currentUser,
+        meeting
+      });
+  }
+}
+function renderMeetingAttendeesCheckboxes(selectedNames = []) {
+  const container = document.getElementById('meetingAttendeesGroup');
+  container.innerHTML = '';
+
+  const selectedSet = new Set(
+    selectedNames.map(v => String(v).trim()).filter(Boolean)
+  );
+
+  getSortedAccounts().forEach(account => {
+    const id = `meeting_attendee_${account.staffId}`;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'form-check';
+
+    wrapper.innerHTML = `
+      <input
+        class="form-check-input meeting-attendee-checkbox"
+        type="checkbox"
+        id="${id}"
+        value="${escapeAttr(account.name)}"
+        ${selectedSet.has(account.name) ? 'checked' : ''}
+      >
+      <label class="form-check-label" for="${id}">
+        ${escapeHtml(account.name)}（${escapeHtml(account.position || '未填職位')}）
+      </label>
+    `;
+
+    container.appendChild(wrapper);
+  });
+}
+
+function getSelectedMeetingAttendees() {
+  return [...document.querySelectorAll('.meeting-attendee-checkbox:checked')]
+    .map(el => el.value);
+}
+
+function reloadCurrentMeetings() {
+  const projectId = getCurrentProjectId();
+
+  google.script.run
+    .withSuccessHandler(rows => {
+      renderMeetings(rows || []);
+      unlockActionButtons();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .getProjectMeetings(projectId, currentUser);
+}
+</script>

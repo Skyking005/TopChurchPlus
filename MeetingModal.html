@@ -1,0 +1,48 @@
+<div class="modal fade" id="meetingModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">預約會議</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="meetingId">
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">會議時間</label>
+            <input id="meetingTime" type="datetime-local" class="form-control">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">會議主題</label>
+            <input id="meetingTopic" class="form-control">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">討論議題</label>
+            <textarea id="meetingAgenda" class="form-control" rows="3"></textarea>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">會議決議</label>
+            <textarea id="meetingDecision" class="form-control" rows="3"></textarea>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">與會者</label>
+            <div id="meetingAttendeesGroup" class="checkbox-group"></div>
+          </div>
+        </div>
+
+        <div id="meetingModalError" class="text-danger small mt-3"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" id="confirmMeetingBtn" class="btn btn-primary" onclick="submitMeeting()">儲存會議</button>
+      </div>
+    </div>
+  </div>
+</div>

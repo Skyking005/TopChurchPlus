@@ -1,0 +1,33 @@
+<script>
+let currentUser = null;
+  let initialData = null;
+  let allProjects = [];
+  let currentPage = 1;
+  const pageSize = 10;
+  let currentPermission = null;
+  let meetingViewOnly = false;
+  let initialDataPromiseStarted = false;
+
+  window.addEventListener('load', () => {
+    preloadInitialData();
+  });
+
+  function preloadInitialData() {
+    if (initialDataPromiseStarted || initialData) return;
+
+    initialDataPromiseStarted = true;
+
+    google.script.run
+      .withSuccessHandler(data => {
+        initialData = data;
+      })
+      .withFailureHandler(err => {
+        console.warn('參數預載失敗，登入後會重新讀取', err);
+        initialDataPromiseStarted = false;
+      })
+      .getInitialData();
+  }
+  function isMobileDevice() {
+    return false;
+  }
+</script>

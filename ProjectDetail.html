@@ -1,0 +1,217 @@
+      <section id="detailView" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 id="detailTitle" class="mb-0">專案詳細內容</h5>
+          <div class="d-flex gap-2">
+            <button id="exportDocBtn" class="btn btn-outline-primary" onclick="exportProjectDoc()">匯出 Doc</button>
+            <button class="btn btn-outline-secondary" onclick="backToOverview()">返回總覽</button>
+          </div>
+        </div>
+
+        <div id="readonlyNotice" class="alert alert-warning d-none"></div>
+
+        <div class="card mb-3">
+          <div class="card-header">基本資料</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label class="form-label">計畫編號</label>
+                <input id="projectId" class="form-control" disabled>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">專案登入人</label>
+                <select id="loginUser" class="form-select project-input"></select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">專案名稱</label>
+                <input id="projectName" class="form-control project-input">
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">專案是否收費</label>
+                <select id="isCharged" class="form-select project-input" onchange="toggleIncomeRequired()">
+                  <option value="是">是</option>
+                  <option value="否">否</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">專案類型</label>
+                <select id="projectType" class="form-select project-input" onchange="toggleOtherFields()"></select>
+              </div>
+
+              <div class="col-md-3 d-none" id="otherProjectTypeGroup">
+                <label class="form-label">其他專案類型</label>
+                <input id="otherProjectType" class="form-control project-input">
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">開始時間</label>
+                <input id="startDate" type="date" class="form-control project-input">
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">結束時間</label>
+                <input id="endDate" type="date" class="form-control project-input">
+              </div>
+
+              <div class="col-8">
+                <label class="form-label">執行單位</label>
+
+                <div id="unitCheckboxGroup" class="checkbox-group project-input-group">
+                </div>
+              </div>
+              
+              <div class="col-md-4">
+                <label class="form-label">專案狀態</label>
+                <select id="status" class="form-select project-input"></select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">專案內容</label>
+                <input id="content" type="hidden" class="project-input">
+                <div class="rich-editor">
+                  <div class="rich-editor-toolbar">
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('bold')"><strong>B</strong></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('italic')"><em>I</em></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('underline')"><u>U</u></button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('insertUnorderedList')">•</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('insertOrderedList')">1.</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="insertProjectContentTable()">表格</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary rich-editor-control" onclick="formatProjectContent('removeFormat')">清除格式</button>
+                  </div>
+                  <div id="contentEditor" class="rich-editor-body project-rich-input" contenteditable="true"></div>
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">收支差額處理方式</label>
+                <select id="differenceMethod" class="form-select project-input" onchange="toggleOtherFields()"></select>
+              </div>
+
+              <div class="col-md-4 d-none" id="otherDifferenceMethodGroup">
+                <label class="form-label">其他差額支應方式</label>
+                <input id="otherDifferenceMethod" class="form-control project-input">
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">收支差額資料</label>
+                <div class="summary-box compact-summary">
+                  <div>總收入：<strong id="totalIncome">0</strong></div>
+                  <div>總支出：<strong id="totalBudget">0</strong></div>
+                  <div>差額：<strong id="balance" class="balance-text">0</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header section-header">
+            <span>專案管理權限</span>
+            <button class="btn btn-sm btn-outline-primary edit-only saved-project-only" onclick="openPermissionModal()">新增管理權限</button>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>姓名</th>
+                  <th>權限</th>
+                  <th class="edit-only">操作</th>
+                </tr>
+              </thead>
+              <tbody id="projectPermissionBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header section-header">
+            <span>專案人員</span>
+            <button class="btn btn-sm btn-outline-primary edit-only" onclick="addPeopleRow()">新增列</button>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>職責</th>
+                  <th>主責人</th>
+                  <th>主責項目</th>
+                  <th>備註</th>
+                  <th class="edit-only">操作</th>
+                </tr>
+              </thead>
+              <tbody id="peopleBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-3" id="incomeCard">
+          <div class="card-header section-header">
+            <span>收入資料</span>
+            <button class="btn btn-sm btn-outline-primary edit-only" onclick="addIncomeRow()">新增列</button>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>會堂</th>
+                  <th>收入項目</th>
+                  <th>數量</th>
+                  <th>單價</th>
+                  <th>小計</th>
+                  <th class="edit-only">操作</th>
+                </tr>
+              </thead>
+              <tbody id="incomeBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header section-header">
+            <span>支出資料</span>
+            <button class="btn btn-sm btn-outline-primary edit-only" onclick="addBudgetRow()">新增列</button>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>會堂</th>
+                  <th>支出項目</th>
+                  <th>數量</th>
+                  <th>單價</th>
+                  <th>小計</th>
+                  <th class="edit-only">操作</th>
+                </tr>
+              </thead>
+              <tbody id="budgetBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header section-header">
+            <span>會議記錄</span>
+            <button class="btn btn-sm btn-outline-primary edit-only saved-project-only" onclick="openMeetingModal()">預約會議</button>
+          </div>
+          <div class="card-body table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>會議編號</th>
+                  <th>會議時間</th>
+                  <th>會議主題</th>
+                  <th>與會者</th>
+                  <th>會議狀態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="meetingBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="action-bar">
+          <button id="cancelSaveBtn" class="btn btn-danger me-2" onclick="backToOverview()">取消保存並返回總覽</button>
+          <button id="saveBtn" class="btn btn-primary" onclick="saveProject()">儲存專案</button>
+        </div>
+      </section>
+    </section>

@@ -1,0 +1,233 @@
+<script>
+function toggleIncomeRequired() {
+    const isChargedEl = document.getElementById('isCharged');
+    const incomeCard = document.getElementById('incomeCard');
+
+    if (!isChargedEl || !incomeCard) {
+      console.error('找不到 #isCharged 或 #incomeCard');
+      return;
+    }
+
+    if (isChargedEl.value === '否') {
+      incomeCard.classList.add('d-none');
+    } else {
+      incomeCard.classList.remove('d-none');
+    }
+  }
+
+  function setMultiSelectValue(id, values) {
+    const select = document.getElementById(id);
+    const valueSet = new Set(values.map(v => String(v).trim()));
+
+    [...select.options].forEach(opt => {
+      opt.selected = valueSet.has(opt.value);
+    });
+  }
+
+  function setupStatusOptions(permission, currentStatus) {
+    const status = document.getElementById('status');
+    status.innerHTML = '';
+
+    const options = permission.statusOptions || [currentStatus];
+
+    options.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      status.appendChild(opt);
+    });
+
+    status.value = currentStatus;
+  }
+
+  function applyPermission(permission) {
+    const canEdit = permission.canEdit === true && currentUser.deviceType !== 'mobile';
+
+    document.querySelectorAll('.project-input').forEach(el => {
+      el.disabled = !canEdit;
+    });
+    setProjectContentReadonly(!canEdit);
+
+    document.querySelectorAll('.project-unit-checkbox').forEach(el => {
+      el.disabled = !canEdit;
+    });
+
+    document.querySelectorAll('#peopleBody input, #peopleBody select, #incomeBody input, #budgetBody input').forEach(el => {
+      el.disabled = !canEdit;
+    });
+
+    document.querySelectorAll('.edit-only').forEach(el => {
+      el.style.display = canEdit ? '' : 'none';
+    });
+
+    document.getElementById('saveBtn').style.display = canEdit ? '' : 'none';
+    document.getElementById('status').disabled = !permission.canChangeStatus || !canEdit;
+
+    const notice = document.getElementById('readonlyNotice');
+    if (!canEdit) {
+      notice.classList.remove('d-none');
+      notice.textContent = permission.readonlyReason || '目前為唯讀模式';
+    } else {
+      notice.classList.add('d-none');
+      notice.textContent = '';
+    }
+  }
+
+  function setProjectContentReadonly(readonly) {
+    const editor = document.getElementById('contentEditor');
+    if (editor) {
+      editor.setAttribute('contenteditable', readonly ? 'false' : 'true');
+    }
+
+    document.querySelectorAll('.rich-editor-control').forEach(btn => {
+      btn.disabled = readonly;
+    });
+  }
+
+  function renderPeopleRows(rows) {
+    const body = document.getElementById('peopleBody');
+    body.innerHTML = '';
+
+    if (!rows.length) rows = [{}];
+
+    rows.forEach(r => addPeopleRow(r));
+  }
+
+  function addPeopleRow(data = {}) {
+    const body = document.getElementById('peopleBody');
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${buildSelectHtml(initialData.params.duties, data['職責'] || '', 'duty')}</td>
+      <td>${buildSelectHtml(getSortedAccounts().map(a => a.name), data['主責人'] || '', 'person')}</td>
+      <td><input class="form-control item-field" data-key="主責項目" value="${escapeAttr(data['主責項目'] || '')}"></td>
+      <td><input class="form-control item-field" data-key="備註" value="${escapeAttr(data['備註'] || '')}"></td>
+      <td class="edit-only"><button class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">刪除</button></td>
+    `;
+
+    body.appendChild(tr);
+    if (currentPermission) applyPermission(currentPermission);
+  }
+
+  function renderIncomeRows(rows) {
+    const body = document.getElementById('incomeBody');
+    body.innerHTML = '';
+
+    if (!rows.length) rows = [{}];
+
+    rows.forEach(r => addIncomeRow(r));
+  }
+
+  function addIncomeRow(data = {}) {
+    const body = document.getElementById('incomeBody');
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${buildSelectHtml(initialData.params.units,data['會堂'] || '','income-unit')}</td>
+      <td><input class="form-control item-field" data-key="收入項目" value="${escapeAttr(data['收入項目'] || '')}"></td>
+      <td><input type="number" class="form-control qty" data-key="數量" value="${escapeAttr(data['數量'] || '')}" oninput="updateSubtotal(this)"></td>
+      <td><input type="number" class="form-control price" data-key="單價" value="${escapeAttr(data['單價'] || '')}" oninput="updateSubtotal(this)"></td>
+      <td><input type="number" class="form-control subtotal" data-key="小計" value="${escapeAttr(data['小計'] || 0)}" readonly></td>
+      <td class="edit-only"><button class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">刪除</button></td>
+    `;
+
+    body.appendChild(tr);
+    if (currentPermission) applyPermission(currentPermission);
+  }
+
+  function renderBudgetRows(rows) {
+    const body = document.getElementById('budgetBody');
+    body.innerHTML = '';
+
+    if (!rows.length) rows = [{}];
+
+    rows.forEach(r => addBudgetRow(r));
+  }
+
+  function addBudgetRow(data = {}) {
+    const body = document.getElementById('budgetBody');
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${buildSelectHtml(initialData.params.units,data['會堂'] || '','budget-unit')}</td>
+      <td><input class="form-control item-field" data-key="支出項目" value="${escapeAttr(data['支出項目'] || '')}"></td>
+      <td><input type="number" class="form-control qty" data-key="數量" value="${escapeAttr(data['數量'] || '')}" oninput="updateSubtotal(this)"></td>
+      <td><input type="number" class="form-control price" data-key="單價" value="${escapeAttr(data['單價'] || '')}" oninput="updateSubtotal(this)"></td>
+      <td><input type="number" class="form-control subtotal" data-key="小計" value="${escapeAttr(data['小計'] || 0)}" readonly></td>
+      <td class="edit-only"><button class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">刪除</button></td>
+    `;
+
+    body.appendChild(tr);
+    if (currentPermission) applyPermission(currentPermission);
+  }
+
+  function buildSelectHtml(options, selected, className) {
+    const opts = options.map(v => {
+      const isSelected = v === selected ? 'selected' : '';
+      return `<option value="${escapeAttr(v)}" ${isSelected}>${escapeHtml(v)}</option>`;
+    }).join('');
+
+    return `<select class="form-select ${className}">${opts}</select>`;
+  }
+
+  function removeRow(btn) {
+    btn.closest('tr').remove();
+    calculateTotals();
+  }
+
+  function updateSubtotal(input) {
+    const tr = input.closest('tr');
+    const qty = Number(tr.querySelector('.qty')?.value || 0);
+    const price = Number(tr.querySelector('.price')?.value || 0);
+    tr.querySelector('.subtotal').value = qty * price;
+    calculateTotals();
+  }
+
+  function calculateTotals() {
+    const totalIncome = [...document.querySelectorAll('#incomeBody .subtotal')]
+      .reduce((sum, el) => sum + Number(el.value || 0), 0);
+
+    const totalBudget = [...document.querySelectorAll('#budgetBody .subtotal')]
+      .reduce((sum, el) => sum + Number(el.value || 0), 0);
+
+    document.getElementById('totalIncome').textContent = totalIncome;
+    document.getElementById('totalBudget').textContent = totalBudget;
+    const balance = totalIncome - totalBudget;
+    const balanceEl = document.getElementById('balance');
+
+    balanceEl.textContent = balance;
+
+    balanceEl.classList.remove('balance-positive');
+    balanceEl.classList.remove('balance-negative');
+
+    if (balance > 0) {
+      balanceEl.classList.add('balance-positive');
+    }
+
+    if (balance < 0) {
+      balanceEl.classList.add('balance-negative');
+    }
+  }
+
+  function toggleOtherFields() {
+    const projectType = document.getElementById('projectType').value;
+    const differenceMethod = document.getElementById('differenceMethod').value;
+
+    const otherProjectTypeGroup = document.getElementById('otherProjectTypeGroup');
+    const otherDifferenceMethodGroup = document.getElementById('otherDifferenceMethodGroup');
+
+    if (projectType === '其他') {
+      otherProjectTypeGroup.classList.remove('d-none');
+    } else {
+      otherProjectTypeGroup.classList.add('d-none');
+      document.getElementById('otherProjectType').value = '';
+    }
+
+    if (differenceMethod === '其他') {
+      otherDifferenceMethodGroup.classList.remove('d-none');
+    } else {
+      otherDifferenceMethodGroup.classList.add('d-none');
+      document.getElementById('otherDifferenceMethod').value = '';
+    }
+  }
+</script>

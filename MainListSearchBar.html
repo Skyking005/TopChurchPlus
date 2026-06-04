@@ -1,0 +1,83 @@
+    <section id="mainView" class="d-none">
+      <nav class="topbar">
+        <div>
+          <h4 id="mainTitle" class="mb-0">系統功能選擇</h4>
+          <small id="userInfo" class="text-muted"></small>
+        </div>
+        <div class="d-flex gap-2">
+          <button id="featureMenuBtn" class="btn btn-outline-secondary btn-sm" onclick="backToFeatureMenu()">功能選擇</button>
+          <button id="paramManageBtn" class="btn btn-outline-primary btn-sm d-none" onclick="openParameterModal()">參數管理</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="logout()">登出</button>
+        </div>
+      </nav>
+
+      <section id="featureSelectionView">
+        <div class="feature-grid">
+          <button type="button" class="feature-option" onclick="openPurchaseSystem()">
+            <span class="feature-title">採購系統</span>
+            <span class="feature-desc">採購申請、詢價、核銷流程</span>
+          </button>
+
+          <button type="button" class="feature-option" onclick="openProjectSystem()">
+            <span class="feature-title">專案管理系統</span>
+            <span class="feature-desc">專案建立、預算、會議與文件匯出</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="overviewView" class="d-none">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">關鍵字</label>
+                <input id="searchKeyword" class="form-control" placeholder="搜尋編號、名稱、內容、登入人">
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">專案類型</label>
+                <select id="searchType" class="form-select"></select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">執行單位</label>
+                <select id="searchUnit" class="form-select"></select>
+              </div>
+
+              <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" onclick="loadProjects()">搜尋</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">專案清單</h5>
+          <button id="addProjectBtn" class="btn btn-success" onclick="openNewProject()">新增專案</button>
+        </div>
+
+        <div id="desktopProjectList" class="card desktop-only">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>計畫編號</th>
+                  <th>專案名稱</th>
+                  <th>專案類型</th>
+                  <th>專案執行時間</th>
+                  <th>專案狀態</th>
+                </tr>
+              </thead>
+              <tbody id="projectTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="mobileProjectList" class="mobile-only"></div>
+
+        <div class="pagination-area">
+          <button class="btn btn-outline-secondary btn-sm" onclick="prevPage()">上一頁</button>
+          <span id="pageInfo"></span>
+          <button class="btn btn-outline-secondary btn-sm" onclick="nextPage()">下一頁</button>
+        </div>
+      </section>

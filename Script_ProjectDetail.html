@@ -1,0 +1,281 @@
+<script>
+function openNewProject() {
+    lockActionButtons();
+
+    google.script.run
+      .withSuccessHandler(data => {
+        renderProjectDetail(data);
+        unlockActionButtons();
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .getProjectDetail('', currentUser);
+  }
+
+  function openProject(projectId) {
+    lockActionButtons();
+
+    google.script.run
+      .withSuccessHandler(data => {
+        renderProjectDetail(data);
+        unlockActionButtons();
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .getProjectDetail(projectId, currentUser);
+  }
+
+  function renderProjectDetail(data) {
+    if (!data || !data.permission) {
+      alert('專案詳細資料讀取失敗，請確認 Code.gs 的 getProjectDetail 是否有正常回傳資料。');
+      unlockActionButtons();
+      return;
+    }
+
+    currentPermission = data.permission;
+
+    document.getElementById('overviewView').classList.add('d-none');
+    document.getElementById('detailView').classList.remove('d-none');
+
+    const p = data.project;
+
+    document.getElementById('projectId').value = p['計畫編號'] || '';
+    applySavedProjectActionsVisibility();
+    document.getElementById('loginUser').value = p['專案登入人'] || currentUser.name;
+    document.getElementById('projectName').value = p['專案名稱'] || '';
+    document.getElementById('projectType').value = p['專案類型'] || '';
+    document.getElementById('startDate').value = toDateInputValue(p['專案執行開始時間']);
+    document.getElementById('endDate').value = toDateInputValue(p['專案執行結束時間']);
+    setSelectedUnits(
+      String(p['專案執行單位'] || '')
+        .split(',')
+        .map(v => v.trim())
+        .filter(Boolean)
+    );
+    setProjectContent(p['專案內容'] || '');
+    document.getElementById('isCharged').value = p['專案是否收費'] || '否';
+    document.getElementById('differenceMethod').value = p['收支差額處理方式'] || '';
+
+    setupStatusOptions(data.permission, p['專案狀態'] || '規劃中');
+
+    renderProjectPermissions(data.projectPermissions || []);
+    renderPeopleRows(data.people || []);
+    renderIncomeRows(data.income || []);
+    renderBudgetRows(data.budget || []);
+    renderMeetings(data.meetings || []);
+    applyFinanceVisibility(data.permission);
+
+    toggleOtherFields();
+    toggleIncomeRequired();
+    calculateTotals();
+    applyPermission(data.permission);
+  }
+
+function setProjectContent(value) {
+  const editor = document.getElementById('contentEditor');
+  const hidden = document.getElementById('content');
+  const html = looksLikeHtml(value) ? sanitizeProjectContentHtml(value) : plainTextToHtml(value);
+
+  hidden.value = html;
+  editor.innerHTML = html;
+}
+
+function getProjectContentHtml() {
+  const editor = document.getElementById('contentEditor');
+  const hidden = document.getElementById('content');
+  const html = sanitizeProjectContentHtml(editor.innerHTML);
+  hidden.value = html;
+  return html;
+}
+
+function looksLikeHtml(value) {
+  return /<\/?[a-z][\s\S]*>/i.test(String(value || ''));
+}
+
+function plainTextToHtml(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .map(line => `<p>${escapeHtml(line) || '<br>'}</p>`)
+    .join('');
+}
+
+function sanitizeProjectContentHtml(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '');
+}
+
+function formatProjectContent(command) {
+  const editor = document.getElementById('contentEditor');
+  if (editor.getAttribute('contenteditable') === 'false') return;
+  editor.focus();
+  document.execCommand(command, false, null);
+  getProjectContentHtml();
+}
+
+function insertProjectContentTable() {
+  const editor = document.getElementById('contentEditor');
+  if (editor.getAttribute('contenteditable') === 'false') return;
+
+  const rows = Math.max(1, Math.min(12, Number(prompt('請輸入表格列數', '3') || 3)));
+  const cols = Math.max(1, Math.min(8, Number(prompt('請輸入表格欄數', '3') || 3)));
+  let html = '<table><tbody>';
+
+  for (let r = 0; r < rows; r += 1) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c += 1) {
+      html += '<td><br></td>';
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table><p><br></p>';
+  editor.focus();
+  document.execCommand('insertHTML', false, html);
+  getProjectContentHtml();
+}
+
+function renderProjectPermissions(rows) {
+  const body = document.getElementById('projectPermissionBody');
+  if (!body) return;
+
+  body.innerHTML = '';
+
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td>${escapeHtml(r['姓名'] || '')}</td>
+      <td>${escapeHtml(r['權限'] || '')}</td>
+      <td class="edit-only">
+        <button class="btn btn-sm btn-outline-danger" onclick="deleteProjectPermission('${escapeAttr(r['人員序號'])}')">刪除</button>
+      </td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+function renderMeetings(rows) {
+  currentMeetings = rows || [];
+
+  const body = document.getElementById('meetingBody');
+  if (!body) return;
+
+  body.innerHTML = '';
+
+  currentMeetings.forEach(r => {
+    const meetingId = encodeURIComponent(r['會議編號'] || '');
+    const status = String(r['會議狀態'] || '');
+    const isClosed = status === '完成' || status === '取消';
+
+    const tr = document.createElement('tr');
+
+    let actionHtml = '';
+
+    actionHtml += `
+      <button class="btn btn-sm btn-outline-info"
+        onclick="viewMeeting('${meetingId}')">
+        瀏覽會議紀錄
+      </button>
+    `;
+
+    if (!isClosed) {
+      actionHtml += `
+        <button class="btn btn-sm btn-outline-secondary edit-only"
+          onclick="meetingViewOnly=false;editMeeting('${meetingId}')">
+          修改預約
+        </button>
+
+        <button class="btn btn-sm btn-outline-primary edit-only"
+          onclick="sendMeetingInvite('${meetingId}')">
+          寄送邀請
+        </button>
+
+        <button class="btn btn-sm btn-outline-danger edit-only"
+          onclick="cancelMeeting('${meetingId}')">
+          取消會議
+        </button>
+
+        <button class="btn btn-sm btn-outline-success edit-only"
+          onclick="completeMeeting('${meetingId}')">
+          完成會議
+        </button>
+      `;
+    }
+
+    tr.innerHTML = `
+      <td>${escapeHtml(r['會議編號'] || '')}</td>
+      <td>${escapeHtml(r['會議時間'] || '')}</td>
+      <td>${escapeHtml(r['會議主題'] || '')}</td>
+      <td>${escapeHtml(r['與會者'] || '')}</td>
+      <td>${escapeHtml(r['會議狀態'] || '')}</td>
+      <td>${actionHtml}</td>
+    `;
+
+    body.appendChild(tr);
+  });
+
+  if (currentPermission) {
+    applyPermission(currentPermission);
+  }
+}
+
+function viewMeeting(encodedMeetingId) {
+  meetingViewOnly = true;
+  editMeeting(encodedMeetingId);
+}
+
+function applySavedProjectActionsVisibility() {
+  const hasProjectId = Boolean(getCurrentProjectId());
+  document.querySelectorAll('.saved-project-only').forEach(el => {
+    el.style.display = hasProjectId ? '' : 'none';
+  });
+}
+
+function applyFinanceVisibility(permission) {
+  const incomeCard = document.getElementById('incomeCard');
+  const budgetCard = document.querySelector('#budgetBody')?.closest('.card');
+
+  if (!permission.canViewFinance) {
+    if (incomeCard) incomeCard.classList.add('d-none');
+    if (budgetCard) budgetCard.classList.add('d-none');
+  } else {
+    toggleIncomeRequired();
+    if (budgetCard) budgetCard.classList.remove('d-none');
+  }
+}
+
+function exportProjectDoc() {
+  const projectId = getCurrentProjectId();
+  const btn = document.getElementById('exportDocBtn');
+
+  if (!projectId) {
+    alert('請先儲存專案後再匯出 Doc');
+    return;
+  }
+
+  setButtonLoading(btn, true, '匯出中...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        alert('已建立文件，但未取得連結');
+      }
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .exportProjectDoc(projectId, currentUser);
+}
+</script>

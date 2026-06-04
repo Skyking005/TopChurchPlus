@@ -1,0 +1,96 @@
+<script>
+function setupSearchOptions() {
+    fillSelect('searchType', initialData.params.projectTypes, true);
+    fillSelect('searchUnit', initialData.params.units, true);
+  }
+
+  function setupDetailOptions() {
+    fillAccountSelect('loginUser');
+    fillSelect('projectType', initialData.params.projectTypes, false);
+    fillSelect('differenceMethod', initialData.params.differenceMethods, false);
+    renderUnitCheckboxes(initialData.params.units);
+  }
+
+  function fillAccountSelect(id) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+
+    getSortedAccounts().forEach(account => {
+      const opt = document.createElement('option');
+      opt.value = account.name;
+      opt.textContent = [account.name, account.position].filter(Boolean).join(' ');
+      select.appendChild(opt);
+    });
+  }
+
+  function getSortedAccounts() {
+    return [...(initialData.accounts || [])].sort((a, b) => {
+      return String(a.staffId || '').localeCompare(String(b.staffId || ''), 'zh-Hant', {
+        numeric: true,
+        sensitivity: 'base'
+      });
+    });
+  }
+
+  function renderUnitCheckboxes(units) {
+    const container = document.getElementById('unitCheckboxGroup');
+
+    container.innerHTML = '';
+
+    units.forEach(unit => {
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'form-check';
+
+      wrapper.innerHTML = `
+        <input 
+          class="form-check-input unit-checkbox project-unit-checkbox" 
+          type="checkbox" 
+          value="${escapeAttr(unit)}"
+          id="unit_${escapeAttr(unit)}"
+        >
+
+        <label class="form-check-label" for="unit_${escapeAttr(unit)}">
+          ${escapeHtml(unit)}
+        </label>
+      `;
+
+      container.appendChild(wrapper);
+    });
+  }
+
+  function getSelectedUnits() {
+    return [...document.querySelectorAll('.project-unit-checkbox:checked')]
+      .map(el => el.value);
+  }
+
+  function setSelectedUnits(values) {
+
+    const valueSet = new Set(
+      values.map(v => String(v).trim())
+    );
+
+    document.querySelectorAll('.project-unit-checkbox').forEach(el => {
+      el.checked = valueSet.has(el.value);
+    });
+  }
+
+  function fillSelect(id, options, includeAll) {
+    const select = document.getElementById(id);
+    select.innerHTML = '';
+
+    if (includeAll) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '全部';
+      select.appendChild(opt);
+    }
+
+    options.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+  }
+</script>

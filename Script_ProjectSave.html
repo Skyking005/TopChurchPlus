@@ -1,0 +1,111 @@
+<script>
+function saveProject() {
+    calculateTotals();
+
+    const project = {
+      '計畫編號': document.getElementById('projectId').value,
+      '專案登入人': document.getElementById('loginUser').value,
+      '專案名稱': document.getElementById('projectName').value,
+      '專案類型': getFinalProjectType(),
+      '專案執行開始時間': document.getElementById('startDate').value,
+      '專案執行結束時間': document.getElementById('endDate').value,
+      '專案執行單位': getSelectedUnits().join(','),
+      '專案內容': getProjectContentHtml(),
+      '專案是否收費': document.getElementById('isCharged').value,
+      '專案總收入': Number(document.getElementById('totalIncome').textContent || 0),
+      '專案總支出': Number(document.getElementById('totalBudget').textContent || 0),
+      '收支差額處理方式': getFinalDifferenceMethod(),
+      '專案狀態': document.getElementById('status').value
+    };
+
+    const people = collectPeople();
+    const income = collectIncome();
+    const budget = collectBudget();
+
+    try {
+      validateProject(project);
+    } catch (err) {
+      alert(err.message);
+      return;
+    }
+
+    lockActionButtons();
+
+    google.script.run
+      .withSuccessHandler(res => {
+        alert(res.message);
+
+        google.script.run
+          .withSuccessHandler(data => {
+            renderProjectDetail(data);
+            unlockActionButtons();
+          })
+          .withFailureHandler(err => {
+            unlockActionButtons();
+            showError(err);
+          })
+          .getProjectDetail(res.projectId, currentUser);
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .saveProject({
+        currentUser,
+        project,
+        people,
+        income,
+        budget
+      });
+  }
+
+  function getMultiSelectValues(id) {
+    const select = document.getElementById(id);
+    return [...select.selectedOptions].map(opt => opt.value);
+  }
+
+  function getFinalProjectType() {
+    const value = document.getElementById('projectType').value;
+    if (value === '其他') {
+      return document.getElementById('otherProjectType').value.trim();
+    }
+    return value;
+  }
+
+  function getFinalDifferenceMethod() {
+    const value = document.getElementById('differenceMethod').value;
+    if (value === '其他') {
+      return document.getElementById('otherDifferenceMethod').value.trim();
+    }
+    return value;
+  }
+
+  function collectPeople() {
+    return [...document.querySelectorAll('#peopleBody tr')].map(tr => ({
+      '職責': tr.querySelector('.duty')?.value || '',
+      '主責人': tr.querySelector('.person')?.value || '',
+      '主責項目': tr.querySelector('[data-key="主責項目"]')?.value || '',
+      '備註': tr.querySelector('[data-key="備註"]')?.value || ''
+    })).filter(r => r['職責'] || r['主責人'] || r['主責項目'] || r['備註']);
+  }
+
+  function collectIncome() {
+    return [...document.querySelectorAll('#incomeBody tr')].map(tr => ({
+      '會堂': tr.querySelector('.income-unit')?.value || '',
+      '收入項目': tr.querySelector('[data-key="收入項目"]')?.value || '',
+      '數量': Number(tr.querySelector('[data-key="數量"]')?.value || 0),
+      '單價': Number(tr.querySelector('[data-key="單價"]')?.value || 0),
+      '小計': Number(tr.querySelector('[data-key="小計"]')?.value || 0)
+    })).filter(r => r['收入項目'] || r['數量'] || r['單價']);
+  }
+
+  function collectBudget() {
+    return [...document.querySelectorAll('#budgetBody tr')].map(tr => ({
+      '會堂': tr.querySelector('.budget-unit')?.value || '',
+      '支出項目': tr.querySelector('[data-key="支出項目"]')?.value || '',
+      '數量': Number(tr.querySelector('[data-key="數量"]')?.value || 0),
+      '單價': Number(tr.querySelector('[data-key="單價"]')?.value || 0),
+      '小計': Number(tr.querySelector('[data-key="小計"]')?.value || 0)
+    })).filter(r => r['支出項目'] || r['數量'] || r['單價']);
+  }
+</script>
