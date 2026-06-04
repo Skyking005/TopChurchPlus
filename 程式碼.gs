@@ -32,10 +32,12 @@ function getInitialData() {
 
 function getProjects(filters, currentUser) {
   filters = filters || {};
+  currentUser = currentUser || filters.currentUser;
   return apiRequest('get', '/projects', null, {
     keyword: filters.keyword || '',
     projectType: filters.projectType || '',
-    unit: filters.unit || ''
+    unit: filters.unit || '',
+    currentUser: currentUser ? Utilities.base64EncodeWebSafe(JSON.stringify(currentUser)) : ''
   }, currentUser);
 }
 

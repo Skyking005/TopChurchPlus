@@ -74,7 +74,8 @@ app.get('/initial-data', async (req, res, next) => {
 
 app.get('/projects', async (req, res, next) => {
   try {
-    const currentUser = parseUser(req);
+    let currentUser = parseUser(req);
+    if (!currentUser || !currentUser.name) currentUser = parseQueryUser(req);
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const projectType = String(req.query.projectType || '').trim();
     const unit = String(req.query.unit || '').trim();
@@ -1217,6 +1218,16 @@ function parseUser(req) {
   if (!raw) return {};
   try {
     return JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+  } catch (err) {
+    return {};
+  }
+}
+
+function parseQueryUser(req) {
+  const raw = req.query.currentUser;
+  if (!raw) return {};
+  try {
+    return JSON.parse(Buffer.from(String(raw), 'base64url').toString('utf8'));
   } catch (err) {
     return {};
   }

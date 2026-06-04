@@ -5,7 +5,8 @@ function loadProjects() {
     const filters = {
       keyword: document.getElementById('searchKeyword').value,
       projectType: document.getElementById('searchType').value,
-      unit: document.getElementById('searchUnit').value
+      unit: document.getElementById('searchUnit').value,
+      currentUser
     };
 
     google.script.run
@@ -19,7 +20,7 @@ function loadProjects() {
         unlockActionButtons();
         showError(err);
       })
-      .getProjects(filters, currentUser);
+      .getProjects(filters);
   }
 
   function renderProjects() {
