@@ -9,6 +9,7 @@
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">位置管理</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userManagePane" onclick="loadSystemUsers()">使用者管理</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">使用者權限設置</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#featurePermissionPane" onclick="loadFeaturePermissions()">權限管理</button></li>
   </ul>
 
   <div class="tab-content">
@@ -61,6 +62,24 @@
         <div class="col-md-12 text-end"><button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">儲存權限</button></div>
       </div></div></div>
       <div id="systemRoleError" class="text-danger small mb-2"></div>
+    </div>
+
+    <div id="featurePermissionPane" class="tab-pane fade">
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">角色功能權限</h6>
+            <button id="saveFeaturePermissionsBtn" type="button" class="btn btn-primary btn-sm" onclick="saveFeaturePermissionsFromUI()">儲存功能權限</button>
+          </div>
+          <div id="featurePermissionError" class="text-danger small mb-2"></div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead id="featurePermissionHead"></thead>
+              <tbody id="featurePermissionBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>

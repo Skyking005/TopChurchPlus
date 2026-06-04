@@ -5,6 +5,7 @@ let totalAssetCount = 0;
 let currentAssetLocations = [];
 
 function openAssetSystem() {
+  const canEditFeature = getFeatureAccess('asset') === 'edit';
   document.getElementById('mainTitle').textContent = '資產管理系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
@@ -14,6 +15,9 @@ function openAssetSystem() {
   document.getElementById('assetView').classList.remove('d-none');
   document.getElementById('assetListView').classList.remove('d-none');
   document.getElementById('assetDetailView').classList.add('d-none');
+  document.getElementById('addAssetBtn').classList.toggle('d-none', !canEditFeature);
+  document.querySelectorAll('.asset-input').forEach(el => { el.disabled = !canEditFeature; });
+  document.getElementById('saveAssetBtn').classList.toggle('d-none', !canEditFeature);
   loadAssetSystem();
 }
 
@@ -189,10 +193,15 @@ function openAsset(assetId) {
 }
 
 function openNewAsset() {
+  if (getFeatureAccess('asset') !== 'edit') {
+    alert('目前只有資產唯讀權限，無法新增資產');
+    return;
+  }
   renderAssetDetail({ asset: createEmptyAsset() });
 }
 
 function renderAssetDetail(data) {
+  const canEditFeature = getFeatureAccess('asset') === 'edit';
   const asset = data.asset || createEmptyAsset();
   document.getElementById('assetListView').classList.add('d-none');
   document.getElementById('assetDetailView').classList.remove('d-none');
@@ -212,6 +221,8 @@ function renderAssetDetail(data) {
   document.getElementById('assetSourcePurchaseId').value = asset.sourcePurchaseId || '';
   document.getElementById('assetSourcePaymentId').value = asset.sourcePaymentId || '';
   document.getElementById('assetSourcePaymentItemId').value = asset.sourcePaymentItemId || '';
+  document.querySelectorAll('.asset-input').forEach(el => { el.disabled = !canEditFeature; });
+  document.getElementById('saveAssetBtn').classList.toggle('d-none', !canEditFeature);
 }
 
 function backToAssetList() {

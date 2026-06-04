@@ -149,11 +149,12 @@ function saveProject(payload) {
   return apiRequest('post', '/projects', payload);
 }
 
-function getPurchases(filters) {
+function getPurchases(filters, currentUser) {
   filters = filters || {};
+  currentUser = currentUser || filters.currentUser;
   return apiRequest('get', '/purchases', null, {
     keyword: filters.keyword || ''
-  });
+  }, currentUser);
 }
 
 function getPurchaseDetail(purchaseId, currentUser) {
@@ -222,6 +223,14 @@ function saveSystemUserRoles(payload) {
     `/system/users/${encodeURIComponent(payload.staffId)}/roles`,
     payload
   );
+}
+
+function getFeaturePermissions(currentUser) {
+  return apiRequest('get', '/system/feature-permissions', null, null, currentUser);
+}
+
+function saveFeaturePermissions(payload) {
+  return apiRequest('put', '/system/feature-permissions', payload);
 }
 
 function exportPurchaseDoc(payload) {

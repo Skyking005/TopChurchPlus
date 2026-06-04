@@ -18,6 +18,15 @@ CREATE TABLE IF NOT EXISTS account_roles (
   UNIQUE (staff_id, role)
 );
 
+CREATE TABLE IF NOT EXISTS role_feature_permissions (
+  role TEXT NOT NULL,
+  feature_key TEXT NOT NULL,
+  access_level TEXT NOT NULL DEFAULT 'none' CHECK (access_level IN ('none', 'read', 'edit')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (role, feature_key)
+);
+
 CREATE TABLE IF NOT EXISTS params (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category TEXT NOT NULL,
@@ -225,6 +234,7 @@ CREATE INDEX IF NOT EXISTS idx_purchase_advances_purchase_id ON purchase_advance
 CREATE INDEX IF NOT EXISTS idx_purchase_expense_proofs_purchase_id ON purchase_expense_proofs(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_payment_requests_purchase_id ON purchase_payment_requests(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_account_roles_staff_id ON account_roles(staff_id);
+CREATE INDEX IF NOT EXISTS idx_role_feature_permissions_role ON role_feature_permissions(role);
 
 INSERT INTO params (category, value, sort_order) VALUES
   ('chargeOptions', '是', 1),

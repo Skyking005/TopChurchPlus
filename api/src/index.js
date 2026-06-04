@@ -28,6 +28,24 @@ const PARAM_CATEGORIES = {
   assetStatuses: 'assetStatuses'
 };
 
+const SYSTEM_FEATURES = [
+  'project',
+  'finance',
+  'asset',
+  'venue',
+  'forms',
+  'counter',
+  'pastoral',
+  'education',
+  'media',
+  'worship',
+  'attendance',
+  'serving',
+  'system'
+];
+
+const FEATURE_ACCESS_RANK = { none: 0, read: 1, edit: 2 };
+
 app.use((req, res, next) => {
   if (req.path === '/health') return next();
   const apiKey = req.get('x-api-key');
@@ -51,13 +69,16 @@ app.post('/login', async (req, res, next) => {
     const user = rows[0];
     if (!user) throw new Error('此電子信箱沒有系統使用權限');
     const roles = await getAccountRoles(user.staff_id, user.role);
+    const featurePermissions = await getEffectiveFeaturePermissions({ roles, role: user.role });
 
     res.json({
+      staffId: user.staff_id,
       email,
       name: user.name,
       position: user.position,
       role: user.role,
       roles,
+      featurePermissions,
       deviceType,
       isAdmin: roles.includes('管理員') || roles.includes('超級管理者'),
       isSuperAdmin: roles.includes('超級管理者')
@@ -69,8 +90,8 @@ app.post('/login', async (req, res, next) => {
 
 app.get('/initial-data', async (req, res, next) => {
   try {
-    const [params, accounts] = await Promise.all([getParams(), getAccounts()]);
-    res.json({ params, accounts });
+    const [params, accounts, featurePermissions] = await Promise.all([getParams(), getAccounts(), getFeaturePermissions()]);
+    res.json({ params, accounts, featurePermissions });
   } catch (err) {
     next(err);
   }
@@ -91,10 +112,17 @@ app.get('/projects', async (req, res, next) => {
       throw new Error('缺少登入者資訊，無法查詢專案清單');
     }
 
+    await assertFeatureReadable(currentUser, 'project');
+
     if (!hasAnyRole(currentUser, ['管理員', '超級管理者'])) {
       joins.push('JOIN project_permissions pp ON pp.project_id = p.project_id');
-      values.push(currentUser.name);
-      where.push(`pp.name = $${values.length}`);
+      if (currentUser.staffId) {
+        values.push(String(currentUser.staffId));
+        where.push(`pp.staff_id = $${values.length}`);
+      } else {
+        values.push(currentUser.name);
+        where.push(`pp.name = $${values.length}`);
+      }
     }
 
     if (keyword) {
@@ -148,6 +176,7 @@ app.post('/projects/detail', async (req, res, next) => {
 
 app.post('/projects', async (req, res, next) => {
   try {
+    await assertFeatureEditable(req.body.currentUser, 'project');
     const result = await saveProject(req.body);
     res.json(result);
   } catch (err) {
@@ -157,6 +186,7 @@ app.post('/projects', async (req, res, next) => {
 
 app.get('/purchases', async (req, res, next) => {
   try {
+    await assertFeatureReadable(parseUser(req), 'finance');
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const where = [];
     const values = [];
@@ -183,6 +213,7 @@ app.get('/purchases', async (req, res, next) => {
 app.post('/purchases/detail', async (req, res, next) => {
   try {
     const currentUser = req.body.currentUser || {};
+    await assertFeatureReadable(currentUser, 'finance');
     const purchaseId = req.body.purchaseId || '';
     if (!purchaseId) return res.json(createEmptyPurchase(currentUser));
     res.json(await getPurchaseDetail(purchaseId));
@@ -193,6 +224,7 @@ app.post('/purchases/detail', async (req, res, next) => {
 
 app.post('/purchases', async (req, res, next) => {
   try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
     res.json(await savePurchase(req.body));
   } catch (err) {
     next(err);
@@ -201,7 +233,7 @@ app.post('/purchases', async (req, res, next) => {
 
 app.patch('/purchases/:purchaseId/close', async (req, res, next) => {
   try {
-    assertDesktop(req.body.currentUser);
+    await assertFeatureEditable(req.body.currentUser, 'finance');
     const result = await pool.query(
       `UPDATE purchases SET status = '已結案', updated_at = now() WHERE purchase_id = $1`,
       [req.params.purchaseId]
@@ -215,6 +247,7 @@ app.patch('/purchases/:purchaseId/close', async (req, res, next) => {
 
 app.post('/purchases/:purchaseId/advances', async (req, res, next) => {
   try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
     res.json(await savePurchaseAdvance(req.params.purchaseId, req.body));
   } catch (err) {
     next(err);
@@ -223,6 +256,7 @@ app.post('/purchases/:purchaseId/advances', async (req, res, next) => {
 
 app.post('/purchases/:purchaseId/expense-proofs', async (req, res, next) => {
   try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
     res.json(await saveExpenseProof(req.params.purchaseId, req.body));
   } catch (err) {
     next(err);
@@ -231,6 +265,7 @@ app.post('/purchases/:purchaseId/expense-proofs', async (req, res, next) => {
 
 app.post('/purchases/:purchaseId/payment-requests', async (req, res, next) => {
   try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
     res.json(await savePaymentRequest(req.params.purchaseId, req.body));
   } catch (err) {
     next(err);
@@ -240,7 +275,7 @@ app.post('/purchases/:purchaseId/payment-requests', async (req, res, next) => {
 app.get('/assets', async (req, res, next) => {
   try {
     const currentUser = parseUser(req);
-    assertAssetReadable(currentUser);
+    await assertAssetReadable(currentUser);
 
     const keyword = String(req.query.keyword || '').trim().toLowerCase();
     const assetType = String(req.query.assetType || '').trim();
@@ -319,7 +354,7 @@ app.get('/assets', async (req, res, next) => {
 
 app.get('/assets/:assetId', async (req, res, next) => {
   try {
-    assertAssetReadable(parseUser(req));
+    await assertAssetReadable(parseUser(req));
     const asset = await getAsset(req.params.assetId);
     if (!asset) throw new Error('找不到資產資料');
     res.json({ asset: toAssetDetail(asset) });
@@ -330,7 +365,7 @@ app.get('/assets/:assetId', async (req, res, next) => {
 
 app.post('/assets', async (req, res, next) => {
   try {
-    assertAssetEditable(req.body.currentUser);
+    await assertAssetEditable(req.body.currentUser);
     res.json(await saveAsset(req.body.asset || {}));
   } catch (err) {
     next(err);
@@ -339,7 +374,7 @@ app.post('/assets', async (req, res, next) => {
 
 app.put('/assets/:assetId', async (req, res, next) => {
   try {
-    assertAssetEditable(req.body.currentUser);
+    await assertAssetEditable(req.body.currentUser);
     const asset = req.body.asset || {};
     asset.assetId = req.params.assetId;
     res.json(await saveAsset(asset));
@@ -350,7 +385,7 @@ app.put('/assets/:assetId', async (req, res, next) => {
 
 app.get('/locations', async (req, res, next) => {
   try {
-    assertAssetReadable(parseUser(req));
+    await assertAssetReadable(parseUser(req));
     res.json(await getLocations());
   } catch (err) {
     next(err);
@@ -483,6 +518,26 @@ app.put('/system/users/:staffId/roles', async (req, res, next) => {
     });
 
     res.json({ success: true, message: '使用者權限已儲存' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/system/feature-permissions', async (req, res, next) => {
+  try {
+    assertSuperAdmin(parseUser(req));
+    res.json(await getFeaturePermissions());
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.put('/system/feature-permissions', async (req, res, next) => {
+  try {
+    assertSuperAdmin(req.body.currentUser);
+    const permissions = Array.isArray(req.body.permissions) ? req.body.permissions : [];
+    await saveFeaturePermissions(permissions);
+    res.json({ success: true, message: '功能權限已儲存', featurePermissions: await getFeaturePermissions() });
   } catch (err) {
     next(err);
   }
@@ -720,6 +775,82 @@ async function getAccountRoles(staffId, fallbackRole) {
   return normalizeRoles(rows.map(row => row.role), fallbackRole);
 }
 
+async function getFeaturePermissions() {
+  const { rows } = await pool.query(
+    `SELECT role, feature_key, access_level
+     FROM role_feature_permissions
+     ORDER BY role, feature_key`
+  );
+  return rows.map(row => ({
+    role: row.role,
+    featureKey: row.feature_key,
+    accessLevel: row.access_level
+  }));
+}
+
+async function getEffectiveFeaturePermissions(user) {
+  const roles = normalizeRoles(user && user.roles, user && user.role);
+  if (!roles.length) return {};
+
+  const { rows } = await pool.query(
+    `SELECT feature_key, access_level
+     FROM role_feature_permissions
+     WHERE role = ANY($1::text[])`,
+    [roles]
+  );
+
+  const access = {};
+  rows.forEach(row => {
+    const current = access[row.feature_key] || 'none';
+    if ((FEATURE_ACCESS_RANK[row.access_level] || 0) > (FEATURE_ACCESS_RANK[current] || 0)) {
+      access[row.feature_key] = row.access_level;
+    }
+  });
+  return access;
+}
+
+async function getFeatureAccess(user, featureKey) {
+  if (!SYSTEM_FEATURES.includes(featureKey)) return 'none';
+  if (user && user.featurePermissions && user.featurePermissions[featureKey]) {
+    return user.featurePermissions[featureKey];
+  }
+  const access = await getEffectiveFeaturePermissions(user);
+  return access[featureKey] || 'none';
+}
+
+async function assertFeatureReadable(user, featureKey) {
+  if (!user || !user.name) throw new Error('缺少登入者資訊');
+  const access = await getFeatureAccess(user, featureKey);
+  if (access === 'read' || access === 'edit') return access;
+  throw new Error('沒有此系統功能的使用權限');
+}
+
+async function assertFeatureEditable(user, featureKey) {
+  assertDesktop(user);
+  const access = await getFeatureAccess(user, featureKey);
+  if (access === 'edit') return true;
+  throw new Error('沒有此系統功能的操作權限');
+}
+
+async function saveFeaturePermissions(permissions) {
+  return tx(async client => {
+    await client.query('DELETE FROM role_feature_permissions');
+    for (const item of permissions) {
+      const role = normalizeValue(item.role);
+      const featureKey = normalizeValue(item.featureKey);
+      const accessLevel = String(item.accessLevel || 'none').trim();
+      if (!SYSTEM_FEATURES.includes(featureKey)) throw new Error(`未知的系統功能：${featureKey}`);
+      if (!['none', 'read', 'edit'].includes(accessLevel)) throw new Error('未知的權限層級');
+      await client.query(
+        `INSERT INTO role_feature_permissions (role, feature_key, access_level)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (role, feature_key) DO UPDATE SET access_level = EXCLUDED.access_level, updated_at = now()`,
+        [role, featureKey, accessLevel]
+      );
+    }
+  });
+}
+
 function normalizeRoles(roles, fallbackRole) {
   const values = Array.isArray(roles) ? roles : [];
   const normalized = values
@@ -740,6 +871,7 @@ function hasAnyRole(user, rolesToCheck) {
 }
 
 async function getProjectDetail(projectId, currentUser) {
+  await assertFeatureReadable(currentUser, 'project');
   const project = await getProject(projectId);
   if (!project) throw new Error('找不到此專案資料');
   const access = await assertProjectAccess(projectId, currentUser);
@@ -1011,6 +1143,14 @@ async function getProject(projectId) {
 
 async function assertProjectAccess(projectId, currentUser) {
   if (hasAnyRole(currentUser, ['管理員', '超級管理者'])) return '完全控制';
+  if (!currentUser || !currentUser.name) throw new Error('缺少登入者資訊');
+  if (currentUser.staffId) {
+    const { rows } = await pool.query(
+      'SELECT permission FROM project_permissions WHERE project_id = $1 AND staff_id = $2',
+      [projectId, String(currentUser.staffId)]
+    );
+    if (rows[0]) return rows[0].permission;
+  }
   const { rows } = await pool.query(
     'SELECT permission FROM project_permissions WHERE project_id = $1 AND name = $2',
     [projectId, currentUser.name]
@@ -1099,7 +1239,14 @@ async function getChildRows(table, projectId) {
 }
 
 async function getPermissions(projectId) {
-  const { rows } = await pool.query('SELECT * FROM project_permissions WHERE project_id = $1 ORDER BY name', [projectId]);
+  const { rows } = await pool.query(
+    `SELECT pp.*, a.position
+     FROM project_permissions pp
+     LEFT JOIN accounts a ON a.staff_id = pp.staff_id
+     WHERE pp.project_id = $1
+     ORDER BY pp.name`,
+    [projectId]
+  );
   return rows;
 }
 
@@ -1175,7 +1322,7 @@ function toBudgetRow(row) {
   return { '會堂': row.unit, '支出項目': row.item, '數量': Number(row.quantity), '單價': Number(row.unit_price), '小計': Number(row.subtotal) };
 }
 function toPermissionRow(row) {
-  return { '人員序號': row.staff_id, '姓名': row.name, '權限': row.permission };
+  return { '人員序號': row.staff_id, '姓名': [row.name, row.position].filter(Boolean).join(' '), '權限': row.permission };
 }
 function toMeetingRow(row) {
   return {
@@ -1547,23 +1694,11 @@ function toAssetDetail(row) {
 }
 
 function assertAssetReadable(user) {
-  if (!user || !user.name) throw new Error('缺少登入者資訊');
-  if (
-    hasAnyRole(user, ['超級管理者', '管理員', '技術同工']) ||
-    user.isAdmin ||
-    user.isSuperAdmin
-  ) return;
-  throw new Error('沒有資產管理系統權限');
+  return assertFeatureReadable(user, 'asset');
 }
 
 function assertAssetEditable(user) {
-  if (!user || !user.name) throw new Error('缺少登入者資訊');
-  if (
-    hasAnyRole(user, ['超級管理者', '管理員', '技術同工']) ||
-    user.isAdmin ||
-    user.isSuperAdmin
-  ) return;
-  throw new Error('沒有資產資料修改權限');
+  return assertFeatureEditable(user, 'asset');
 }
 
 async function assertPurchaseEditable(purchaseId) {

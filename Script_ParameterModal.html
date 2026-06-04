@@ -1,6 +1,7 @@
 
 <script>
 let systemUsers = [];
+let featurePermissions = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -37,6 +38,13 @@ function setupSystemManagement() {
   renderParameterTypeOptions();
   renderSystemPositionOptions();
   loadParameterItems();
+}
+
+function getSystemFeatureOptions() {
+  return (typeof SYSTEM_FEATURES !== 'undefined' ? SYSTEM_FEATURES : []).map(feature => ({
+    key: feature.key,
+    title: feature.title
+  }));
 }
 
 function renderParameterTypeOptions() {
@@ -297,6 +305,85 @@ function saveSelectedUserRoles() {
 }
 
 function reloadInitialDataOnly() {
-  google.script.run.withSuccessHandler(data => { initialData = data; renderSystemPositionOptions(); }).withFailureHandler(showError).getInitialData();
+  google.script.run.withSuccessHandler(data => { initialData = data; renderSystemPositionOptions(); featurePermissions = data.featurePermissions || []; }).withFailureHandler(showError).getInitialData();
+}
+
+function loadFeaturePermissions() {
+  const errorBox = document.getElementById('featurePermissionError');
+  if (errorBox) errorBox.textContent = '';
+  google.script.run
+    .withSuccessHandler(items => {
+      featurePermissions = items || [];
+      if (initialData) initialData.featurePermissions = featurePermissions;
+      renderFeaturePermissionMatrix();
+    })
+    .withFailureHandler(err => { if (errorBox) errorBox.textContent = err.message || err; })
+    .getFeaturePermissions(currentUser);
+}
+
+function renderFeaturePermissionMatrix() {
+  const head = document.getElementById('featurePermissionHead');
+  const body = document.getElementById('featurePermissionBody');
+  if (!head || !body) return;
+
+  const features = getSystemFeatureOptions();
+  head.innerHTML = `
+    <tr>
+      <th style="min-width: 140px;">權限身分</th>
+      ${features.map(feature => `<th>${escapeHtml(feature.title)}</th>`).join('')}
+    </tr>
+  `;
+  body.innerHTML = '';
+
+  SYSTEM_ROLE_OPTIONS.forEach(role => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <th>${escapeHtml(role)}</th>
+      ${features.map(feature => {
+        const value = getRoleFeatureAccess(role, feature.key);
+        return `
+          <td>
+            <select class="form-select form-select-sm feature-permission-select" data-role="${escapeAttr(role)}" data-feature-key="${escapeAttr(feature.key)}">
+              <option value="none" ${value === 'none' ? 'selected' : ''}>無權限</option>
+              <option value="read" ${value === 'read' ? 'selected' : ''}>唯讀</option>
+              <option value="edit" ${value === 'edit' ? 'selected' : ''}>操作</option>
+            </select>
+          </td>
+        `;
+      }).join('')}
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function getRoleFeatureAccess(role, featureKey) {
+  const item = (featurePermissions || []).find(permission => permission.role === role && permission.featureKey === featureKey);
+  return item ? item.accessLevel : 'none';
+}
+
+function saveFeaturePermissionsFromUI() {
+  const btn = document.getElementById('saveFeaturePermissionsBtn');
+  const errorBox = document.getElementById('featurePermissionError');
+  const permissions = [...document.querySelectorAll('.feature-permission-select')].map(select => ({
+    role: select.dataset.role,
+    featureKey: select.dataset.featureKey,
+    accessLevel: select.value
+  }));
+
+  if (errorBox) errorBox.textContent = '';
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      featurePermissions = res.featurePermissions || permissions;
+      if (initialData) initialData.featurePermissions = featurePermissions;
+      alert(res.message);
+      renderFeaturePermissionMatrix();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      if (errorBox) errorBox.textContent = err.message || err;
+    })
+    .saveFeaturePermissions({ currentUser, permissions });
 }
 </script>

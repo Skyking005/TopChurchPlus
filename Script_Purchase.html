@@ -119,7 +119,7 @@ function fillPurchaseApplicantSelect() {
 }
 
 function getAccountNameWithPosition(account) {
-  return [account.name, account.position].filter(Boolean).join(' ');
+  return formatAccountName(account);
 }
 
 function getCurrentUserNameWithPosition() {
@@ -147,7 +147,8 @@ function loadPurchases() {
     })
     .withFailureHandler(showError)
     .getPurchases({
-      keyword: document.getElementById('purchaseSearchKeyword').value
+      keyword: document.getElementById('purchaseSearchKeyword').value,
+      currentUser
     });
 }
 
@@ -443,7 +444,7 @@ function openAdvanceModal() {
   if (!requireSavedPurchase()) return;
   document.getElementById('advancePurchaseId').value = document.getElementById('purchaseId').value;
   document.getElementById('advanceHall').value = document.getElementById('purchaseHall').value;
-  document.getElementById('advanceBorrower').value = currentUser.name;
+  document.getElementById('advanceBorrower').value = getCurrentUserNameWithPosition();
   document.getElementById('advanceRequestDate').value = todayString();
   document.getElementById('advanceClearDate').value = '';
   document.getElementById('advanceTotal').value = '0';
@@ -598,7 +599,7 @@ function openPaymentModal() {
   if (!requireSavedPurchase()) return;
   document.getElementById('paymentPurchaseId').value = document.getElementById('purchaseId').value;
   document.getElementById('paymentHall').value = document.getElementById('purchaseHall').value;
-  document.getElementById('paymentClaimant').value = currentUser.name;
+  document.getElementById('paymentClaimant').value = getCurrentUserNameWithPosition();
   document.getElementById('paymentRequestDate').value = todayString();
   document.getElementById('paymentTotal').value = '0';
   document.getElementById('paymentOffsetAmount').value = '';

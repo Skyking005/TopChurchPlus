@@ -157,9 +157,10 @@ function updateUserInfo(user) {
   const info = document.getElementById('userInfo');
   if (!info) return;
 
+  const displayName = [user.name, user.position].filter(Boolean).join(' ');
   const roles = getUserRoles(user).join('、') || '未設定身分';
   const deviceLabel = user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式';
-  info.textContent = `${user.name}｜${roles}｜${deviceLabel}`;
+  info.textContent = `${displayName}｜${roles}｜${deviceLabel}`;
 }
 
 function resetAppToLogin() {
@@ -219,7 +220,9 @@ function renderFeatureMenu() {
   if (!grid || !currentUser) return;
 
   const allowedKeys = getAllowedFeatureKeys(currentUser);
-  const features = SYSTEM_FEATURES.filter(feature => allowedKeys.includes(feature.key));
+  const features = SYSTEM_FEATURES
+    .filter(feature => allowedKeys.includes(feature.key))
+    .map(feature => ({ ...feature, mode: getFeatureAccessLabel(getFeatureAccess(feature.key)) }));
   grid.innerHTML = '';
 
   if (!features.length) {
@@ -250,11 +253,42 @@ function getUserRoles(user) {
 }
 
 function getAllowedFeatureKeys(user) {
-  const keys = getUserRoles(user).flatMap(role => ROLE_FEATURE_ACCESS[role] || []);
-  return [...new Set(keys)];
+  const permissions = getEffectiveFeatureAccess();
+  const keys = Object.keys(permissions).filter(key => permissions[key] === 'read' || permissions[key] === 'edit');
+  if (keys.length) return keys;
+  return [...new Set(getUserRoles(user).flatMap(role => ROLE_FEATURE_ACCESS[role] || []))];
+}
+
+function getFeatureAccess(featureKey) {
+  return getEffectiveFeatureAccess()[featureKey] || 'none';
+}
+
+function getEffectiveFeatureAccess() {
+  const result = {};
+  const rank = { none: 0, read: 1, edit: 2 };
+  const permissions = initialData?.featurePermissions || [];
+  getUserRoles(currentUser).forEach(role => {
+    permissions
+      .filter(item => item.role === role)
+      .forEach(item => {
+        const current = result[item.featureKey] || 'none';
+        if ((rank[item.accessLevel] || 0) > (rank[current] || 0)) result[item.featureKey] = item.accessLevel;
+      });
+  });
+  if (currentUser?.featurePermissions) {
+    Object.assign(result, currentUser.featurePermissions);
+  }
+  return result;
+}
+
+function getFeatureAccessLabel(access) {
+  if (access === 'edit') return '操作';
+  if (access === 'read') return '唯讀';
+  return '';
 }
 
 function openProjectSystem() {
+  const canEditFeature = getFeatureAccess('project') === 'edit';
   document.getElementById('mainTitle').textContent = '專案管理系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
@@ -262,10 +296,12 @@ function openProjectSystem() {
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
   document.getElementById('overviewView').classList.remove('d-none');
+  document.getElementById('addProjectBtn').classList.toggle('d-none', !canEditFeature || currentUser.deviceType === 'mobile');
   loadInitialData();
 }
 
 function openPurchaseSystem() {
+  const canEditFeature = getFeatureAccess('finance') === 'edit';
   document.getElementById('mainTitle').textContent = '財務系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
@@ -275,6 +311,10 @@ function openPurchaseSystem() {
   document.getElementById('purchaseView').classList.remove('d-none');
   document.getElementById('purchaseListView').classList.remove('d-none');
   document.getElementById('purchaseDetailView').classList.add('d-none');
+  document.querySelectorAll('.purchase-input, #savePurchaseBtn').forEach(el => {
+    el.disabled = !canEditFeature;
+    if (el.id === 'savePurchaseBtn') el.classList.toggle('d-none', !canEditFeature);
+  });
   loadPurchaseSystem();
 }
 

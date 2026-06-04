@@ -18,9 +18,21 @@ function setupSearchOptions() {
     getSortedAccounts().forEach(account => {
       const opt = document.createElement('option');
       opt.value = account.name;
-      opt.textContent = [account.name, account.position].filter(Boolean).join(' ');
+      opt.textContent = formatAccountName(account);
       select.appendChild(opt);
     });
+  }
+
+  function formatAccountName(account) {
+    if (!account) return '';
+    return [account.name, account.position].filter(Boolean).join(' ');
+  }
+
+  function formatNameWithPosition(name) {
+    const text = String(name || '').trim();
+    if (!text) return '';
+    const account = (initialData.accounts || []).find(item => item.name === text);
+    return account ? formatAccountName(account) : text;
   }
 
   function getSortedAccounts() {
