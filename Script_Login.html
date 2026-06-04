@@ -90,7 +90,7 @@ function handleLogin() {
       document.getElementById('loginView').classList.add('d-none');
       document.getElementById('mainView').classList.remove('d-none');
       document.getElementById('userInfo').textContent =
-        `${user.name}｜${user.role}｜${user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式'}`;
+        `${user.name}｜${getUserRoles(user).join('、')}｜${user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式'}`;
 
       if (user.deviceType === 'mobile') {
         document.getElementById('addProjectBtn').classList.add('d-none');
@@ -147,7 +147,7 @@ function renderFeatureMenu() {
   const grid = document.getElementById('featureGrid');
   if (!grid || !currentUser) return;
 
-  const allowedKeys = ROLE_FEATURE_ACCESS[currentUser.role] || [];
+  const allowedKeys = getAllowedFeatureKeys(currentUser);
   const features = SYSTEM_FEATURES.filter(feature => allowedKeys.includes(feature.key));
   grid.innerHTML = '';
 
@@ -168,6 +168,19 @@ function renderFeatureMenu() {
     `;
     grid.appendChild(button);
   });
+}
+
+function getUserRoles(user) {
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  const values = roles.concat(user.role || [])
+    .map(role => String(role || '').trim())
+    .filter(Boolean);
+  return [...new Set(values)];
+}
+
+function getAllowedFeatureKeys(user) {
+  const keys = getUserRoles(user).flatMap(role => ROLE_FEATURE_ACCESS[role] || []);
+  return [...new Set(keys)];
 }
 
 function openProjectSystem() {

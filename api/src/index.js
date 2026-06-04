@@ -46,14 +46,16 @@ app.post('/login', async (req, res, next) => {
     const { rows } = await pool.query('SELECT * FROM accounts WHERE lower(email) = $1', [email]);
     const user = rows[0];
     if (!user) throw new Error('此電子信箱沒有系統使用權限');
+    const roles = await getAccountRoles(user.staff_id, user.role);
 
     res.json({
       email,
       name: user.name,
       position: user.position,
       role: user.role,
+      roles,
       deviceType,
-      isAdmin: user.role === '管理員'
+      isAdmin: roles.includes('管理員')
     });
   } catch (err) {
     next(err);
@@ -83,7 +85,7 @@ app.get('/projects', async (req, res, next) => {
       throw new Error('缺少登入者資訊，無法查詢專案清單');
     }
 
-    if (currentUser.role !== '管理員') {
+    if (!hasRole(currentUser, '管理員')) {
       joins.push('JOIN project_permissions pp ON pp.project_id = p.project_id');
       values.push(currentUser.name);
       where.push(`pp.name = $${values.length}`);
@@ -428,14 +430,49 @@ async function getParamValues(type) {
 }
 
 async function getAccounts() {
-  const { rows } = await pool.query('SELECT staff_id, email, name, position, role FROM accounts ORDER BY staff_id');
+  const { rows } = await pool.query(`
+    SELECT
+      a.staff_id,
+      a.email,
+      a.name,
+      a.position,
+      a.role,
+      array_remove(array_agg(DISTINCT ar.role), NULL) AS roles
+    FROM accounts a
+    LEFT JOIN account_roles ar ON ar.staff_id = a.staff_id
+    GROUP BY a.staff_id, a.email, a.name, a.position, a.role
+    ORDER BY a.staff_id
+  `);
   return rows.map(row => ({
     staffId: row.staff_id,
     email: row.email,
     name: row.name,
     position: row.position,
-    role: row.role
+    role: row.role,
+    roles: normalizeRoles(row.roles, row.role)
   }));
+}
+
+async function getAccountRoles(staffId, fallbackRole) {
+  const { rows } = await pool.query(
+    'SELECT role FROM account_roles WHERE staff_id = $1 ORDER BY role',
+    [staffId]
+  );
+  return normalizeRoles(rows.map(row => row.role), fallbackRole);
+}
+
+function normalizeRoles(roles, fallbackRole) {
+  const values = Array.isArray(roles) ? roles : [];
+  const normalized = values
+    .concat(fallbackRole || [])
+    .map(role => String(role || '').trim())
+    .filter(Boolean);
+  return [...new Set(normalized)];
+}
+
+function hasRole(user, role) {
+  const roles = normalizeRoles(user && user.roles, user && user.role);
+  return roles.includes(role);
 }
 
 async function getProjectDetail(projectId, currentUser) {
@@ -456,7 +493,7 @@ async function getProjectDetail(projectId, currentUser) {
     budget: budget.map(toBudgetRow),
     meetings,
     projectPermissions: permissions.map(toPermissionRow),
-    projectAccess: currentUser.role === '管理員' ? '完全控制' : access,
+    projectAccess: hasRole(currentUser, '管理員') ? '完全控制' : access,
     permission: await getProjectPermission(project, currentUser, access)
   };
 }
@@ -709,7 +746,7 @@ async function getProject(projectId) {
 }
 
 async function assertProjectAccess(projectId, currentUser) {
-  if (currentUser.role === '管理員') return '完全控制';
+  if (hasRole(currentUser, '管理員')) return '完全控制';
   const { rows } = await pool.query(
     'SELECT permission FROM project_permissions WHERE project_id = $1 AND name = $2',
     [projectId, currentUser.name]
@@ -720,7 +757,7 @@ async function assertProjectAccess(projectId, currentUser) {
 
 async function assertFullControl(projectId, currentUser) {
   assertDesktop(currentUser);
-  if (currentUser.role === '管理員') return true;
+  if (hasRole(currentUser, '管理員')) return true;
   const access = await assertProjectAccess(projectId, currentUser);
   if (access !== '完全控制') throw new Error('您沒有此專案的完全控制權限');
   return true;
@@ -734,11 +771,11 @@ function assertDesktop(currentUser) {
 
 function assertAdmin(currentUser) {
   assertDesktop(currentUser);
-  if (!currentUser.isAdmin && currentUser.role !== '管理員') throw new Error('只有管理員可以操作參數管理');
+  if (!currentUser.isAdmin && !hasRole(currentUser, '管理員')) throw new Error('只有管理員可以操作參數管理');
 }
 
 async function getProjectPermission(project, user, projectAccess) {
-  const access = user.role === '管理員' ? '完全控制' : projectAccess;
+  const access = hasRole(user, '管理員') ? '完全控制' : projectAccess;
   if (user.deviceType === 'mobile') {
     return { canEdit: false, canChangeStatus: false, canViewFinance: access !== '不含收支瀏覽', access, statusOptions: [project.status], readonlyReason: '手機版僅提供瀏覽模式' };
   }

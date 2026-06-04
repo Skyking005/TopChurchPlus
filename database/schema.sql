@@ -10,6 +10,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS account_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_id TEXT NOT NULL REFERENCES accounts(staff_id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (staff_id, role)
+);
+
 CREATE TABLE IF NOT EXISTS params (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category TEXT NOT NULL,
@@ -216,6 +224,7 @@ CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items(purc
 CREATE INDEX IF NOT EXISTS idx_purchase_advances_purchase_id ON purchase_advances(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_expense_proofs_purchase_id ON purchase_expense_proofs(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_payment_requests_purchase_id ON purchase_payment_requests(purchase_id);
+CREATE INDEX IF NOT EXISTS idx_account_roles_staff_id ON account_roles(staff_id);
 
 INSERT INTO params (category, value, sort_order) VALUES
   ('chargeOptions', '是', 1),
@@ -236,3 +245,9 @@ INSERT INTO params (category, value, sort_order) VALUES
   ('departments', '技術部', 7),
   ('departments', '媒體部', 8)
 ON CONFLICT (category, value) DO NOTHING;
+
+INSERT INTO account_roles (staff_id, role)
+SELECT staff_id, role
+FROM accounts
+WHERE role IS NOT NULL AND trim(role) <> ''
+ON CONFLICT (staff_id, role) DO NOTHING;
