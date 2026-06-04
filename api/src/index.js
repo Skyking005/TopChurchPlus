@@ -1519,7 +1519,7 @@ function toAssetDetail(row) {
 function assertAssetReadable(user) {
   if (!user || !user.name) throw new Error('缺少登入者資訊');
   if (
-    hasAnyRole(user, ['超級管理者', '管理員', '全職同工', '技術同工']) ||
+    hasAnyRole(user, ['超級管理者', '管理員', '技術同工']) ||
     user.isAdmin ||
     user.isSuperAdmin
   ) return;
