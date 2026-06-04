@@ -26,8 +26,33 @@
     padding: 16px 20px;
     border-radius: 16px;
     display: flex;
+    gap: 16px;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .topbar-left,
+  .topbar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .topbar-title {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .topbar-user {
+    justify-content: flex-end;
+    text-align: right;
+    flex-wrap: wrap;
+  }
+
+  #userInfo {
+    max-width: 520px;
+    overflow-wrap: anywhere;
   }
 
   .card {
@@ -216,6 +241,17 @@
     .topbar {
       align-items: flex-start;
       gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .topbar-title {
+      order: 3;
+      flex-basis: 100%;
+    }
+
+    .topbar-user {
+      margin-left: auto;
+      max-width: calc(100% - 80px);
     }
 
     .summary-box {

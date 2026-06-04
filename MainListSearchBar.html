@@ -1,11 +1,13 @@
     <section id="mainView" class="d-none">
       <nav class="topbar">
-        <div>
-          <h4 id="mainTitle" class="mb-0">系統功能選擇</h4>
-          <small id="userInfo" class="text-muted"></small>
+        <div class="topbar-left">
+          <button id="featureMenuBtn" class="btn btn-outline-secondary btn-sm" onclick="backToFeatureMenu()">首頁</button>
         </div>
-        <div class="d-flex gap-2">
-          <button id="featureMenuBtn" class="btn btn-outline-secondary btn-sm" onclick="backToFeatureMenu()">功能選擇</button>
+        <div class="topbar-title">
+          <h4 id="mainTitle" class="mb-0">系統功能選擇</h4>
+        </div>
+        <div class="topbar-user">
+          <small id="userInfo" class="text-muted"></small>
           <button class="btn btn-outline-secondary btn-sm" onclick="logout()">登出</button>
         </div>
       </nav>

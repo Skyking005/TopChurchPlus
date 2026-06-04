@@ -59,18 +59,36 @@ const SYSTEM_FEATURES = [
     title: '媒體管理系統',
     desc: '媒體排程、素材、製作與發布管理',
     action: 'openComingSoonSystem'
+  },
+  {
+    key: 'worship',
+    title: '敬拜管理系統',
+    desc: '敬拜團隊、服事排程、歌單與預備事項管理',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'attendance',
+    title: '聚會統計系統',
+    desc: '聚會人數、出席紀錄與統計分析',
+    action: 'openComingSoonSystem'
+  },
+  {
+    key: 'serving',
+    title: '服事管理系統',
+    desc: '服事人員、排班、崗位與出勤紀錄管理',
+    action: 'openComingSoonSystem'
   }
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media'],
-  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
-  '媒體同工': ['media'],
-  '義工': ['counter']
+  '媒體同工': ['media', 'worship'],
+  '義工': ['counter', 'serving']
 };
 
 function handleLogin() {
@@ -96,12 +114,11 @@ function handleLogin() {
       loadInitialDataAfterLogin(() => {
         document.getElementById('loginView').classList.add('d-none');
         document.getElementById('mainView').classList.remove('d-none');
-      document.getElementById('userInfo').textContent =
-        `${user.name}｜${getUserRoles(user).join('、')}｜${user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式'}`;
+        updateUserInfo(user);
 
-      if (user.deviceType === 'mobile') {
-        document.getElementById('addProjectBtn').classList.add('d-none');
-      }
+        if (user.deviceType === 'mobile') {
+          document.getElementById('addProjectBtn').classList.add('d-none');
+        }
 
         backToFeatureMenu();
       });
@@ -133,7 +150,38 @@ function loadInitialDataAfterLogin(callback) {
 
 function logout() {
   currentUser = null;
-  location.reload();
+  resetAppToLogin();
+}
+
+function updateUserInfo(user) {
+  const info = document.getElementById('userInfo');
+  if (!info) return;
+
+  const roles = getUserRoles(user).join('、') || '未設定身分';
+  const deviceLabel = user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式';
+  info.textContent = `${user.name}｜${roles}｜${deviceLabel}`;
+}
+
+function resetAppToLogin() {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+
+  const loginView = document.getElementById('loginView');
+  if (loginView) loginView.classList.remove('d-none');
+
+  const userInfo = document.getElementById('userInfo');
+  if (userInfo) userInfo.textContent = '';
+
+  const mainTitle = document.getElementById('mainTitle');
+  if (mainTitle) mainTitle.textContent = '系統功能選擇';
+
+  const loginError = document.getElementById('loginError');
+  if (loginError) loginError.textContent = '';
+
+  const addProjectBtn = document.getElementById('addProjectBtn');
+  if (addProjectBtn) addProjectBtn.classList.remove('d-none');
 }
 
 function loadInitialData() {
