@@ -46,7 +46,7 @@ const SYSTEM_FEATURES = [
     key: 'pastoral',
     title: '牧養管理系統',
     desc: '牧養關懷、名單與跟進紀錄',
-    action: 'openComingSoonSystem'
+    action: 'openPastoralSystem'
   },
   {
     key: 'education',
@@ -164,7 +164,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'pastoralView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -210,6 +210,7 @@ function backToFeatureMenu() {
   document.getElementById('featureSelectionView').classList.remove('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -293,6 +294,7 @@ function openProjectSystem() {
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
   document.getElementById('overviewView').classList.remove('d-none');
@@ -306,6 +308,7 @@ function openPurchaseSystem() {
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
   document.getElementById('purchaseView').classList.remove('d-none');

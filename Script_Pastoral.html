@@ -1,0 +1,264 @@
+<script>
+let pastoralOptions = null;
+let pastoralMembers = [];
+let pastoralCurrentPage = 1;
+let pastoralTotalCount = 0;
+let pastoralCurrentTab = 'members';
+
+function openPastoralSystem() {
+  document.getElementById('mainTitle').textContent = '牧養管理系統';
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'detailView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('pastoralView').classList.remove('d-none');
+  switchPastoralTab('members');
+  loadPastoralSystem();
+}
+
+function loadPastoralSystem() {
+  google.script.run
+    .withSuccessHandler(options => {
+      pastoralOptions = options || { churches: [], categories: [], groups: [] };
+      setupPastoralOptions();
+      loadPastoralMembers();
+      renderPastoralGroups();
+    })
+    .withFailureHandler(showError)
+    .getPastoralOptions(currentUser);
+}
+
+function setupPastoralOptions() {
+  fillObjectSelect('pastoralChurchFilter', pastoralOptions.churches || [], 'id', 'name', true);
+  fillObjectSelect('pastoralCategoryFilter', pastoralOptions.categories || [], 'code', 'name', true);
+  fillObjectSelect('pastoralGroupFilter', pastoralOptions.groups || [], 'groupId', 'path', true);
+}
+
+function fillObjectSelect(id, items, valueKey, labelKey, includeAll) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部</option>' : '';
+  items.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item[valueKey];
+    opt.textContent = item[labelKey] || item.name || item[valueKey];
+    select.appendChild(opt);
+  });
+}
+
+function switchPastoralTab(tab) {
+  pastoralCurrentTab = tab;
+  document.getElementById('pastoralMembersPanel').classList.toggle('d-none', tab !== 'members');
+  document.getElementById('pastoralGroupsPanel').classList.toggle('d-none', tab !== 'groups');
+  document.getElementById('pastoralMembersTabBtn').classList.toggle('active', tab === 'members');
+  document.getElementById('pastoralGroupsTabBtn').classList.toggle('active', tab === 'groups');
+}
+
+function loadPastoralMembers() {
+  const filters = {
+    keyword: document.getElementById('pastoralKeyword').value,
+    churchId: document.getElementById('pastoralChurchFilter').value,
+    category: document.getElementById('pastoralCategoryFilter').value,
+    groupId: document.getElementById('pastoralGroupFilter').value,
+    page: pastoralCurrentPage,
+    pageSize
+  };
+
+  google.script.run
+    .withSuccessHandler(result => {
+      pastoralMembers = result.rows || [];
+      pastoralTotalCount = result.total || 0;
+      renderPastoralMembers();
+    })
+    .withFailureHandler(showError)
+    .getPastoralMembers(filters, currentUser);
+}
+
+function renderPastoralMembers() {
+  renderPastoralMemberTable();
+  renderPastoralMemberCards();
+  renderPastoralPager();
+}
+
+function renderPastoralMemberTable() {
+  const body = document.getElementById('pastoralMemberTableBody');
+  body.innerHTML = '';
+  pastoralMembers.forEach(member => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></td>
+      <td>${escapeHtml(member.churchName)}</td>
+      <td>${escapeHtml(member.categoryName)}</td>
+      <td>${escapeHtml(member.titleName)}</td>
+      <td>${escapeHtml(member.groupPath)}</td>
+      <td><span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></td>
+      <td>${escapeHtml(member.mobilePhone)}</td>
+      <td>${member.lineBound ? '<span class="badge text-bg-success">已綁定</span>' : '<span class="badge text-bg-secondary">未綁定</span>'}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderPastoralMemberCards() {
+  const container = document.getElementById('mobilePastoralMemberList');
+  container.innerHTML = '';
+  pastoralMembers.forEach(member => {
+    const card = document.createElement('div');
+    card.className = 'project-card-mobile';
+    card.innerHTML = `
+      <h6><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></h6>
+      <div class="project-meta">${escapeHtml(member.churchName)} / ${escapeHtml(member.categoryName)} / ${escapeHtml(member.titleName)}</div>
+      <div class="project-meta">${escapeHtml(member.groupPath)}</div>
+      <div class="project-meta">${escapeHtml(member.mobilePhone)} <span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderPastoralPager() {
+  const totalPages = Math.max(1, Math.ceil(pastoralTotalCount / pageSize));
+  document.getElementById('pastoralPager').textContent = `${pastoralCurrentPage} / ${totalPages}`;
+  document.getElementById('pastoralPageInfo').textContent = `共 ${pastoralTotalCount} 筆`;
+}
+
+function prevPastoralPage() {
+  if (pastoralCurrentPage <= 1) return;
+  pastoralCurrentPage -= 1;
+  loadPastoralMembers();
+}
+
+function nextPastoralPage() {
+  const totalPages = Math.max(1, Math.ceil(pastoralTotalCount / pageSize));
+  if (pastoralCurrentPage >= totalPages) return;
+  pastoralCurrentPage += 1;
+  loadPastoralMembers();
+}
+
+function resetPastoralPageAndLoad() {
+  pastoralCurrentPage = 1;
+  loadPastoralMembers();
+}
+
+function handlePastoralSearchKey(event) {
+  if (event.key === 'Enter') resetPastoralPageAndLoad();
+}
+
+function renderPastoralGroups() {
+  if (!pastoralOptions) return;
+  const body = document.getElementById('pastoralGroupTableBody');
+  body.innerHTML = '';
+  (pastoralOptions.groups || []).forEach(group => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="padding-left:${Math.min(Number(group.levelNo || 0) * 16, 72)}px">${escapeHtml(group.path || group.name)}</td>
+      <td>${escapeHtml(group.groupType)}</td>
+      <td>${escapeHtml(group.churchName)}</td>
+      <td>${escapeHtml(group.memberCount)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function openPastoralMember(memberId) {
+  google.script.run
+    .withSuccessHandler(renderPastoralMemberDetail)
+    .withFailureHandler(showError)
+    .getPastoralMemberDetail(memberId, currentUser);
+}
+
+function renderPastoralMemberDetail(data) {
+  const member = data.member || {};
+  document.getElementById('pastoralDetailPanel').classList.remove('d-none');
+  document.getElementById('pastoralDetailTitle').textContent = `${member.name || ''} 會友資料`;
+
+  renderDefinitionList('pastoralBasicInfo', [
+    ['會堂', member.churchName],
+    ['分類', member.categoryName],
+    ['職分', member.titleName],
+    ['性別', member.gender],
+    ['生日', member.birthday],
+    ['職業', [member.professionName, member.professionNote].filter(Boolean).join(' / ')],
+    ['婚姻', [member.maritalStatusName, member.maritalNote].filter(Boolean).join(' / ')],
+    ['牧區', member.groupPath],
+    ['來源', member.sourceText]
+  ]);
+
+  renderDefinitionList('pastoralContactInfo', [
+    ['手機', member.mobilePhone],
+    ['住家', member.homePhone],
+    ['公司', member.officePhone],
+    ['Email', member.email],
+    ['地址', member.address],
+    ['聯絡時間', member.preferredContactTime],
+    ['介紹人', [member.referrerName, member.referrerPhone].filter(Boolean).join(' / ')],
+    ['Line綁定', member.lineBound ? '已綁定' : '未綁定']
+  ]);
+
+  renderDefinitionList('pastoralFaithInfo', [
+    ['基督徒', member.isChristian],
+    ['原教會', member.previousChurchText],
+    ['願意加入教會', member.willingJoinChurch],
+    ['願意聯絡', member.willingContact],
+    ['接受基督', member.acceptedChrist],
+    ['願意小家', member.willingContinueGroup],
+    ['願意受洗', member.willingBaptism],
+    ['受洗日期', member.baptizedDate],
+    ['配偶', member.spouseText],
+    ['父親', member.fatherText],
+    ['母親', member.motherText],
+    ['子女', member.childrenText]
+  ]);
+
+  renderPastoralCareRecords(data.careRecords || []);
+  document.getElementById('pastoralDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderDefinitionList(id, rows) {
+  const dl = document.getElementById(id);
+  dl.innerHTML = '';
+  rows.forEach(([label, value]) => {
+    const dt = document.createElement('dt');
+    dt.textContent = label;
+    const dd = document.createElement('dd');
+    dd.textContent = value || '-';
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  });
+}
+
+function renderPastoralCareRecords(records) {
+  const container = document.getElementById('pastoralCareRecords');
+  container.innerHTML = '';
+  if (!records.length) {
+    container.innerHTML = '<div class="text-muted">尚無關懷紀錄</div>';
+    return;
+  }
+  records.forEach(record => {
+    const item = document.createElement('div');
+    item.className = 'pastoral-care-item';
+    item.innerHTML = `
+      <div class="pastoral-care-meta">${escapeHtml(formatPastoralDateTime(record.careAt))} ${escapeHtml(record.staffName || '')}</div>
+      <div>${escapeHtml(record.content)}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function closePastoralDetail() {
+  document.getElementById('pastoralDetailPanel').classList.add('d-none');
+}
+
+function getPastoralLightClass(status) {
+  if (status === '綠燈') return 'is-green';
+  if (status === '黃燈') return 'is-yellow';
+  if (status === '紅燈') return 'is-red';
+  return 'is-gray';
+}
+
+function formatPastoralDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('zh-TW', { hour12: false });
+}
+</script>

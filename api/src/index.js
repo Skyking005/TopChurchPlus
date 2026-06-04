@@ -363,6 +363,35 @@ app.get('/assets/:assetId', async (req, res, next) => {
   }
 });
 
+app.get('/pastoral/options', async (req, res, next) => {
+  try {
+    await assertPastoralReadable(parseUser(req));
+    res.json(await getPastoralOptions());
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/pastoral/members', async (req, res, next) => {
+  try {
+    await assertPastoralReadable(parseUser(req));
+    res.json(await getPastoralMembers(req.query));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/pastoral/members/:memberId', async (req, res, next) => {
+  try {
+    await assertPastoralReadable(parseUser(req));
+    const data = await getPastoralMemberDetail(req.params.memberId);
+    if (!data.member) throw new Error('找不到會友資料');
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post('/assets', async (req, res, next) => {
   try {
     await assertAssetEditable(req.body.currentUser);
@@ -1537,6 +1566,191 @@ async function replacePurchaseRows(client, table, column, value, rows, insertFn)
   for (let i = 0; i < rows.length; i += 1) await insertFn(client, value, rows[i], i + 1);
 }
 
+async function getPastoralOptions() {
+  const [churches, categories, groups] = await Promise.all([
+    pool.query(`
+      SELECT id, name, church_type
+      FROM churches
+      ORDER BY sort_order, id
+    `),
+    pool.query(`
+      SELECT code, name
+      FROM membership_categories
+      ORDER BY sort_order, code
+    `),
+    pool.query(`
+      SELECT
+        g.id,
+        g.name,
+        g.path,
+        g.level_no,
+        gt.name AS group_type,
+        c.name AS church_name,
+        count(a.member_id)::int AS member_count
+      FROM pastoral_groups g
+      LEFT JOIN pastoral_group_types gt ON gt.id = g.group_type_id
+      LEFT JOIN churches c ON c.id = g.church_id
+      LEFT JOIN pastoral_member_group_assignments a ON a.group_id = g.id AND a.is_current
+      GROUP BY g.id, g.name, g.path, g.level_no, gt.name, c.name, g.sort_order
+      ORDER BY g.level_no, g.sort_order, g.name
+    `)
+  ]);
+
+  return {
+    churches: churches.rows.map(row => ({ id: row.id, name: row.name, churchType: row.church_type })),
+    categories: categories.rows.map(row => ({ code: row.code, name: row.name })),
+    groups: groups.rows.map(toPastoralGroupItem)
+  };
+}
+
+async function getPastoralMembers(query) {
+  const keyword = String(query.keyword || '').trim().toLowerCase();
+  const category = String(query.category || '').trim();
+  const churchId = String(query.churchId || '').trim();
+  const groupId = String(query.groupId || '').trim();
+  const page = Math.max(Number(query.page || 1), 1);
+  const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 100);
+  const offset = (page - 1) * pageSize;
+  const where = [];
+  const values = [];
+
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(pm.name) LIKE $${values.length}
+      OR lower(coalesce(pc.mobile_phone, '')) LIKE $${values.length}
+      OR lower(coalesce(pm.line_user_id, '')) LIKE $${values.length}
+      OR lower(coalesce(g.path, '')) LIKE $${values.length}
+    )`);
+  }
+  if (category) {
+    values.push(category);
+    where.push(`pm.membership_category_code = $${values.length}`);
+  }
+  if (churchId) {
+    values.push(Number(churchId));
+    where.push(`pm.church_id = $${values.length}`);
+  }
+  if (groupId) {
+    values.push(Number(groupId));
+    where.push(`EXISTS (
+      SELECT 1
+      FROM pastoral_member_group_assignments ga
+      JOIN pastoral_group_closure gc ON gc.descendant_id = ga.group_id
+      WHERE ga.member_id = pm.id
+        AND ga.is_current
+        AND gc.ancestor_id = $${values.length}
+    )`);
+  }
+
+  const fromSql = `
+    FROM pastoral_members pm
+    LEFT JOIN churches ch ON ch.id = pm.church_id
+    LEFT JOIN membership_categories mc ON mc.code = pm.membership_category_code
+    LEFT JOIN pastoral_titles pt ON pt.id = pm.title_id
+    LEFT JOIN pastoral_member_contacts pc ON pc.member_id = pm.id
+    LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
+    LEFT JOIN pastoral_groups g ON g.id = pga.group_id
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+  `;
+
+  const countResult = await pool.query(`SELECT count(DISTINCT pm.id)::int AS total ${fromSql}`, values);
+  const pageValues = values.slice();
+  pageValues.push(pageSize);
+  const limitIndex = pageValues.length;
+  pageValues.push(offset);
+  const offsetIndex = pageValues.length;
+
+  const { rows } = await pool.query(
+    `SELECT DISTINCT
+       pm.id,
+       pm.name,
+       pm.gender,
+       pm.light_status,
+       pm.line_user_id,
+       ch.name AS church_name,
+       mc.name AS category_name,
+       pt.name AS title_name,
+       pc.mobile_phone,
+       g.path AS group_path
+     ${fromSql}
+     ORDER BY pm.id DESC
+     LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+    pageValues
+  );
+
+  return { rows: rows.map(toPastoralMemberListItem), total: countResult.rows[0].total, page, pageSize };
+}
+
+async function getPastoralMemberDetail(memberId) {
+  const { rows } = await pool.query(
+    `SELECT
+       pm.*,
+       ch.name AS church_name,
+       ch.church_type,
+       mc.name AS category_name,
+       pt.name AS title_name,
+       pr.name AS profession_name,
+       ms.name AS marital_status_name,
+       pc.email,
+       pc.home_phone,
+       pc.office_phone,
+       pc.mobile_phone,
+       pc.preferred_contact_time,
+       pc.referrer_name,
+       pc.referrer_phone,
+       addr.address_line,
+       addr.city,
+       addr.district,
+       faith.is_christian,
+       faith.previous_church_text,
+       faith.willing_join_church,
+       faith.willing_contact,
+       faith.accepted_christ,
+       faith.willing_continue_group,
+       faith.willing_baptism,
+       faith.prayer_request,
+       faith.feedback,
+       fam.spouse_text,
+       fam.father_text,
+       fam.mother_text,
+       fam.children_text,
+       g.path AS group_path
+     FROM pastoral_members pm
+     LEFT JOIN churches ch ON ch.id = pm.church_id
+     LEFT JOIN membership_categories mc ON mc.code = pm.membership_category_code
+     LEFT JOIN pastoral_titles pt ON pt.id = pm.title_id
+     LEFT JOIN professions pr ON pr.id = pm.profession_id
+     LEFT JOIN marital_statuses ms ON ms.id = pm.marital_status_id
+     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = pm.id
+     LEFT JOIN pastoral_member_addresses addr ON addr.member_id = pm.id AND addr.is_primary
+     LEFT JOIN pastoral_member_faith faith ON faith.member_id = pm.id
+     LEFT JOIN pastoral_member_family_notes fam ON fam.member_id = pm.id
+     LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
+     LEFT JOIN pastoral_groups g ON g.id = pga.group_id
+     WHERE pm.id = $1`,
+    [memberId]
+  );
+
+  const member = rows[0];
+  if (!member) return { member: null, careRecords: [] };
+
+  const careRecords = await pool.query(
+    `SELECT cr.id, cr.staff_id, cr.care_at, cr.content, a.name AS staff_name, a.position AS staff_position
+     FROM pastoral_care_records cr
+     LEFT JOIN accounts a ON a.staff_id = cr.staff_id::text
+     WHERE cr.member_id = $1
+     ORDER BY cr.care_at DESC NULLS LAST, cr.id DESC
+     LIMIT 20`,
+    [memberId]
+  );
+
+  return {
+    member: toPastoralMemberDetail(member),
+    careRecords: careRecords.rows.map(toPastoralCareRecord)
+  };
+}
+
 function insertPurchaseItem(client, purchaseId, row, sortOrder) {
   return client.query(
     'INSERT INTO purchase_items (purchase_id, item, quantity, unit_price, subtotal, note, sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7)',
@@ -1666,6 +1880,87 @@ function toLocationItem(row) {
   };
 }
 
+function toPastoralGroupItem(row) {
+  return {
+    groupId: row.id,
+    name: row.name,
+    path: row.path,
+    levelNo: row.level_no,
+    groupType: row.group_type,
+    churchName: row.church_name,
+    memberCount: row.member_count || 0
+  };
+}
+
+function toPastoralMemberListItem(row) {
+  return {
+    memberId: row.id,
+    name: row.name,
+    gender: formatGender(row.gender),
+    churchName: row.church_name || '',
+    categoryName: row.category_name || '',
+    titleName: row.title_name || '',
+    mobilePhone: row.mobile_phone || '',
+    groupPath: row.group_path || '',
+    lightStatus: formatLightStatus(row.light_status),
+    lineBound: Boolean(row.line_user_id)
+  };
+}
+
+function toPastoralMemberDetail(row) {
+  return {
+    memberId: row.id,
+    name: row.name,
+    gender: formatGender(row.gender),
+    birthday: formatDate(row.birthday),
+    churchName: row.church_name || '',
+    churchType: row.church_type || '',
+    categoryName: row.category_name || '',
+    titleName: row.title_name || '',
+    professionName: row.profession_name || '',
+    professionNote: row.profession_note || '',
+    maritalStatusName: row.marital_status_name || '',
+    maritalNote: row.marital_note || '',
+    sourceText: row.source_text || '',
+    groupPath: row.group_path || '',
+    mobilePhone: row.mobile_phone || '',
+    homePhone: row.home_phone || '',
+    officePhone: row.office_phone || '',
+    email: row.email || '',
+    preferredContactTime: row.preferred_contact_time || '',
+    address: [row.city, row.district, row.address_line].filter(Boolean).join(' '),
+    referrerName: row.referrer_name || '',
+    referrerPhone: row.referrer_phone || '',
+    lineDisplayId: row.line_display_id || '',
+    lineBound: Boolean(row.line_user_id),
+    lightStatus: formatLightStatus(row.light_status),
+    isChristian: formatBoolean(row.is_christian),
+    previousChurchText: row.previous_church_text || '',
+    willingJoinChurch: formatBoolean(row.willing_join_church),
+    willingContact: formatBoolean(row.willing_contact),
+    acceptedChrist: formatBoolean(row.accepted_christ),
+    willingContinueGroup: formatBoolean(row.willing_continue_group),
+    willingBaptism: formatBoolean(row.willing_baptism),
+    baptizedDate: formatDate(row.baptized_date),
+    prayerRequest: row.prayer_request || '',
+    feedback: row.feedback || '',
+    spouseText: row.spouse_text || '',
+    fatherText: row.father_text || '',
+    motherText: row.mother_text || '',
+    childrenText: row.children_text || '',
+    note: row.note || ''
+  };
+}
+
+function toPastoralCareRecord(row) {
+  return {
+    recordId: row.id,
+    careAt: formatDateTime(row.care_at),
+    staffName: [row.staff_name, row.staff_position].filter(Boolean).join(' '),
+    content: row.content || ''
+  };
+}
+
 function toAssetListItem(row) {
   return {
     assetId: row.asset_id,
@@ -1699,6 +1994,32 @@ function assertAssetReadable(user) {
 
 function assertAssetEditable(user) {
   return assertFeatureEditable(user, 'asset');
+}
+
+function assertPastoralReadable(user) {
+  return assertFeatureReadable(user, 'pastoral');
+}
+
+function formatGender(value) {
+  if (value === 1) return '男';
+  if (value === 0) return '女';
+  return '';
+}
+
+function formatBoolean(value) {
+  if (value === true) return '是';
+  if (value === false) return '否';
+  return '';
+}
+
+function formatLightStatus(value) {
+  const map = {
+    0: '灰燈',
+    1: '綠燈',
+    2: '黃燈',
+    3: '紅燈'
+  };
+  return map[value] || '';
 }
 
 async function assertPurchaseEditable(purchaseId) {

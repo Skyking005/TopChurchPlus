@@ -30,6 +30,26 @@ function getInitialData() {
   return apiRequest('get', '/initial-data');
 }
 
+function getPastoralOptions(currentUser) {
+  return apiRequest('get', '/pastoral/options', null, null, currentUser);
+}
+
+function getPastoralMembers(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/pastoral/members', null, {
+    keyword: filters.keyword || '',
+    category: filters.category || '',
+    churchId: filters.churchId || '',
+    groupId: filters.groupId || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 10
+  }, currentUser);
+}
+
+function getPastoralMemberDetail(memberId, currentUser) {
+  return apiRequest('get', `/pastoral/members/${encodeURIComponent(memberId)}`, null, null, currentUser);
+}
+
 function getProjects(filters, currentUser) {
   filters = filters || {};
   currentUser = currentUser || filters.currentUser;

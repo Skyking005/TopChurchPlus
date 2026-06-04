@@ -4,6 +4,7 @@ project-management-export.json
 node_modules/
 .env
 .env.*
+database/pastoral_import/
 api/node_modules/
 固定資產原始資料/
 文書範本/
