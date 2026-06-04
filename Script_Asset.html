@@ -1,6 +1,7 @@
 <script>
 let allAssets = [];
 let currentAssetPage = 1;
+let totalAssetCount = 0;
 let currentAssetLocations = [];
 
 function openAssetSystem() {
@@ -9,6 +10,7 @@ function openAssetSystem() {
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('systemView').classList.add('d-none');
   document.getElementById('assetView').classList.remove('d-none');
   document.getElementById('assetListView').classList.remove('d-none');
   document.getElementById('assetDetailView').classList.add('d-none');
@@ -74,13 +76,22 @@ function loadAssets() {
     keyword: document.getElementById('assetSearchKeyword').value,
     assetType: document.getElementById('assetSearchType').value,
     hall: document.getElementById('assetSearchHall').value,
-    status: document.getElementById('assetSearchStatus').value
+    status: document.getElementById('assetSearchStatus').value,
+    page: currentAssetPage,
+    pageSize,
+    sortBy: document.getElementById('assetSortBy')?.value || 'assetId',
+    sortDirection: document.getElementById('assetSortDirection')?.value || 'asc'
   };
 
   google.script.run
-    .withSuccessHandler(rows => {
-      allAssets = rows || [];
-      currentAssetPage = 1;
+    .withSuccessHandler(result => {
+      if (Array.isArray(result)) {
+        allAssets = result;
+        totalAssetCount = result.length;
+      } else {
+        allAssets = result.rows || [];
+        totalAssetCount = result.total || 0;
+      }
       renderAssets();
     })
     .withFailureHandler(showError)
@@ -88,7 +99,6 @@ function loadAssets() {
 }
 
 function renderAssets() {
-  sortAssets();
   renderDesktopAssets();
   renderMobileAssets();
   renderAssetPager();
@@ -110,8 +120,7 @@ function sortAssets() {
 }
 
 function getPagedAssets() {
-  const start = (currentAssetPage - 1) * pageSize;
-  return allAssets.slice(start, start + pageSize);
+  return allAssets;
 }
 
 function renderDesktopAssets() {
@@ -149,22 +158,27 @@ function renderMobileAssets() {
 }
 
 function renderAssetPager() {
-  const totalPages = Math.max(1, Math.ceil(allAssets.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalAssetCount / pageSize));
   document.getElementById('assetPager').textContent = `${currentAssetPage} / ${totalPages}`;
-  document.getElementById('assetPageInfo').textContent = `共 ${allAssets.length} 筆`;
+  document.getElementById('assetPageInfo').textContent = `? ${totalAssetCount} ?`;
 }
 
 function prevAssetPage() {
   if (currentAssetPage <= 1) return;
   currentAssetPage -= 1;
-  renderAssets();
+  loadAssets();
 }
 
 function nextAssetPage() {
-  const totalPages = Math.max(1, Math.ceil(allAssets.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalAssetCount / pageSize));
   if (currentAssetPage >= totalPages) return;
   currentAssetPage += 1;
-  renderAssets();
+  loadAssets();
+}
+
+function resetAssetPageAndLoad() {
+  currentAssetPage = 1;
+  loadAssets();
 }
 
 function openAsset(assetId) {

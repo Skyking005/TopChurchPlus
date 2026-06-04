@@ -166,7 +166,11 @@ function getAssets(filters, currentUser) {
     keyword: filters.keyword || '',
     assetType: filters.assetType || '',
     hall: filters.hall || '',
-    status: filters.status || ''
+    status: filters.status || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 10,
+    sortBy: filters.sortBy || 'assetId',
+    sortDirection: filters.sortDirection || 'asc'
   }, currentUser);
 }
 

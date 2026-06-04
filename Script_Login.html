@@ -93,8 +93,9 @@ function handleLogin() {
       setButtonLoading(btn, false);
       currentUser = user;
 
-      document.getElementById('loginView').classList.add('d-none');
-      document.getElementById('mainView').classList.remove('d-none');
+      loadInitialDataAfterLogin(() => {
+        document.getElementById('loginView').classList.add('d-none');
+        document.getElementById('mainView').classList.remove('d-none');
       document.getElementById('userInfo').textContent =
         `${user.name}｜${getUserRoles(user).join('、')}｜${user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式'}`;
 
@@ -102,7 +103,8 @@ function handleLogin() {
         document.getElementById('addProjectBtn').classList.add('d-none');
       }
 
-            backToFeatureMenu();
+        backToFeatureMenu();
+      });
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
@@ -113,6 +115,20 @@ function handleLogin() {
       errorBox.textContent = err.message || err;
     })
     .login(email, deviceType);
+}
+
+
+function loadInitialDataAfterLogin(callback) {
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      if (callback) callback();
+    })
+    .withFailureHandler(err => {
+      currentUser = null;
+      document.getElementById('loginError').textContent = err.message || err;
+    })
+    .getInitialData();
 }
 
 function logout() {
@@ -147,6 +163,7 @@ function backToFeatureMenu() {
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('systemView').classList.add('d-none');
 }
 
 function renderFeatureMenu() {
@@ -195,6 +212,7 @@ function openProjectSystem() {
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('systemView').classList.add('d-none');
   document.getElementById('overviewView').classList.remove('d-none');
   loadInitialData();
 }
@@ -205,16 +223,13 @@ function openPurchaseSystem() {
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('systemView').classList.add('d-none');
   document.getElementById('purchaseView').classList.remove('d-none');
   document.getElementById('purchaseListView').classList.remove('d-none');
   document.getElementById('purchaseDetailView').classList.add('d-none');
   loadPurchaseSystem();
 }
 
-
-function openSystemManagement() {
-  openParameterModal();
-}
 
 function openComingSoonSystem(feature) {
   alert(`${feature.title}入口已建立，功能將於後續階段開放。`);

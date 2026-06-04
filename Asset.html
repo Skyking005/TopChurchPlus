@@ -21,7 +21,7 @@
           </div>
           <div class="col-md-2">
             <label class="form-label">排序</label>
-            <select id="assetSortBy" class="form-select" onchange="renderAssets()">
+            <select id="assetSortBy" class="form-select" onchange="resetAssetPageAndLoad()">
               <option value="assetId">資產編號</option>
               <option value="assetName">設備名稱</option>
               <option value="assetType">設備類型</option>
@@ -31,13 +31,13 @@
           </div>
           <div class="col-md-1">
             <label class="form-label">方向</label>
-            <select id="assetSortDirection" class="form-select" onchange="renderAssets()">
+            <select id="assetSortDirection" class="form-select" onchange="resetAssetPageAndLoad()">
               <option value="asc">升冪</option>
               <option value="desc">降冪</option>
             </select>
           </div>
           <div class="col-md-1 d-grid">
-            <button class="btn btn-primary" onclick="loadAssets()">搜尋</button>
+            <button class="btn btn-primary" onclick="resetAssetPageAndLoad()">搜尋</button>
           </div>
           <div class="col-md-1 d-grid">
             <button id="addAssetBtn" class="btn btn-success" onclick="openNewAsset()">新增資產</button>

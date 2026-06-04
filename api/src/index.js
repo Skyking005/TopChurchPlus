@@ -13,6 +13,7 @@ app.use(express.json({ limit: '10mb' }));
 const PARAM_CATEGORIES = {
   projectTypes: 'projectTypes',
   duties: 'duties',
+  positions: 'positions',
   units: 'units',
   differenceMethods: 'differenceMethods',
   meetingStatus: 'meetingStatus',
@@ -245,6 +246,18 @@ app.get('/assets', async (req, res, next) => {
     const assetType = String(req.query.assetType || '').trim();
     const hall = String(req.query.hall || '').trim();
     const status = String(req.query.status || '').trim();
+    const page = Math.max(Number(req.query.page || 1), 1);
+    const pageSize = Math.min(Math.max(Number(req.query.pageSize || 10), 1), 100);
+    const offset = (page - 1) * pageSize;
+    const sortMap = {
+      assetId: 'a.asset_id',
+      assetName: 'a.asset_name',
+      assetType: 'a.asset_type',
+      locationLabel: 'l.hall, l.main_location, l.sub_location',
+      status: 'a.status'
+    };
+    const sortBy = sortMap[req.query.sortBy] || sortMap.assetId;
+    const sortDirection = String(req.query.sortDirection || 'asc').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
     const where = [];
     const values = [];
 
@@ -272,16 +285,33 @@ app.get('/assets', async (req, res, next) => {
       where.push(`a.status = $${values.length}`);
     }
 
-    const { rows } = await pool.query(
-      `SELECT a.*, l.hall, l.main_location, l.sub_location
+    const countResult = await pool.query(
+      `SELECT count(*)::int AS total
        FROM assets a
        LEFT JOIN asset_locations l ON l.location_id = a.location_id
-       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       ORDER BY a.asset_id`,
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}`,
       values
     );
 
-    res.json(rows.map(toAssetListItem));
+    values.push(pageSize);
+    const limitIndex = values.length;
+    values.push(offset);
+    const offsetIndex = values.length;
+
+    const { rows } = await pool.query(
+      `SELECT
+         a.asset_id, a.asset_type, a.asset_name, a.brand, a.model, a.serial_no,
+         a.purchase_price, a.purchase_date, a.vendor, a.status, a.location_id, a.note,
+         l.hall, l.main_location, l.sub_location
+       FROM assets a
+       LEFT JOIN asset_locations l ON l.location_id = a.location_id
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY ${sortBy} ${sortDirection}, a.asset_id ASC
+       LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      values
+    );
+
+    res.json({ rows: rows.map(toAssetListItem), total: countResult.rows[0].total, page, pageSize });
   } catch (err) {
     next(err);
   }
@@ -404,25 +434,23 @@ app.post('/system/users', async (req, res, next) => {
     const email = normalizeValue(user.email).toLowerCase();
     const name = normalizeValue(user.name);
     const position = String(user.position || '').trim();
-    const role = normalizeValue(user.role || '使用者');
 
     await pool.query(
       `INSERT INTO accounts (staff_id, email, name, position, role, updated_at)
-       VALUES ($1, $2, $3, $4, $5, now())
+       VALUES ($1, $2, $3, $4, '使用者', now())
        ON CONFLICT (staff_id) DO UPDATE SET
          email = EXCLUDED.email,
          name = EXCLUDED.name,
          position = EXCLUDED.position,
-         role = EXCLUDED.role,
          updated_at = now()`,
-      [staffId, email, name, position, role]
+      [staffId, email, name, position]
     );
 
     await pool.query(
       `INSERT INTO account_roles (staff_id, role)
        VALUES ($1, $2)
        ON CONFLICT (staff_id, role) DO NOTHING`,
-      [staffId, role]
+      [staffId, '使用者']
     );
 
     res.json({ success: true, message: '使用者已儲存' });
@@ -670,7 +698,9 @@ async function getAccounts() {
     FROM accounts a
     LEFT JOIN account_roles ar ON ar.staff_id = a.staff_id
     GROUP BY a.staff_id, a.email, a.name, a.position, a.role
-    ORDER BY a.staff_id
+    ORDER BY
+      CASE WHEN a.staff_id ~ '^[0-9]+$' THEN a.staff_id::int END NULLS LAST,
+      a.staff_id
   `);
   return rows.map(row => ({
     staffId: row.staff_id,
