@@ -1,40 +1,102 @@
 <div class="modal fade" id="parameterModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">參數管理</h5>
+        <h5 class="modal-title">系統管理</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
 
       <div class="modal-body">
-        <div class="row g-3 align-items-end mb-3">
-          <div class="col-md-5">
-            <label class="form-label">參數類型</label>
-            <select id="parameterType" class="form-select" onchange="loadParameterItems()"></select>
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#parameterManagePane">參數管理</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">位置管理</button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <div id="parameterManagePane" class="tab-pane fade show active">
+            <div class="row g-3 align-items-end mb-3">
+              <div class="col-md-5">
+                <label class="form-label">參數類型</label>
+                <select id="parameterType" class="form-select" onchange="loadParameterItems()"></select>
+              </div>
+
+              <div class="col-md-5">
+                <label class="form-label">新增參數</label>
+                <input id="newParameterValue" class="form-control">
+              </div>
+
+              <div class="col-md-2 d-grid">
+                <button id="addParameterBtn" type="button" class="btn btn-primary" onclick="addParameterItem()">新增</button>
+              </div>
+            </div>
+
+            <div id="parameterModalError" class="text-danger small mb-2"></div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>參數內容</th>
+                    <th class="text-end">功能</th>
+                  </tr>
+                </thead>
+                <tbody id="parameterTableBody"></tbody>
+              </table>
+            </div>
           </div>
 
-          <div class="col-md-5">
-            <label class="form-label">新增參數</label>
-            <input id="newParameterValue" class="form-control">
+          <div id="locationManagePane" class="tab-pane fade">
+            <div class="row g-3 align-items-end mb-3">
+              <div class="col-md-2">
+                <label class="form-label">會堂</label>
+                <input id="locationHall" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">主位置</label>
+                <input id="locationMain" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">子位置</label>
+                <input id="locationSub" class="form-control">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">排序</label>
+                <input id="locationSortOrder" type="number" class="form-control" value="0">
+              </div>
+              <div class="col-md-2">
+                <div class="form-check mt-4">
+                  <input id="locationIsBookable" class="form-check-input" type="checkbox">
+                  <label class="form-check-label" for="locationIsBookable">可借用</label>
+                </div>
+              </div>
+              <input id="editingLocationId" type="hidden">
+              <div class="col-md-12 d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-outline-secondary" onclick="resetLocationForm()">清空</button>
+                <button id="saveLocationBtn" type="button" class="btn btn-primary" onclick="saveLocationItem()">儲存位置</button>
+              </div>
+            </div>
+
+            <div id="locationModalError" class="text-danger small mb-2"></div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>會堂</th>
+                    <th>主位置</th>
+                    <th>子位置</th>
+                    <th>可借用</th>
+                    <th class="text-end">功能</th>
+                  </tr>
+                </thead>
+                <tbody id="locationTableBody"></tbody>
+              </table>
+            </div>
           </div>
-
-          <div class="col-md-2 d-grid">
-            <button id="addParameterBtn" type="button" class="btn btn-primary" onclick="addParameterItem()">新增</button>
-          </div>
-        </div>
-
-        <div id="parameterModalError" class="text-danger small mb-2"></div>
-
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead>
-              <tr>
-                <th>參數內容</th>
-                <th class="text-end">操作</th>
-              </tr>
-            </thead>
-            <tbody id="parameterTableBody"></tbody>
-          </table>
         </div>
       </div>
 

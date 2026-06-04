@@ -1,0 +1,268 @@
+<script>
+let allAssets = [];
+let currentAssetPage = 1;
+let currentAssetLocations = [];
+
+function openAssetSystem() {
+  document.getElementById('mainTitle').textContent = '資產管理系統';
+  document.getElementById('featureSelectionView').classList.add('d-none');
+  document.getElementById('overviewView').classList.add('d-none');
+  document.getElementById('purchaseView').classList.add('d-none');
+  document.getElementById('detailView').classList.add('d-none');
+  document.getElementById('assetView').classList.remove('d-none');
+  document.getElementById('assetListView').classList.remove('d-none');
+  document.getElementById('assetDetailView').classList.add('d-none');
+  loadAssetSystem();
+}
+
+function loadAssetSystem() {
+  ensureInitialData(() => {
+    setupAssetOptions();
+    loadAssetLocations(() => loadAssets());
+  });
+}
+
+function ensureInitialData(callback) {
+  if (initialData) {
+    callback();
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(data => {
+      initialData = data;
+      callback();
+    })
+    .withFailureHandler(showError)
+    .getInitialData();
+}
+
+function setupAssetOptions() {
+  fillSelect('assetSearchType', initialData.params.assetTypes || [], true);
+  fillSelect('assetSearchHall', initialData.params.units || [], true);
+  fillSelect('assetSearchStatus', initialData.params.assetStatuses || [], true);
+  fillSelect('assetType', initialData.params.assetTypes || [], false);
+  fillSelect('assetStatus', initialData.params.assetStatuses || [], false);
+  fillSelect('assetVendor', initialData.params.assetVendors || [], false);
+}
+
+function loadAssetLocations(callback) {
+  google.script.run
+    .withSuccessHandler(locations => {
+      currentAssetLocations = locations || [];
+      fillAssetLocationSelect();
+      if (callback) callback();
+    })
+    .withFailureHandler(showError)
+    .getAssetLocations(currentUser);
+}
+
+function fillAssetLocationSelect() {
+  const select = document.getElementById('assetLocationId');
+  select.innerHTML = '';
+
+  currentAssetLocations.forEach(location => {
+    const opt = document.createElement('option');
+    opt.value = location.locationId;
+    opt.textContent = formatLocationLabel(location);
+    select.appendChild(opt);
+  });
+}
+
+function loadAssets() {
+  const filters = {
+    keyword: document.getElementById('assetSearchKeyword').value,
+    assetType: document.getElementById('assetSearchType').value,
+    hall: document.getElementById('assetSearchHall').value,
+    status: document.getElementById('assetSearchStatus').value
+  };
+
+  google.script.run
+    .withSuccessHandler(rows => {
+      allAssets = rows || [];
+      currentAssetPage = 1;
+      renderAssets();
+    })
+    .withFailureHandler(showError)
+    .getAssets(filters, currentUser);
+}
+
+function renderAssets() {
+  renderDesktopAssets();
+  renderMobileAssets();
+  renderAssetPager();
+}
+
+function getPagedAssets() {
+  const start = (currentAssetPage - 1) * pageSize;
+  return allAssets.slice(start, start + pageSize);
+}
+
+function renderDesktopAssets() {
+  const body = document.getElementById('assetTableBody');
+  body.innerHTML = '';
+
+  getPagedAssets().forEach(asset => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button class="project-link" onclick="openAsset('${escapeAttr(asset.assetId)}')">${escapeHtml(asset.assetId)}</button></td>
+      <td>${escapeHtml(asset.assetName)}</td>
+      <td>${escapeHtml(asset.assetType)}</td>
+      <td>${escapeHtml(asset.locationLabel)}</td>
+      <td><span class="status-badge asset-status-badge">${escapeHtml(asset.status)}</span></td>
+      <td class="text-end">${formatMoney(asset.purchasePrice)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderMobileAssets() {
+  const container = document.getElementById('mobileAssetList');
+  container.innerHTML = '';
+
+  getPagedAssets().forEach(asset => {
+    const card = document.createElement('div');
+    card.className = 'project-card-mobile';
+    card.innerHTML = `
+      <h6><button class="project-link" onclick="openAsset('${escapeAttr(asset.assetId)}')">${escapeHtml(asset.assetId)}</button></h6>
+      <div class="project-meta">${escapeHtml(asset.assetName)} / ${escapeHtml(asset.assetType)}</div>
+      <div class="project-meta">${escapeHtml(asset.locationLabel)}</div>
+      <div class="project-meta">${escapeHtml(asset.status)} / ${formatMoney(asset.purchasePrice)}</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderAssetPager() {
+  const totalPages = Math.max(1, Math.ceil(allAssets.length / pageSize));
+  document.getElementById('assetPager').textContent = `${currentAssetPage} / ${totalPages}`;
+  document.getElementById('assetPageInfo').textContent = `共 ${allAssets.length} 筆`;
+}
+
+function prevAssetPage() {
+  if (currentAssetPage <= 1) return;
+  currentAssetPage -= 1;
+  renderAssets();
+}
+
+function nextAssetPage() {
+  const totalPages = Math.max(1, Math.ceil(allAssets.length / pageSize));
+  if (currentAssetPage >= totalPages) return;
+  currentAssetPage += 1;
+  renderAssets();
+}
+
+function openAsset(assetId) {
+  google.script.run
+    .withSuccessHandler(renderAssetDetail)
+    .withFailureHandler(showError)
+    .getAssetDetail(assetId, currentUser);
+}
+
+function openNewAsset() {
+  renderAssetDetail({ asset: createEmptyAsset() });
+}
+
+function renderAssetDetail(data) {
+  const asset = data.asset || createEmptyAsset();
+  document.getElementById('assetListView').classList.add('d-none');
+  document.getElementById('assetDetailView').classList.remove('d-none');
+
+  document.getElementById('assetId').value = asset.assetId || '';
+  document.getElementById('assetType').value = asset.assetType || '';
+  document.getElementById('assetName').value = asset.assetName || '';
+  document.getElementById('assetBrand').value = asset.brand || '';
+  document.getElementById('assetModel').value = asset.model || '';
+  document.getElementById('assetSerialNo').value = asset.serialNo || '';
+  document.getElementById('assetPurchasePrice').value = asset.purchasePrice || '';
+  document.getElementById('assetPurchaseDate').value = toDateInputValue(asset.purchaseDate);
+  document.getElementById('assetVendor').value = asset.vendor || '';
+  document.getElementById('assetStatus').value = asset.status || '使用中';
+  document.getElementById('assetLocationId').value = asset.locationId || '';
+  document.getElementById('assetNote').value = asset.note || '';
+  document.getElementById('assetSourcePurchaseId').value = asset.sourcePurchaseId || '';
+  document.getElementById('assetSourcePaymentId').value = asset.sourcePaymentId || '';
+  document.getElementById('assetSourcePaymentItemId').value = asset.sourcePaymentItemId || '';
+}
+
+function backToAssetList() {
+  document.getElementById('assetDetailView').classList.add('d-none');
+  document.getElementById('assetListView').classList.remove('d-none');
+  loadAssets();
+}
+
+function saveCurrentAsset() {
+  const btn = document.getElementById('saveAssetBtn');
+  const asset = collectAssetForm();
+
+  if (!asset.assetName) {
+    alert('請填寫設備名稱');
+    return;
+  }
+  if (!asset.assetType) {
+    alert('請選擇設備類型');
+    return;
+  }
+  if (!asset.locationId) {
+    alert('請選擇存放位置');
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      openAsset(res.assetId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .saveAsset({ currentUser, asset });
+}
+
+function collectAssetForm() {
+  return {
+    assetId: document.getElementById('assetId').value.trim(),
+    assetType: document.getElementById('assetType').value,
+    assetName: document.getElementById('assetName').value.trim(),
+    brand: document.getElementById('assetBrand').value.trim(),
+    model: document.getElementById('assetModel').value.trim(),
+    serialNo: document.getElementById('assetSerialNo').value.trim(),
+    purchasePrice: document.getElementById('assetPurchasePrice').value,
+    purchaseDate: document.getElementById('assetPurchaseDate').value,
+    vendor: document.getElementById('assetVendor').value,
+    status: document.getElementById('assetStatus').value,
+    locationId: document.getElementById('assetLocationId').value,
+    note: document.getElementById('assetNote').value.trim()
+  };
+}
+
+function createEmptyAsset() {
+  return {
+    assetId: '',
+    assetType: '',
+    assetName: '',
+    brand: '',
+    model: '',
+    serialNo: '',
+    purchasePrice: '',
+    purchaseDate: '',
+    vendor: '',
+    status: '使用中',
+    locationId: '',
+    note: ''
+  };
+}
+
+function formatLocationLabel(location) {
+  return [location.hall, location.mainLocation, location.subLocation].filter(Boolean).join(' / ');
+}
+
+function formatMoney(value) {
+  const number = Number(value || 0);
+  if (!number) return '';
+  return number.toLocaleString('zh-TW');
+}
+</script>

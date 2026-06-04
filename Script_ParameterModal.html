@@ -2,16 +2,19 @@
 let parameterModalInstance = null;
 
 const PARAMETER_TYPE_OPTIONS = [
-  { key: 'projectTypes', label: '專案類型' },
-  { key: 'duties', label: '職責' },
-  { key: 'units', label: '會堂' },
-  { key: 'differenceMethods', label: '收支差額處理方式' },
-  { key: 'meetingStatus', label: '會議狀態' },
-  { key: 'projectStatus', label: '專案狀態' },
-  { key: 'projectPermissions', label: '專案權限' },
-  { key: 'departments', label: '部門' },
-  { key: 'purchaseStatus', label: '採購狀態' },
-  { key: 'paymentMethods', label: '支付方式' }
+  { key: 'projectTypes', label: '????' },
+  { key: 'duties', label: '??' },
+  { key: 'units', label: '??' },
+  { key: 'differenceMethods', label: '????????' },
+  { key: 'meetingStatus', label: '????' },
+  { key: 'projectStatus', label: '????' },
+  { key: 'projectPermissions', label: '????' },
+  { key: 'departments', label: '??' },
+  { key: 'purchaseStatus', label: '????' },
+  { key: 'paymentMethods', label: '????' },
+  { key: 'assetTypes', label: '????' },
+  { key: 'assetVendors', label: '????' },
+  { key: 'assetStatuses', label: '????' }
 ];
 
 function openParameterModal() {
@@ -166,4 +169,131 @@ function refreshParametersAfterChange() {
     })
     .getInitialData();
 }
+
+
+function loadLocationItems() {
+  const errorBox = document.getElementById('locationModalError');
+  if (!errorBox) return;
+
+  errorBox.textContent = '';
+  google.script.run
+    .withSuccessHandler(locations => {
+      currentAssetLocations = locations || [];
+      renderLocationItems(currentAssetLocations);
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+    })
+    .getAssetLocations(currentUser);
+}
+
+function renderLocationItems(locations) {
+  const body = document.getElementById('locationTableBody');
+  body.innerHTML = '';
+
+  if (!locations.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="5" class="text-muted">????????</td>';
+    body.appendChild(tr);
+    return;
+  }
+
+  locations.forEach(location => {
+    const encodedId = encodeURIComponent(location.locationId);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(location.hall)}</td>
+      <td>${escapeHtml(location.mainLocation)}</td>
+      <td>${escapeHtml(location.subLocation)}</td>
+      <td>${location.isBookable ? '?' : '?'}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="editLocationItem('${encodedId}')">??</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteLocationItem('${encodedId}')">??</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function resetLocationForm() {
+  document.getElementById('editingLocationId').value = '';
+  document.getElementById('locationHall').value = '';
+  document.getElementById('locationMain').value = '';
+  document.getElementById('locationSub').value = '';
+  document.getElementById('locationSortOrder').value = '0';
+  document.getElementById('locationIsBookable').checked = false;
+  document.getElementById('locationModalError').textContent = '';
+}
+
+function editLocationItem(encodedLocationId) {
+  const locationId = decodeURIComponent(encodedLocationId);
+  const location = (currentAssetLocations || []).find(item => String(item.locationId) === String(locationId));
+  if (!location) return;
+
+  document.getElementById('editingLocationId').value = location.locationId;
+  document.getElementById('locationHall').value = location.hall || '';
+  document.getElementById('locationMain').value = location.mainLocation || '';
+  document.getElementById('locationSub').value = location.subLocation || '';
+  document.getElementById('locationSortOrder').value = location.sortOrder || 0;
+  document.getElementById('locationIsBookable').checked = Boolean(location.isBookable);
+}
+
+function saveLocationItem() {
+  const btn = document.getElementById('saveLocationBtn');
+  const errorBox = document.getElementById('locationModalError');
+  const locationId = document.getElementById('editingLocationId').value;
+  const location = {
+    hall: document.getElementById('locationHall').value.trim(),
+    mainLocation: document.getElementById('locationMain').value.trim(),
+    subLocation: document.getElementById('locationSub').value.trim(),
+    sortOrder: document.getElementById('locationSortOrder').value,
+    isBookable: document.getElementById('locationIsBookable').checked
+  };
+
+  errorBox.textContent = '';
+  if (!location.hall || !location.mainLocation) {
+    errorBox.textContent = '?????????';
+    return;
+  }
+
+  setButtonLoading(btn, true, '???...');
+  const runner = google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      resetLocationForm();
+      loadLocationItems();
+      loadAssetLocations();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    });
+
+  if (locationId) {
+    runner.updateLocationItem({ currentUser, locationId, location });
+  } else {
+    runner.addLocationItem({ currentUser, location });
+  }
+}
+
+function deleteLocationItem(encodedLocationId) {
+  const locationId = decodeURIComponent(encodedLocationId);
+  const location = (currentAssetLocations || []).find(item => String(item.locationId) === String(locationId));
+  const errorBox = document.getElementById('locationModalError');
+  if (!confirm(`????????${location ? formatLocationLabel(location) : locationId}??`)) return;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      resetLocationForm();
+      loadLocationItems();
+      loadAssetLocations();
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+    })
+    .deleteLocationItem({ currentUser, locationId });
+}
+
 </script>

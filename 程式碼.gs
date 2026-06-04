@@ -160,6 +160,50 @@ function getPurchaseDetail(purchaseId, currentUser) {
   return apiRequest('post', '/purchases/detail', { purchaseId, currentUser });
 }
 
+function getAssets(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/assets', null, {
+    keyword: filters.keyword || '',
+    assetType: filters.assetType || '',
+    hall: filters.hall || '',
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function getAssetDetail(assetId, currentUser) {
+  return apiRequest('get', `/assets/${encodeURIComponent(assetId)}`, null, null, currentUser);
+}
+
+function saveAsset(payload) {
+  const assetId = payload.asset && payload.asset.assetId;
+  if (assetId) {
+    return apiRequest('put', `/assets/${encodeURIComponent(assetId)}`, payload);
+  }
+  return apiRequest('post', '/assets', payload);
+}
+
+function getAssetLocations(currentUser) {
+  return apiRequest('get', '/locations', null, null, currentUser);
+}
+
+function addLocationItem(payload) {
+  return apiRequest('post', '/locations', payload);
+}
+
+function updateLocationItem(payload) {
+  return apiRequest('put', `/locations/${encodeURIComponent(payload.locationId)}`, payload);
+}
+
+function deleteLocationItem(payload) {
+  return apiRequest(
+    'delete',
+    `/locations/${encodeURIComponent(payload.locationId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
 function exportPurchaseDoc(payload) {
   const purchaseId = payload.purchaseId;
   const docType = payload.docType;

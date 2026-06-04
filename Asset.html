@@ -1,0 +1,156 @@
+<section id="assetView" class="d-none">
+  <section id="assetListView">
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label">關鍵字</label>
+            <input id="assetSearchKeyword" class="form-control" placeholder="編號、名稱、品牌、型號、序號">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">設備類型</label>
+            <select id="assetSearchType" class="form-select"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">會堂</label>
+            <select id="assetSearchHall" class="form-select"></select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">狀態</label>
+            <select id="assetSearchStatus" class="form-select"></select>
+          </div>
+          <div class="col-md-1 d-grid">
+            <button class="btn btn-primary" onclick="loadAssets()">搜尋</button>
+          </div>
+          <div class="col-md-2 d-grid">
+            <button id="addAssetBtn" class="btn btn-success" onclick="openNewAsset()">新增資產</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0">資產清單</h5>
+      <span id="assetPageInfo" class="text-muted"></span>
+    </div>
+
+    <div class="card desktop-only">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>資產編號</th>
+              <th>設備名稱</th>
+              <th>類型</th>
+              <th>存放位置</th>
+              <th>狀態</th>
+              <th class="text-end">購入價</th>
+            </tr>
+          </thead>
+          <tbody id="assetTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="mobileAssetList" class="mobile-only"></div>
+
+    <div class="pagination-area">
+      <button class="btn btn-outline-secondary btn-sm" onclick="prevAssetPage()">上一頁</button>
+      <span id="assetPager"></span>
+      <button class="btn btn-outline-secondary btn-sm" onclick="nextAssetPage()">下一頁</button>
+    </div>
+  </section>
+
+  <section id="assetDetailView" class="d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <button class="btn btn-outline-secondary" onclick="backToAssetList()">返回資產清單</button>
+      <div class="d-flex gap-2">
+        <button id="saveAssetBtn" class="btn btn-success" onclick="saveCurrentAsset()">儲存資產</button>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">資產基本資料</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">資產編號</label>
+            <input id="assetId" class="form-control asset-input" placeholder="空白時系統產生">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">設備類型</label>
+            <select id="assetType" class="form-select asset-input"></select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">設備名稱</label>
+            <input id="assetName" class="form-control asset-input">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">品牌</label>
+            <input id="assetBrand" class="form-control asset-input">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">型號</label>
+            <input id="assetModel" class="form-control asset-input">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">序列號</label>
+            <input id="assetSerialNo" class="form-control asset-input">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">狀態</label>
+            <select id="assetStatus" class="form-select asset-input"></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">購置與位置</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">購入價</label>
+            <input id="assetPurchasePrice" type="number" min="0" step="1" class="form-control asset-input text-end">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">購入日期</label>
+            <input id="assetPurchaseDate" type="date" class="form-control asset-input">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">廠商</label>
+            <select id="assetVendor" class="form-select asset-input"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">存放位置</label>
+            <select id="assetLocationId" class="form-select asset-input"></select>
+          </div>
+          <div class="col-md-12">
+            <label class="form-label">備註</label>
+            <textarea id="assetNote" class="form-control asset-input" rows="4"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">來源追蹤</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">來源採購編號</label>
+            <input id="assetSourcePurchaseId" class="form-control" disabled>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">來源請款編號</label>
+            <input id="assetSourcePaymentId" class="form-control" disabled>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">來源明細</label>
+            <input id="assetSourcePaymentItemId" class="form-control" disabled>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
