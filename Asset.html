@@ -19,10 +19,27 @@
             <label class="form-label">狀態</label>
             <select id="assetSearchStatus" class="form-select"></select>
           </div>
+          <div class="col-md-2">
+            <label class="form-label">排序</label>
+            <select id="assetSortBy" class="form-select" onchange="renderAssets()">
+              <option value="assetId">資產編號</option>
+              <option value="assetName">設備名稱</option>
+              <option value="assetType">設備類型</option>
+              <option value="locationLabel">存放位置</option>
+              <option value="status">狀態</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">方向</label>
+            <select id="assetSortDirection" class="form-select" onchange="renderAssets()">
+              <option value="asc">升冪</option>
+              <option value="desc">降冪</option>
+            </select>
+          </div>
           <div class="col-md-1 d-grid">
             <button class="btn btn-primary" onclick="loadAssets()">搜尋</button>
           </div>
-          <div class="col-md-2 d-grid">
+          <div class="col-md-1 d-grid">
             <button id="addAssetBtn" class="btn btn-success" onclick="openNewAsset()">新增資產</button>
           </div>
         </div>
@@ -44,7 +61,6 @@
               <th>類型</th>
               <th>存放位置</th>
               <th>狀態</th>
-              <th class="text-end">購入價</th>
             </tr>
           </thead>
           <tbody id="assetTableBody"></tbody>

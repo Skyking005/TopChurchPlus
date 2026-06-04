@@ -88,9 +88,25 @@ function loadAssets() {
 }
 
 function renderAssets() {
+  sortAssets();
   renderDesktopAssets();
   renderMobileAssets();
   renderAssetPager();
+}
+
+function sortAssets() {
+  const sortBy = document.getElementById('assetSortBy')?.value || 'assetId';
+  const direction = document.getElementById('assetSortDirection')?.value || 'asc';
+  const multiplier = direction === 'desc' ? -1 : 1;
+
+  allAssets.sort((a, b) => {
+    const left = String(a[sortBy] || '');
+    const right = String(b[sortBy] || '');
+    return left.localeCompare(right, 'zh-Hant', {
+      numeric: true,
+      sensitivity: 'base'
+    }) * multiplier;
+  });
 }
 
 function getPagedAssets() {
@@ -109,8 +125,7 @@ function renderDesktopAssets() {
       <td>${escapeHtml(asset.assetName)}</td>
       <td>${escapeHtml(asset.assetType)}</td>
       <td>${escapeHtml(asset.locationLabel)}</td>
-      <td><span class="status-badge asset-status-badge">${escapeHtml(asset.status)}</span></td>
-      <td class="text-end">${formatMoney(asset.purchasePrice)}</td>
+      <td><span class="asset-status-badge ${getAssetStatusClass(asset.status)}">${escapeHtml(asset.status)}</span></td>
     `;
     body.appendChild(tr);
   });
@@ -127,7 +142,7 @@ function renderMobileAssets() {
       <h6><button class="project-link" onclick="openAsset('${escapeAttr(asset.assetId)}')">${escapeHtml(asset.assetId)}</button></h6>
       <div class="project-meta">${escapeHtml(asset.assetName)} / ${escapeHtml(asset.assetType)}</div>
       <div class="project-meta">${escapeHtml(asset.locationLabel)}</div>
-      <div class="project-meta">${escapeHtml(asset.status)} / ${formatMoney(asset.purchasePrice)}</div>
+      <div class="project-meta"><span class="asset-status-badge ${getAssetStatusClass(asset.status)}">${escapeHtml(asset.status)}</span></div>
     `;
     container.appendChild(card);
   });
@@ -264,5 +279,15 @@ function formatMoney(value) {
   const number = Number(value || 0);
   if (!number) return '';
   return number.toLocaleString('zh-TW');
+}
+
+function getAssetStatusClass(status) {
+  const value = String(status || '').trim();
+  if (value === '使用中') return 'asset-status-active';
+  if (value === '維修中') return 'asset-status-repair';
+  if (value === '已報廢') return 'asset-status-retired';
+  if (value === '已請購') return 'asset-status-pending';
+  if (value === '已停用') return 'asset-status-disabled';
+  return 'asset-status-default';
 }
 </script>
