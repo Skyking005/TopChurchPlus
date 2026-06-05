@@ -1,5 +1,7 @@
 const { pool, tx } = require('../../db');
 const { recordDomainEvent } = require('../../shared/cross-system');
+const { normalizeFileInput, saveFileWithLink, toDataUrl } = require('../../shared/files');
+const { recordAuditLog } = require('../../shared/audit');
 const { formatDate, formatDateTime } = require('../../shared/format');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { hasAnyRole, parseUser } = require('../../shared/users');
@@ -432,6 +434,23 @@ async function savePastoralMember(memberId, payload, currentUser) {
       payload: { churchId: normalized.base.churchId, name: normalized.base.name },
       currentUser
     }, client);
+    await recordAuditLog({
+      systemKey: 'pastoral',
+      entityType: 'pastoral_member',
+      entityId: String(id),
+      action: isNew ? 'create' : 'update',
+      memberId: id,
+      afterData: {
+        churchId: normalized.base.churchId,
+        name: normalized.base.name,
+        categoryCode: normalized.base.categoryCode,
+        groupId: normalized.groupId
+      },
+      metadata: {
+        hasFiles: Boolean(normalized.files.memberPhoto || normalized.files.newcomerFormImage)
+      },
+      currentUser
+    }, client);
 
     return { success: true, memberId: id, message: isNew ? '會友資料已建立' : '會友資料已儲存' };
   });
@@ -455,6 +474,18 @@ async function softDeletePastoralMember(memberId, currentUser) {
       entityType: 'pastoral_member',
       entityId: String(id),
       payload: { churchId: existing.rows[0].church_id, name: existing.rows[0].name },
+      currentUser
+    }, client);
+    await recordAuditLog({
+      systemKey: 'pastoral',
+      entityType: 'pastoral_member',
+      entityId: String(id),
+      action: 'soft_delete',
+      memberId: id,
+      beforeData: {
+        churchId: existing.rows[0].church_id,
+        name: existing.rows[0].name
+      },
       currentUser
     }, client);
 
@@ -652,13 +683,24 @@ async function retireCurrentPastoralGroup(client, memberId) {
 
 async function getPastoralMemberFiles(memberId) {
   const { rows } = await pool.query(
-    `SELECT id, member_id, file_type, file_name, storage_path, mime_type, file_size, file_data, uploaded_at
-     FROM pastoral_member_files
-     WHERE member_id = $1
-       AND file_type IN ('member_photo', 'newcomer_form_image')
+    `SELECT
+       pmf.id,
+       pmf.member_id,
+       pmf.file_type,
+       COALESCE(f.original_name, pmf.file_name) AS file_name,
+       COALESCE(f.storage_path, pmf.storage_path) AS storage_path,
+       COALESCE(f.mime_type, pmf.mime_type) AS mime_type,
+       COALESCE(f.file_size, pmf.file_size)::bigint AS file_size,
+       COALESCE(f.file_data, pmf.file_data) AS file_data,
+       COALESCE(f.uploaded_at, pmf.uploaded_at) AS uploaded_at,
+       pmf.file_id
+     FROM pastoral_member_files pmf
+     LEFT JOIN files f ON f.file_id = pmf.file_id AND NOT f.is_deleted
+     WHERE pmf.member_id = $1
+       AND pmf.file_type IN ('member_photo', 'newcomer_form_image')
      ORDER BY
-       CASE file_type WHEN 'member_photo' THEN 1 ELSE 2 END,
-       uploaded_at DESC`,
+       CASE pmf.file_type WHEN 'member_photo' THEN 1 ELSE 2 END,
+       COALESCE(f.uploaded_at, pmf.uploaded_at) DESC`,
     [memberId]
   );
   return rows.map(toPastoralMemberFile);
@@ -673,18 +715,29 @@ async function savePastoralMemberImages(client, memberId, files, currentUser) {
   for (const [fileType, value] of entries) {
     const image = normalizePastoralImage(value);
     if (!image) continue;
+    const storagePath = `pastoral/members/${memberId}/${fileType}/${Date.now()}_${image.fileName}`;
+    const fileId = await saveFileWithLink(client, {
+      file: image,
+      entityType: 'pastoral_member',
+      entityId: String(memberId),
+      fileType,
+      storedName: `${memberId}_${fileType}_${Date.now()}_${image.fileName}`,
+      storagePath,
+      currentUser,
+      uploadedByMemberId: memberId
+    });
     await client.query(
       `INSERT INTO pastoral_member_files (
-         member_id, file_type, file_name, storage_path, mime_type, file_size, file_data, uploaded_by_staff_id
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+         member_id, file_type, file_name, storage_path, mime_type, file_size, file_data, file_id, uploaded_by_staff_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,NULL,$7,$8)`,
       [
         memberId,
         fileType,
         image.fileName,
-        `pastoral/members/${memberId}/${fileType}/${Date.now()}_${image.fileName}`,
+        storagePath,
         image.mimeType,
         image.fileSize,
-        image.buffer,
+        fileId,
         currentUser && currentUser.staffId ? String(currentUser.staffId) : null
       ]
     );
@@ -692,22 +745,13 @@ async function savePastoralMemberImages(client, memberId, files, currentUser) {
 }
 
 function normalizePastoralImage(value) {
-  if (!value || typeof value !== 'object') return null;
-  const fileName = normalizeText(value.fileName) || 'member-image';
-  const mimeType = normalizeText(value.mimeType);
-  const data = normalizeText(value.data);
-  if (!data) return null;
-  if (!PASTORAL_IMAGE_MIME_TYPES.has(mimeType)) throw new Error('會友圖片僅支援 JPG、PNG、WEBP、GIF');
-  const base64 = data.includes(',') ? data.split(',').pop() : data;
-  const buffer = Buffer.from(base64, 'base64');
-  if (!buffer.length) return null;
-  if (buffer.length > PASTORAL_IMAGE_MAX_BYTES) throw new Error('會友圖片不可超過 5MB');
-  return {
-    fileName,
-    mimeType,
-    fileSize: buffer.length,
-    buffer
-  };
+  return normalizeFileInput(value, {
+    defaultName: 'member-image',
+    allowedMimeTypes: PASTORAL_IMAGE_MIME_TYPES,
+    invalidMimeMessage: '會友圖片僅支援 JPG、PNG、WEBP、GIF',
+    maxBytes: PASTORAL_IMAGE_MAX_BYTES,
+    maxBytesMessage: '會友圖片不可超過 5MB'
+  });
 }
 
 async function generatePastoralMemberId(client) {
@@ -866,18 +910,16 @@ function toPastoralEducationEnrollment(row) {
 }
 
 function toPastoralMemberFile(row) {
-  const dataUrl = row.file_data
-    ? `data:${row.mime_type || 'application/octet-stream'};base64,${row.file_data.toString('base64')}`
-    : '';
   return {
     fileId: row.id,
+    sharedFileId: row.file_id || '',
     memberId: row.member_id,
     fileType: row.file_type,
     fileName: row.file_name,
     mimeType: row.mime_type || '',
     fileSize: Number(row.file_size || 0),
     uploadedAt: row.uploaded_at,
-    dataUrl
+    dataUrl: toDataUrl(row)
   };
 }
 
