@@ -1,101 +1,21 @@
-<script>
+﻿<script>
 const SYSTEM_FEATURES = [
-  {
-    key: 'project',
-    title: '專案管理系統',
-    desc: '專案建立、預算、會議與文件匯出',
-    action: 'openProjectSystem'
-  },
-  {
-    key: 'finance',
-    title: '財務系統',
-    desc: '採購申請、預借、支出證明與請款流程',
-    action: 'openPurchaseSystem'
-  },
-  {
-    key: 'asset',
-    title: '資產管理系統',
-    desc: '固定資產清冊、位置管理、狀態追蹤與財務購置來源',
-    action: 'openAssetSystem'
-  },
-  {
-    key: 'system',
-    title: '系統管理',
-    desc: '參數、位置、使用者與權限身分設定',
-    action: 'openSystemManagement'
-  },
-  {
-    key: 'venue',
-    title: '場地預約系統',
-    desc: '場地借用、時段查詢與預約管理',
-    action: 'openVenueSystem'
-  },
-  {
-    key: 'forms',
-    title: '表單系統',
-    desc: '建立表單、題目選項與回覆設定',
-    action: 'openFormsSystem'
-  },
-  {
-    key: 'counter',
-    title: '櫃台系統',
-    desc: '櫃台值勤、接待與服務紀錄',
-    action: 'openCounterWorkbench'
-  },
-  {
-    key: 'qrcode',
-    title: 'QRCode報到系統',
-    desc: '活動 QRCode 報到、櫃台掃碼與出席名單',
-    action: 'openQrcodeSystem'
-  },
-  {
-    key: 'qt',
-    title: 'QT管理系統',
-    desc: 'QT訂閱、領取、異動與櫃台相關作業',
-    action: 'openQtSystem'
-  },
-  {
-    key: 'linebot',
-    title: 'LINE BOT管理系統',
-    desc: 'LINE EDM、會友綁定與 BOT 服務設定',
-    action: 'openLineBotSystem'
-  },
-  {
-    key: 'pastoral',
-    title: '牧養管理系統',
-    desc: '牧養關懷、名單與跟進紀錄',
-    action: 'openPastoralSystem'
-  },
-  {
-    key: 'education',
-    title: '教育管理系統',
-    desc: '課程、學員、教材與教育行政',
-    action: 'openEducationSystem'
-  },
-  {
-    key: 'media',
-    title: '媒體管理系統',
-    desc: '媒體排程、素材、製作與發布管理',
-    action: 'openComingSoonSystem'
-  },
-  {
-    key: 'worship',
-    title: '敬拜管理系統',
-    desc: '敬拜團隊、服事排程、歌單與預備事項管理',
-    action: 'openComingSoonSystem'
-  },
-  {
-    key: 'attendance',
-    title: '聚會統計系統',
-    desc: '聚會人數、出席紀錄與統計分析',
-    action: 'openComingSoonSystem'
-  },
-  {
-    key: 'serving',
-    title: '服事管理系統',
-    desc: '服事人員、排班、崗位與出勤紀錄管理',
-    action: 'openComingSoonSystem'
-  }
+  { key: 'project', title: '專案管理系統', desc: '專案資料、會議記錄、權限與收支管理。', action: 'openProjectSystem' },
+  { key: 'finance', title: '財務管理系統', desc: '請購、預借、支出證明與請款流程。', action: 'openPurchaseSystem' },
+  { key: 'asset', title: '資產管理系統', desc: '固定資產清冊、位置、狀態與維護管理。', action: 'openAssetSystem' },
+  { key: 'system', title: '系統管理', desc: '系統參數、位置、使用者與權限設定。', action: 'openSystemManagement' },
+  { key: 'venue', title: '場地預約系統', desc: '可借用場地、預約與場地狀態管理。', action: 'openVenueSystem' },
+  { key: 'forms', title: '表單系統', desc: '問卷調查、活動報名與公開填寫表單。', action: 'openFormsSystem' },
+  { key: 'counter', title: '櫃台工作台', desc: '櫃台繳費、QT 領取與現場服務作業。', action: 'openCounterWorkbench' },
+  { key: 'qrcode', title: 'QRCode 報到系統', desc: '活動 QRCode 報到與出席狀況管理。', action: 'openQrcodeSystem' },
+  { key: 'qt', title: 'QT 管理系統', desc: 'QT 訂購、庫存、調撥與報表管理。', action: 'openQtSystem' },
+  { key: 'linebot', title: 'LINE BOT 管理系統', desc: 'LINE EDM、帳號連結與 BOT 設定管理。', action: 'openLineBotSystem' },
+  { key: 'pastoral', title: '牧養管理系統', desc: '會友、牧區、關懷與牧養資料管理。', action: 'openPastoralSystem' },
+  { key: 'education', title: '教育管理系統', desc: '課程、班表、講師與學員課程狀態管理。', action: 'openEducationSystem' },
+  { key: 'media', title: '媒體管理系統', desc: '媒體相關資料與作業管理。', action: 'openComingSoonSystem' },
+  { key: 'worship', title: '敬拜管理系統', desc: '敬拜團、服事排程與詩歌資料管理。', action: 'openComingSoonSystem' },
+  { key: 'attendance', title: '聚會統計系統', desc: '聚會人數、出席與統計報表管理。', action: 'openComingSoonSystem' },
+  { key: 'serving', title: '服事管理系統', desc: '服事團隊、班表與服事紀錄管理。', action: 'openComingSoonSystem' }
 ];
 
 const ROLE_FEATURE_ACCESS = {
@@ -108,7 +28,6 @@ const ROLE_FEATURE_ACCESS = {
   '媒體同工': ['media', 'worship'],
   '義工': ['counter', 'qt', 'serving']
 };
-
 function handleLogin() {
   const btn = event.target;
   const email = document.getElementById('loginEmail').value.trim();
@@ -682,3 +601,4 @@ function openComingSoonSystem(feature) {
   alert(`${feature.title}入口已建立，功能將於後續階段開放。`);
 }
 </script>
+
