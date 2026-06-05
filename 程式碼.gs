@@ -664,6 +664,21 @@ function recordSystemUsage(payload) {
   return apiRequest('post', '/usage', payload);
 }
 
+function getWorkLogs(currentUser) {
+  return apiRequest('get', '/work-logs', null, { limit: 20 }, currentUser);
+}
+
+function addWorkLog(payload) {
+  return apiRequest('post', '/work-logs', {
+    currentUser: payload.currentUser,
+    workLog: payload.workLog
+  });
+}
+
+function deleteWorkLog(workLogId, currentUser) {
+  return apiRequest('delete', `/work-logs/${encodeURIComponent(workLogId)}`, null, null, currentUser);
+}
+
 function getFeaturePermissions(currentUser) {
   return apiRequest('get', '/system/feature-permissions', null, null, currentUser);
 }

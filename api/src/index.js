@@ -17,6 +17,7 @@ const { registerQrcodeRoutes } = require('./modules/qrcode/routes');
 const { registerQtRoutes } = require('./modules/qt/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
+const { registerWorkLogRoutes } = require('./modules/worklog/routes');
 
 const app = createApp();
 
@@ -35,6 +36,7 @@ registerProjectRoutes(app);
 registerQrcodeRoutes(app);
 registerQtRoutes(app);
 registerVenueRoutes(app);
+registerWorkLogRoutes(app);
 
 app.use(createErrorHandler());
 

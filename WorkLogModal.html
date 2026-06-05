@@ -1,0 +1,38 @@
+<div class="modal fade" id="workLogModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">個人工作日誌</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label">日期</label>
+            <input id="workLogDate" type="date" class="form-control">
+          </div>
+          <div class="col-12 col-md-7">
+            <label class="form-label">工作項目</label>
+            <input id="workLogItem" class="form-control" placeholder="請輸入工作項目">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button id="saveWorkLogBtn" type="button" class="btn btn-primary" onclick="submitWorkLog()">新增</button>
+          </div>
+        </div>
+        <div id="workLogError" class="text-danger small mb-2"></div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>工作項目</th>
+                <th class="text-end">功能</th>
+              </tr>
+            </thead>
+            <tbody id="workLogTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

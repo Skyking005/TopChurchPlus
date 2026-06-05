@@ -1,0 +1,89 @@
+<script>
+let workLogModalInstance = null;
+let workLogs = [];
+
+function openWorkLogModal() {
+  const dateInput = document.getElementById('workLogDate');
+  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  document.getElementById('workLogItem').value = '';
+  document.getElementById('workLogError').textContent = '';
+  workLogModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('workLogModal'));
+  workLogModalInstance.show();
+  loadWorkLogs();
+}
+
+function loadWorkLogs() {
+  setListLoading('workLogTableBody', true, '工作日誌載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      workLogs = rows || [];
+      renderWorkLogs();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('workLogError').textContent = err.message || err;
+      renderWorkLogs();
+    })
+    .getWorkLogs(currentUser);
+}
+
+function renderWorkLogs() {
+  const body = document.getElementById('workLogTableBody');
+  body.innerHTML = '';
+  if (!workLogs.length) {
+    body.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">尚無工作日誌</td></tr>';
+    return;
+  }
+  workLogs.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(String(row.logDate || '').slice(0, 10))}</td>
+      <td>${escapeHtml(row.workItem || '')}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteWorkLog('${escapeAttr(row.workLogId)}')">刪除</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function submitWorkLog() {
+  const btn = document.getElementById('saveWorkLogBtn');
+  const errorBox = document.getElementById('workLogError');
+  const workLog = {
+    logDate: document.getElementById('workLogDate').value,
+    workItem: document.getElementById('workLogItem').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!workLog.logDate) {
+    errorBox.textContent = '請選擇日期';
+    return;
+  }
+  if (!workLog.workItem) {
+    errorBox.textContent = '請填寫工作項目';
+    return;
+  }
+
+  setButtonLoading(btn, true, '新增中...');
+  google.script.run
+    .withSuccessHandler(() => {
+      setButtonLoading(btn, false);
+      document.getElementById('workLogItem').value = '';
+      loadWorkLogs();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addWorkLog({ currentUser, workLog });
+}
+
+function deleteWorkLog(workLogId) {
+  if (!confirm('確定要刪除此工作日誌？')) return;
+  google.script.run
+    .withSuccessHandler(() => loadWorkLogs())
+    .withFailureHandler(err => {
+      document.getElementById('workLogError').textContent = err.message || err;
+    })
+    .deleteWorkLog(workLogId, currentUser);
+}
+</script>
