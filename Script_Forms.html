@@ -1,0 +1,319 @@
+<script>
+let forms = [];
+let currentFormQuestions = [];
+
+const FORM_QUESTION_TYPES = [
+  { value: 'short_text', label: '簡答' },
+  { value: 'paragraph', label: '段落' },
+  { value: 'single_choice', label: '單選' },
+  { value: 'multiple_choice', label: '複選' },
+  { value: 'dropdown', label: '下拉選單' },
+  { value: 'date', label: '日期' },
+  { value: 'number', label: '數字' }
+];
+
+function openFormsSystem() {
+  recordFeatureUsage('forms');
+  const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
+  document.getElementById('mainTitle').textContent = '表單系統';
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'detailView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('formsView').classList.remove('d-none');
+  document.getElementById('addFormBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('saveFormBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('deleteFormBtn').classList.toggle('d-none', !canEdit);
+  backToFormsList(false);
+  loadForms();
+}
+
+function loadForms() {
+  setListLoading('formsTableBody', true, '表單載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      forms = rows || [];
+      renderFormsTable();
+    })
+    .withFailureHandler(showError)
+    .getForms({
+      keyword: document.getElementById('formsKeyword').value,
+      status: document.getElementById('formsStatusFilter').value
+    }, currentUser);
+}
+
+function renderFormsTable() {
+  const body = document.getElementById('formsTableBody');
+  body.innerHTML = '';
+  if (!forms.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無表單</td></tr>';
+    return;
+  }
+  forms.forEach(form => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <button type="button" class="project-link" onclick="openFormEditor('${escapeAttr(form.formId)}')">${escapeHtml(form.title)}</button>
+        <div class="text-muted small">${escapeHtml(form.description || '')}</div>
+      </td>
+      <td>${escapeHtml(formatFormStatus(form.status))}</td>
+      <td>${escapeHtml(formatFormVisibility(form.visibility))}</td>
+      <td>${escapeHtml(form.questionCount)}</td>
+      <td>${escapeHtml(form.createdBy || '')}</td>
+      <td>${escapeHtml(formatFormsDateTime(form.updatedAt))}</td>
+      <td><button type="button" class="btn btn-outline-secondary btn-sm" onclick="openFormEditor('${escapeAttr(form.formId)}')">編輯</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function newForm() {
+  setFormEditor({
+    form: {
+      formId: '',
+      title: '',
+      description: '',
+      status: 'draft',
+      visibility: 'internal',
+      requireLogin: true,
+      allowMultipleResponses: true
+    },
+    questions: [createEmptyQuestion('short_text')]
+  });
+}
+
+function openFormEditor(formId) {
+  google.script.run
+    .withSuccessHandler(setFormEditor)
+    .withFailureHandler(showError)
+    .getFormDetail(formId, currentUser);
+}
+
+function setFormEditor(data) {
+  const form = data.form || {};
+  currentFormQuestions = (data.questions || []).map(question => ({
+    questionType: question.questionType || 'short_text',
+    title: question.title || '',
+    description: question.description || '',
+    isRequired: Boolean(question.isRequired),
+    options: Array.isArray(question.options) ? [...question.options] : []
+  }));
+  if (!currentFormQuestions.length) currentFormQuestions.push(createEmptyQuestion('short_text'));
+
+  document.getElementById('formsListView').classList.add('d-none');
+  document.getElementById('formEditorView').classList.remove('d-none');
+  document.getElementById('formId').value = form.formId || '';
+  document.getElementById('formTitle').value = form.title || '';
+  document.getElementById('formDescription').value = form.description || '';
+  document.getElementById('formStatus').value = form.status || 'draft';
+  document.getElementById('formVisibility').value = form.visibility || 'internal';
+  document.getElementById('formRequireLogin').checked = form.requireLogin !== false;
+  document.getElementById('formAllowMultipleResponses').checked = form.allowMultipleResponses !== false;
+  renderFormQuestions();
+}
+
+function backToFormsList(shouldLoad = true) {
+  const list = document.getElementById('formsListView');
+  const editor = document.getElementById('formEditorView');
+  if (list) list.classList.remove('d-none');
+  if (editor) editor.classList.add('d-none');
+  if (shouldLoad) loadForms();
+}
+
+function createEmptyQuestion(type) {
+  return {
+    questionType: type,
+    title: '',
+    description: '',
+    isRequired: false,
+    options: ['選項 1']
+  };
+}
+
+function addFormQuestion(type = 'short_text') {
+  currentFormQuestions.push(createEmptyQuestion(type));
+  renderFormQuestions();
+}
+
+function renderFormQuestions() {
+  const container = document.getElementById('formQuestionsList');
+  container.innerHTML = '';
+  currentFormQuestions.forEach((question, index) => {
+    const card = document.createElement('div');
+    card.className = 'form-question-card';
+    card.innerHTML = `
+      <div class="d-flex justify-content-between gap-2 mb-2">
+        <input class="form-control form-question-title" value="${escapeAttr(question.title)}" placeholder="問題" oninput="updateQuestionField(${index}, 'title', this.value)">
+        <select class="form-select form-question-type" onchange="updateQuestionType(${index}, this.value)">
+          ${FORM_QUESTION_TYPES.map(type => `<option value="${type.value}" ${type.value === question.questionType ? 'selected' : ''}>${type.label}</option>`).join('')}
+        </select>
+      </div>
+      <input class="form-control form-control-sm mb-2" value="${escapeAttr(question.description || '')}" placeholder="題目說明" oninput="updateQuestionField(${index}, 'description', this.value)">
+      <div class="form-question-preview mb-2">${renderQuestionPreview(question, index)}</div>
+      <div class="d-flex justify-content-between align-items-center">
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-secondary" onclick="moveQuestion(${index}, -1)">上移</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="moveQuestion(${index}, 1)">下移</button>
+          <button type="button" class="btn btn-outline-danger" onclick="removeQuestion(${index})">刪除</button>
+        </div>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="questionRequired_${index}" ${question.isRequired ? 'checked' : ''} onchange="updateQuestionRequired(${index}, this.checked)">
+          <label class="form-check-label" for="questionRequired_${index}">必填</label>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderQuestionPreview(question, index) {
+  if (['single_choice', 'multiple_choice', 'dropdown'].includes(question.questionType)) {
+    const inputType = question.questionType === 'multiple_choice' ? 'checkbox' : 'radio';
+    const options = question.options && question.options.length ? question.options : ['選項 1'];
+    if (question.questionType === 'dropdown') {
+      return `
+        <div class="form-options-editor">
+          ${options.map((option, optionIndex) => renderOptionInput(index, optionIndex, option)).join('')}
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addQuestionOption(${index})">新增選項</button>
+        </div>
+        <select class="form-select mt-2" disabled><option>填寫時以下拉選單呈現</option></select>
+      `;
+    }
+    return `
+      <div class="form-options-editor">
+        ${options.map((option, optionIndex) => `
+          <div class="input-group input-group-sm mb-2">
+            <span class="input-group-text"><input type="${inputType}" disabled></span>
+            ${renderOptionInput(index, optionIndex, option)}
+          </div>
+        `).join('')}
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addQuestionOption(${index})">新增選項</button>
+      </div>
+    `;
+  }
+  if (question.questionType === 'paragraph') return '<textarea class="form-control" rows="3" disabled placeholder="長答文字"></textarea>';
+  if (question.questionType === 'date') return '<input type="date" class="form-control" disabled>';
+  if (question.questionType === 'number') return '<input type="number" class="form-control" disabled placeholder="數字">';
+  return '<input class="form-control" disabled placeholder="簡短回答">';
+}
+
+function renderOptionInput(questionIndex, optionIndex, option) {
+  return `
+    <input class="form-control" value="${escapeAttr(option)}" oninput="updateQuestionOption(${questionIndex}, ${optionIndex}, this.value)">
+    <button type="button" class="btn btn-outline-danger" onclick="removeQuestionOption(${questionIndex}, ${optionIndex})">刪除</button>
+  `;
+}
+
+function updateQuestionField(index, field, value) {
+  currentFormQuestions[index][field] = value;
+}
+
+function updateQuestionType(index, type) {
+  currentFormQuestions[index].questionType = type;
+  if (['single_choice', 'multiple_choice', 'dropdown'].includes(type) && !currentFormQuestions[index].options.length) {
+    currentFormQuestions[index].options = ['選項 1'];
+  }
+  renderFormQuestions();
+}
+
+function updateQuestionRequired(index, checked) {
+  currentFormQuestions[index].isRequired = checked;
+}
+
+function addQuestionOption(questionIndex) {
+  currentFormQuestions[questionIndex].options.push(`選項 ${currentFormQuestions[questionIndex].options.length + 1}`);
+  renderFormQuestions();
+}
+
+function updateQuestionOption(questionIndex, optionIndex, value) {
+  currentFormQuestions[questionIndex].options[optionIndex] = value;
+}
+
+function removeQuestionOption(questionIndex, optionIndex) {
+  currentFormQuestions[questionIndex].options.splice(optionIndex, 1);
+  if (!currentFormQuestions[questionIndex].options.length) currentFormQuestions[questionIndex].options.push('選項 1');
+  renderFormQuestions();
+}
+
+function moveQuestion(index, delta) {
+  const target = index + delta;
+  if (target < 0 || target >= currentFormQuestions.length) return;
+  const item = currentFormQuestions.splice(index, 1)[0];
+  currentFormQuestions.splice(target, 0, item);
+  renderFormQuestions();
+}
+
+function removeQuestion(index) {
+  if (currentFormQuestions.length <= 1) {
+    alert('至少需要一題');
+    return;
+  }
+  currentFormQuestions.splice(index, 1);
+  renderFormQuestions();
+}
+
+function submitForm() {
+  const errorBox = document.getElementById('formEditorError');
+  const btn = document.getElementById('saveFormBtn');
+  errorBox.textContent = '';
+  const form = {
+    formId: document.getElementById('formId').value,
+    title: document.getElementById('formTitle').value.trim(),
+    description: document.getElementById('formDescription').value.trim(),
+    status: document.getElementById('formStatus').value,
+    visibility: document.getElementById('formVisibility').value,
+    requireLogin: document.getElementById('formRequireLogin').checked,
+    allowMultipleResponses: document.getElementById('formAllowMultipleResponses').checked,
+    questions: currentFormQuestions
+  };
+  if (!form.title) {
+    errorBox.textContent = '請填寫表單標題';
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      openFormEditor(res.formId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveForm({ formId: form.formId, form, currentUser });
+}
+
+function archiveCurrentForm() {
+  const formId = document.getElementById('formId').value;
+  if (!formId) return;
+  if (!confirm('確定要封存此表單？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      backToFormsList(true);
+    })
+    .withFailureHandler(showError)
+    .deleteForm({ formId, currentUser });
+}
+
+function handleFormsSearchKey(event) {
+  if (event.key === 'Enter') loadForms();
+}
+
+function formatFormStatus(status) {
+  return { draft: '草稿', published: '已發布', closed: '已關閉', archived: '已封存' }[status] || status || '';
+}
+
+function formatFormVisibility(value) {
+  return { internal: '內部同工', members: '會友', public: '公開' }[value] || value || '';
+}
+
+function formatFormsDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('zh-TW', { hour12: false });
+}
+</script>

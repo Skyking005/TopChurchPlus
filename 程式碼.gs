@@ -104,6 +104,43 @@ function deletePastoralMember(payload) {
   );
 }
 
+function getForms(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/forms', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function getFormDetail(formId, currentUser) {
+  return apiRequest('get', `/forms/${encodeURIComponent(formId)}`, null, null, currentUser);
+}
+
+function saveForm(payload) {
+  const formId = payload.formId || payload.form?.formId || '';
+  if (formId) {
+    return apiRequest(
+      'put',
+      `/forms/${encodeURIComponent(formId)}`,
+      { currentUser: payload.currentUser, form: payload.form }
+    );
+  }
+  return apiRequest('post', '/forms', {
+    currentUser: payload.currentUser,
+    form: payload.form
+  });
+}
+
+function deleteForm(payload) {
+  return apiRequest(
+    'delete',
+    `/forms/${encodeURIComponent(payload.formId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
 function getProjects(filters, currentUser) {
   filters = filters || {};
   currentUser = currentUser || filters.currentUser;
