@@ -1,5 +1,7 @@
 require('dotenv').config();
 
+const crypto = require('crypto');
+const net = require('net');
 const { createApp } = require('./app');
 const { pool, tx } = require('./db');
 const { createApiKeyMiddleware } = require('./middleware/api-key');
@@ -15,28 +17,100 @@ app.post('/login', async (req, res, next) => {
   try {
     const email = String(req.body.email || '').trim().toLowerCase();
     const deviceType = req.body.deviceType === 'mobile' ? 'mobile' : 'desktop';
+    const context = buildLoginContext(req);
     if (!email) throw new Error('請輸入電子信箱');
 
     const { rows } = await pool.query('SELECT * FROM accounts WHERE lower(email) = $1', [email]);
     const user = rows[0];
-    if (!user) throw new Error('此電子信箱沒有系統使用權限');
-    const roles = await getAccountRoles(user.staff_id, user.role);
-    const featurePermissions = await getEffectiveFeaturePermissions({ roles, role: user.role });
-    const featureUsage = await getFeatureUsageSummary(user.staff_id);
+    if (!user) {
+      await recordLoginEvent({ email, eventType: 'failed', context, metadata: { reason: 'unknown_email' } });
+      throw new Error('此電子信箱沒有系統使用權限');
+    }
 
-    res.json({
-      staffId: user.staff_id,
-      email,
-      name: user.name,
-      position: user.position,
-      role: user.role,
-      roles,
-      featurePermissions,
-      featureUsage,
-      deviceType,
-      isAdmin: roles.includes('管理員') || roles.includes('超級管理者'),
-      isSuperAdmin: roles.includes('超級管理者')
+    const trust = await getTrustedLoginDevice(user.staff_id, context);
+    if (!trust.isTrusted) {
+      const challenge = await createLoginVerificationChallenge(user, email, deviceType, context, trust.reason);
+      await recordLoginEvent({
+        staffId: user.staff_id,
+        email,
+        eventType: 'challenge_required',
+        context,
+        metadata: { reason: trust.reason }
+      });
+      return res.json({
+        requiresVerification: true,
+        verificationId: challenge.verificationId,
+        verificationCode: challenge.verificationCode,
+        email,
+        expiresAt: challenge.expiresAt,
+        reason: trust.reason,
+        message: '偵測到陌生登入，已寄送驗證碼。'
+      });
+    }
+
+    await rememberTrustedLoginDevice(user.staff_id, deviceType, context);
+    await recordLoginEvent({ staffId: user.staff_id, email, eventType: 'success', context });
+    res.json(await buildLoginUser(user, email, deviceType));
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/login/verify', async (req, res, next) => {
+  try {
+    const verificationId = String(req.body.verificationId || '').trim();
+    const code = String(req.body.code || '').trim();
+    const deviceType = req.body.deviceType === 'mobile' ? 'mobile' : 'desktop';
+    const context = buildLoginContext(req);
+    if (!verificationId || !code) throw new Error('請輸入驗證碼');
+
+    const { rows } = await pool.query(
+      `SELECT c.*, a.email AS account_email, a.name, a.position, a.role, a.staff_id
+       FROM login_verification_challenges c
+       JOIN accounts a ON a.staff_id = c.staff_id
+       WHERE c.id = $1`,
+      [verificationId]
+    );
+    const challenge = rows[0];
+    if (!challenge) throw new Error('驗證流程不存在或已失效');
+    if (challenge.verified_at) throw new Error('此驗證碼已使用，請重新登入');
+    if (new Date(challenge.expires_at).getTime() < Date.now()) throw new Error('驗證碼已過期，請重新登入');
+    if (challenge.attempts >= 5) throw new Error('驗證碼錯誤次數過多，請重新登入');
+
+    const email = String(challenge.account_email || challenge.email || '').toLowerCase();
+    const isValid = challenge.code_hash === hashLoginCode(verificationId, code);
+    if (!isValid) {
+      await pool.query(
+        'UPDATE login_verification_challenges SET attempts = attempts + 1 WHERE id = $1',
+        [verificationId]
+      );
+      await recordLoginEvent({
+        staffId: challenge.staff_id,
+        email,
+        eventType: 'challenge_failed',
+        context,
+        metadata: { verificationId }
+      });
+      throw new Error('驗證碼錯誤');
+    }
+
+    await tx(async client => {
+      await client.query(
+        'UPDATE login_verification_challenges SET verified_at = now() WHERE id = $1',
+        [verificationId]
+      );
+      await rememberTrustedLoginDevice(challenge.staff_id, deviceType, context, client);
     });
+
+    await recordLoginEvent({
+      staffId: challenge.staff_id,
+      email,
+      eventType: 'challenge_success',
+      context,
+      metadata: { verificationId }
+    });
+
+    res.json(await buildLoginUser(challenge, email, deviceType));
   } catch (err) {
     next(err);
   }
@@ -901,6 +975,164 @@ function hasRole(user, role) {
 function hasAnyRole(user, rolesToCheck) {
   const roles = normalizeRoles(user && user.roles, user && user.role);
   return rolesToCheck.some(role => roles.includes(role));
+}
+
+async function buildLoginUser(user, email, deviceType) {
+  const roles = await getAccountRoles(user.staff_id, user.role);
+  const featurePermissions = await getEffectiveFeaturePermissions({ roles, role: user.role });
+  const featureUsage = await getFeatureUsageSummary(user.staff_id);
+
+  return {
+    staffId: user.staff_id,
+    email,
+    name: user.name,
+    position: user.position,
+    role: user.role,
+    roles,
+    featurePermissions,
+    featureUsage,
+    deviceType,
+    isAdmin: roles.includes('管理員') || roles.includes('超級管理者'),
+    isSuperAdmin: roles.includes('超級管理者')
+  };
+}
+
+function buildLoginContext(req) {
+  const body = req.body || {};
+  const deviceId = String(body.deviceId || '').trim();
+  const clientIp = normalizeIp(body.clientIp);
+  return {
+    deviceId,
+    deviceIdHash: deviceId ? hashSecurityValue(deviceId) : null,
+    deviceLabel: String(body.deviceLabel || '').trim().slice(0, 120),
+    deviceType: body.deviceType === 'mobile' ? 'mobile' : 'desktop',
+    userAgent: String(body.userAgent || req.get('user-agent') || '').trim().slice(0, 500),
+    clientIp,
+    clientIpHash: clientIp ? hashSecurityValue(clientIp) : null,
+    apiIp: normalizeIp(getRequestIp(req))
+  };
+}
+
+async function getTrustedLoginDevice(staffId, context) {
+  if (!context.deviceIdHash) return { isTrusted: false, reason: 'missing_device_id' };
+
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM trusted_login_devices
+     WHERE staff_id = $1
+       AND device_id_hash = $2
+       AND is_active
+     LIMIT 1`,
+    [String(staffId), context.deviceIdHash]
+  );
+  const device = rows[0];
+  if (!device) return { isTrusted: false, reason: 'new_device' };
+  if (context.clientIpHash && device.last_client_ip_hash && device.last_client_ip_hash !== context.clientIpHash) {
+    return { isTrusted: false, reason: 'new_ip' };
+  }
+  return { isTrusted: true, reason: 'trusted' };
+}
+
+async function createLoginVerificationChallenge(user, email, deviceType, context, reason) {
+  const verificationCode = String(crypto.randomInt(100000, 1000000));
+  const id = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await pool.query(
+    `INSERT INTO login_verification_challenges (
+       id, staff_id, email, code_hash, device_id_hash, device_label, device_type,
+       user_agent, client_ip, client_ip_hash, api_ip, reason, expires_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [
+      id,
+      String(user.staff_id),
+      email,
+      hashLoginCode(id, verificationCode),
+      context.deviceIdHash,
+      context.deviceLabel || null,
+      deviceType,
+      context.userAgent || null,
+      context.clientIp,
+      context.clientIpHash,
+      context.apiIp,
+      reason,
+      expiresAt
+    ]
+  );
+  return { verificationId: id, verificationCode, expiresAt };
+}
+
+async function rememberTrustedLoginDevice(staffId, deviceType, context, client = pool) {
+  if (!context.deviceIdHash) return;
+  await client.query(
+    `INSERT INTO trusted_login_devices (
+       staff_id, device_id_hash, device_label, device_type, user_agent,
+       last_client_ip, last_client_ip_hash, last_api_ip, last_seen_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now(),now())
+     ON CONFLICT (staff_id, device_id_hash) DO UPDATE SET
+       device_label = EXCLUDED.device_label,
+       device_type = EXCLUDED.device_type,
+       user_agent = EXCLUDED.user_agent,
+       last_client_ip = COALESCE(EXCLUDED.last_client_ip, trusted_login_devices.last_client_ip),
+       last_client_ip_hash = COALESCE(EXCLUDED.last_client_ip_hash, trusted_login_devices.last_client_ip_hash),
+       last_api_ip = EXCLUDED.last_api_ip,
+       last_seen_at = now(),
+       updated_at = now(),
+       is_active = true,
+       revoked_at = NULL`,
+    [
+      String(staffId),
+      context.deviceIdHash,
+      context.deviceLabel || null,
+      deviceType,
+      context.userAgent || null,
+      context.clientIp,
+      context.clientIpHash,
+      context.apiIp
+    ]
+  );
+}
+
+async function recordLoginEvent({ staffId = null, email, eventType, context, metadata = {} }) {
+  await pool.query(
+    `INSERT INTO login_events (
+       staff_id, email, event_type, device_id_hash, device_label, device_type,
+       user_agent, client_ip, api_ip, metadata
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+    [
+      staffId ? String(staffId) : null,
+      String(email || '').toLowerCase(),
+      eventType,
+      context.deviceIdHash,
+      context.deviceLabel || null,
+      context.deviceType || null,
+      context.userAgent || null,
+      context.clientIp,
+      context.apiIp,
+      JSON.stringify(metadata && typeof metadata === 'object' ? metadata : {})
+    ]
+  );
+}
+
+function hashLoginCode(verificationId, code) {
+  return hashSecurityValue(`${verificationId}:${String(code || '').trim()}`);
+}
+
+function hashSecurityValue(value) {
+  const secret = process.env.API_KEY || 'topchurch-local-secret';
+  return crypto.createHmac('sha256', secret).update(String(value)).digest('hex');
+}
+
+function getRequestIp(req) {
+  const forwarded = String(req.get('x-forwarded-for') || '').split(',')[0].trim();
+  return forwarded || req.get('x-real-ip') || req.ip || req.socket?.remoteAddress || '';
+}
+
+function normalizeIp(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const cleaned = text.replace(/^::ffff:/, '');
+  if (cleaned === '::1') return '127.0.0.1';
+  return net.isIP(cleaned) ? cleaned : null;
 }
 
 async function getProjectDetail(projectId, currentUser) {

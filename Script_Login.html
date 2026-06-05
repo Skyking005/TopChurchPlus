@@ -96,8 +96,11 @@ function handleLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const deviceType = 'desktop';
   const errorBox = document.getElementById('loginError');
+  const verificationBox = document.getElementById('loginVerificationBox');
 
   errorBox.textContent = '';
+  pendingLoginVerification = null;
+  if (verificationBox) verificationBox.classList.add('d-none');
 
   if (!email) {
     errorBox.textContent = '請輸入電子信箱';
@@ -107,22 +110,27 @@ function handleLogin() {
   setButtonLoading(btn, true, '登入中...');
 
   google.script.run
-    .withSuccessHandler(user => {
+    .withSuccessHandler(result => {
       setButtonLoading(btn, false);
-      currentUser = user;
-
-      loadInitialDataAfterLogin(() => {
-        document.getElementById('loginView').classList.add('d-none');
-        document.getElementById('mainView').classList.remove('d-none');
-        updateUserInfo(user);
-        startIdleLogoutWatcher();
-
-        if (user.deviceType === 'mobile') {
-          document.getElementById('addProjectBtn').classList.add('d-none');
+      if (result && result.requiresVerification) {
+        pendingLoginVerification = {
+          verificationId: result.verificationId,
+          email,
+          deviceType
+        };
+        if (verificationBox) verificationBox.classList.remove('d-none');
+        const codeInput = document.getElementById('loginVerificationCode');
+        if (codeInput) {
+          codeInput.value = '';
+          codeInput.focus();
         }
+        errorBox.textContent = result.message || '已寄送登入驗證碼，請完成驗證。';
+        errorBox.classList.remove('text-danger');
+        errorBox.classList.add('text-muted');
+        return;
+      }
 
-        backToFeatureMenu();
-      });
+      completeLogin(result);
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
@@ -130,9 +138,96 @@ function handleLogin() {
 
       document.getElementById('loginView').classList.remove('d-none');
       document.getElementById('mainView').classList.add('d-none');
+      errorBox.classList.add('text-danger');
+      errorBox.classList.remove('text-muted');
       errorBox.textContent = err.message || err;
     })
-    .login(email, deviceType);
+    .login(email, deviceType, getLoginDeviceInfo());
+}
+
+function handleLoginVerification() {
+  const btn = event.target;
+  const errorBox = document.getElementById('loginError');
+  const code = document.getElementById('loginVerificationCode').value.trim();
+
+  errorBox.textContent = '';
+  errorBox.classList.add('text-danger');
+  errorBox.classList.remove('text-muted');
+
+  if (!pendingLoginVerification || !pendingLoginVerification.verificationId) {
+    errorBox.textContent = '驗證流程已失效，請重新登入。';
+    return;
+  }
+  if (!code) {
+    errorBox.textContent = '請輸入驗證碼';
+    return;
+  }
+
+  setButtonLoading(btn, true, '驗證中...');
+
+  google.script.run
+    .withSuccessHandler(user => {
+      setButtonLoading(btn, false);
+      pendingLoginVerification = null;
+      completeLogin(user);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .verifyLogin({
+      verificationId: pendingLoginVerification.verificationId,
+      code,
+      deviceType: pendingLoginVerification.deviceType,
+      ...getLoginDeviceInfo()
+    });
+}
+
+function completeLogin(user) {
+  currentUser = user;
+
+  loadInitialDataAfterLogin(() => {
+    document.getElementById('loginView').classList.add('d-none');
+    document.getElementById('mainView').classList.remove('d-none');
+    document.getElementById('loginVerificationBox').classList.add('d-none');
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('loginError').classList.add('text-danger');
+    document.getElementById('loginError').classList.remove('text-muted');
+    updateUserInfo(user);
+    startIdleLogoutWatcher();
+
+    if (user.deviceType === 'mobile') {
+      document.getElementById('addProjectBtn').classList.add('d-none');
+    }
+
+    backToFeatureMenu();
+  });
+}
+
+function getLoginDeviceInfo() {
+  return {
+    deviceId: getOrCreateLoginDeviceId(),
+    deviceLabel: buildLoginDeviceLabel(),
+    userAgent: navigator.userAgent || '',
+    language: navigator.language || '',
+    screen: `${window.screen?.width || 0}x${window.screen?.height || 0}`
+  };
+}
+
+function getOrCreateLoginDeviceId() {
+  const key = 'topchurch_login_device_id';
+  let value = localStorage.getItem(key);
+  if (!value) {
+    value = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(key, value);
+  }
+  return value;
+}
+
+function buildLoginDeviceLabel() {
+  const platform = navigator.platform || 'Unknown platform';
+  const browser = (navigator.userAgent || '').match(/(Chrome|Edg|Firefox|Safari)\/?\s*([\d.]+)/);
+  return [platform, browser ? browser[0] : 'Browser'].filter(Boolean).join(' / ');
 }
 
 
@@ -170,6 +265,7 @@ window.addEventListener('load', () => preloadInitialData());
 
 function logout() {
   currentUser = null;
+  pendingLoginVerification = null;
   stopIdleLogoutWatcher();
   resetAppToLogin();
 }
@@ -256,6 +352,7 @@ function autoLogoutByIdle() {
   if (!currentUser) return;
   stopIdleLogoutWatcher();
   currentUser = null;
+  pendingLoginVerification = null;
   resetAppToLogin();
   const loginError = document.getElementById('loginError');
   if (loginError) loginError.textContent = '系統已閒置 5 分鐘，已自動登出。';
@@ -287,7 +384,17 @@ function resetAppToLogin() {
   if (mainTitle) mainTitle.textContent = '系統功能選擇';
 
   const loginError = document.getElementById('loginError');
-  if (loginError) loginError.textContent = '';
+  if (loginError) {
+    loginError.textContent = '';
+    loginError.classList.add('text-danger');
+    loginError.classList.remove('text-muted');
+  }
+
+  const verificationBox = document.getElementById('loginVerificationBox');
+  if (verificationBox) verificationBox.classList.add('d-none');
+
+  const verificationCode = document.getElementById('loginVerificationCode');
+  if (verificationCode) verificationCode.value = '';
 
   const addProjectBtn = document.getElementById('addProjectBtn');
   if (addProjectBtn) addProjectBtn.classList.remove('d-none');

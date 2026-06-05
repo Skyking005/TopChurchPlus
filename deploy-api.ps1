@@ -29,7 +29,9 @@ Write-Host "Backing up NAS API index..."
 Copy-Item -LiteralPath $RemoteApiIndex -Destination $BackupPath -Force
 
 Write-Host "Copying local API src to NAS..."
-Copy-Item -LiteralPath (Join-Path $LocalApiSrc '*') -Destination $RemoteApiSrc -Recurse -Force
+Get-ChildItem -LiteralPath $LocalApiSrc -Force | ForEach-Object {
+  Copy-Item -LiteralPath $_.FullName -Destination $RemoteApiSrc -Recurse -Force
+}
 
 Write-Host "Rebuilding API container on NAS..."
 $RemoteCommand = "cd $RemoteProjectDir && sudo -n $DockerBin compose up -d --build"

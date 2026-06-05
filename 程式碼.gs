@@ -22,8 +22,37 @@ function setDocExportFolderId(folderId) {
   PropertiesService.getScriptProperties().setProperty('DOC_EXPORT_FOLDER_ID', folderId);
 }
 
-function login(email, deviceType) {
-  return apiRequest('post', '/login', { email, deviceType });
+function login(email, deviceType, deviceInfo) {
+  const payload = Object.assign({ email, deviceType }, deviceInfo || {});
+  const result = apiRequest('post', '/login', payload);
+  if (result.requiresVerification && result.verificationCode) {
+    sendLoginVerificationEmail(result.email || email, result.verificationCode, result.expiresAt);
+    delete result.verificationCode;
+  }
+  return result;
+}
+
+function verifyLogin(payload) {
+  return apiRequest('post', '/login/verify', payload);
+}
+
+function sendLoginVerificationEmail(email, code, expiresAt) {
+  const expiresText = expiresAt
+    ? Utilities.formatDate(new Date(expiresAt), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')
+    : '10 分鐘內';
+  MailApp.sendEmail({
+    to: email,
+    subject: '卓越行道會行政系統登入驗證碼',
+    body:
+`您好：
+
+系統偵測到陌生裝置登入卓越行道會行政系統。
+
+本次登入驗證碼：${code}
+有效期限：${expiresText}
+
+如果這不是您本人操作，請立即通知系統管理員。`
+  });
 }
 
 function getInitialData() {

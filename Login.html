@@ -7,6 +7,12 @@
 
         <button class="btn btn-primary w-100" onclick="handleLogin()">登入</button>
 
+        <div id="loginVerificationBox" class="login-verification-box d-none">
+          <div class="small text-muted mb-2">已寄送登入驗證碼，請至信箱收取並輸入。</div>
+          <input id="loginVerificationCode" type="text" inputmode="numeric" class="form-control mb-2" placeholder="6 位數驗證碼">
+          <button class="btn btn-outline-primary w-100" onclick="handleLoginVerification()">驗證並登入</button>
+        </div>
+
         <div id="loginError" class="text-danger mt-3"></div>
       </div>
     </section>
