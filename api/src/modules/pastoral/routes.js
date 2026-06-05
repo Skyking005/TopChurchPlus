@@ -30,6 +30,16 @@ function registerPastoralRoutes(app) {
     }
   });
 
+  app.get('/pastoral/members/duplicate-name', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertPastoralReadable(currentUser);
+      res.json(await findDuplicatePastoralMemberNames(req.query, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/pastoral/members/:memberId', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -245,6 +255,67 @@ async function getPastoralMembers(query, currentUser) {
   );
 
   return { rows: rows.map(toPastoralMemberListItem), total: countResult.rows[0].total, page, pageSize };
+}
+
+async function findDuplicatePastoralMemberNames(query, currentUser) {
+  const name = String(query.name || '').trim();
+  const excludeMemberId = String(query.excludeMemberId || '').trim();
+  if (!name) return { duplicates: [] };
+
+  const churchAccess = await getPastoralChurchAccess(currentUser);
+  if (!churchAccess.all && !churchAccess.churchIds.length) return { duplicates: [] };
+
+  const values = [name];
+  const where = [
+    'pm.is_active',
+    'lower(trim(pm.name)) = lower(trim($1))'
+  ];
+
+  if (excludeMemberId) {
+    values.push(Number(excludeMemberId));
+    where.push(`pm.id <> $${values.length}`);
+  }
+  if (!churchAccess.all) {
+    values.push(churchAccess.churchIds);
+    where.push(`pm.church_id = ANY($${values.length}::int[])`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT
+       pm.id,
+       pm.name,
+       pm.gender,
+       pm.birthday,
+       pm.light_status,
+       ch.name AS church_name,
+       mc.name AS category_name,
+       pc.mobile_phone,
+       g.path AS group_path
+     FROM pastoral_members pm
+     LEFT JOIN churches ch ON ch.id = pm.church_id
+     LEFT JOIN membership_categories mc ON mc.code = pm.membership_category_code
+     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = pm.id
+     LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
+     LEFT JOIN pastoral_groups g ON g.id = pga.group_id
+     WHERE ${where.join(' AND ')}
+     ORDER BY pm.id DESC
+     LIMIT 10`,
+    values
+  );
+
+  return {
+    duplicates: rows.map(row => ({
+      memberId: row.id,
+      name: row.name,
+      gender: row.gender,
+      birthday: formatDate(row.birthday),
+      lightStatus: row.light_status,
+      churchName: row.church_name,
+      categoryName: row.category_name,
+      mobilePhone: row.mobile_phone,
+      groupPath: row.group_path
+    }))
+  };
 }
 
 async function getPastoralMemberDetail(memberId, currentUser) {

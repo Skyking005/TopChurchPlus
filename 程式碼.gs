@@ -86,6 +86,13 @@ function getPastoralMemberDetail(memberId, currentUser) {
   return apiRequest('get', `/pastoral/members/${encodeURIComponent(memberId)}`, null, null, currentUser);
 }
 
+function checkPastoralMemberDuplicateName(payload) {
+  return apiRequest('get', '/pastoral/members/duplicate-name', null, {
+    name: payload.name || '',
+    excludeMemberId: payload.excludeMemberId || ''
+  }, payload.currentUser);
+}
+
 function savePastoralMember(payload) {
   const memberId = payload.memberId || payload.member?.memberId || '';
   if (memberId) {

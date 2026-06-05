@@ -462,14 +462,48 @@ function submitPastoralMember() {
     }
   };
 
-  setButtonLoading(btn, true, '儲存中...');
-  readPastoralMemberImages(files => {
-    payload.member.files = files;
-    savePastoralMemberPayload(payload, btn, errorBox);
-  }, err => {
-    setButtonLoading(btn, false);
-    errorBox.textContent = err.message || err;
-  });
+  setButtonLoading(btn, true, '檢查同名資料...');
+  google.script.run
+    .withSuccessHandler(result => {
+      const duplicates = (result && result.duplicates) || [];
+      if (duplicates.length && !confirm(buildPastoralDuplicateNameMessage(name, duplicates))) {
+        setButtonLoading(btn, false);
+        return;
+      }
+      setButtonLoading(btn, true, '儲存中...');
+      readPastoralMemberImages(files => {
+        payload.member.files = files;
+        savePastoralMemberPayload(payload, btn, errorBox);
+      }, err => {
+        setButtonLoading(btn, false);
+        errorBox.textContent = err.message || err;
+      });
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .checkPastoralMemberDuplicateName({
+      currentUser,
+      name,
+      excludeMemberId: memberId
+    });
+}
+
+function buildPastoralDuplicateNameMessage(name, duplicates) {
+  const rows = duplicates.slice(0, 5).map(member => {
+    const info = [
+      `編號 ${member.memberId}`,
+      member.churchName,
+      member.groupPath,
+      member.categoryName,
+      member.mobilePhone ? `電話 ${member.mobilePhone}` : '',
+      member.birthday ? `生日 ${member.birthday}` : ''
+    ].filter(Boolean).join('｜');
+    return `- ${member.name}（${info}）`;
+  }).join('\n');
+  const more = duplicates.length > 5 ? `\n另有 ${duplicates.length - 5} 筆未列出。` : '';
+  return `系統偵測到已有同名會友「${name}」：\n\n${rows}${more}\n\n仍要繼續保存嗎？`;
 }
 
 function savePastoralMemberPayload(payload, btn, errorBox) {
