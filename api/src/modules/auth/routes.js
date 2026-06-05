@@ -1,8 +1,8 @@
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 const net = require('net');
 
 const { pool, tx } = require('../../db');
-const { FEATURE_ACCESS_RANK } = require('../core/catalog');
+const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../core/catalog');
 
 function registerAuthRoutes(app) {
   app.post('/login', async (req, res, next) => {
@@ -416,3 +416,4 @@ function getTaipeiSundayWeekRange(now = new Date()) {
 }
 
 module.exports = { registerAuthRoutes };
+

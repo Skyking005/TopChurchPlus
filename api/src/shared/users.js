@@ -19,7 +19,7 @@ function hasAnyRole(user, rolesToCheck) {
 
 function assertDesktop(currentUser) {
   if (!currentUser || currentUser.deviceType === 'mobile') {
-    throw new Error('手機版僅提供瀏覽功能，請使用電腦操作');
+    throw new Error('此操作僅支援電腦完整模式');
   }
 }
 

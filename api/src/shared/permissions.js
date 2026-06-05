@@ -58,14 +58,14 @@ async function assertFeatureReadable(user, featureKey) {
   if (!user || !user.name) throw new Error('缺少登入者資訊');
   const access = await getFeatureAccess(user, featureKey);
   if (access === 'read' || access === 'edit') return access;
-  throw new Error('沒有此系統功能的使用權限');
+  throw new Error('沒有此功能的讀取權限');
 }
 
 async function assertFeatureEditable(user, featureKey) {
   assertDesktop(user);
   const access = await getFeatureAccess(user, featureKey);
   if (access === 'edit') return true;
-  throw new Error('沒有此系統功能的操作權限');
+  throw new Error('沒有此功能的操作權限');
 }
 
 module.exports = {
