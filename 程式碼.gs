@@ -180,6 +180,26 @@ function getCurrentCounterPinCode(currentUser) {
   return apiRequest('get', '/counter/pin-code/current', null, null, currentUser);
 }
 
+function getCounterPinCodes(currentUser) {
+  return apiRequest('get', '/counter/pin-codes', null, null, currentUser);
+}
+
+function createCounterPinCode(payload) {
+  return apiRequest('post', '/counter/pin-codes', { currentUser: payload.currentUser });
+}
+
+function deactivateCounterPinCode(payload) {
+  return apiRequest(
+    'patch',
+    `/counter/pin-codes/${encodeURIComponent(payload.pinId)}/deactivate`,
+    { currentUser: payload.currentUser }
+  );
+}
+
+function resetCurrentWeekCounterPinCodes(payload) {
+  return apiRequest('post', '/counter/pin-codes/reset-current-week', { currentUser: payload.currentUser });
+}
+
 function getVenueResources(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/venues/resources', null, {

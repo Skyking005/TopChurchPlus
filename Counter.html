@@ -15,6 +15,9 @@
       <li class="nav-item">
         <button type="button" class="nav-link disabled">QT 領取</button>
       </li>
+      <li class="nav-item" id="counterPinManagementTab">
+        <button type="button" class="nav-link disabled">PIN 管理</button>
+      </li>
     </ul>
 
     <div class="table-responsive">
@@ -31,6 +34,33 @@
         </thead>
         <tbody id="counterTransactionTableBody"></tbody>
       </table>
+    </div>
+
+    <div id="counterPinManagementPanel" class="mt-4 d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <div>
+          <h6 class="mb-1">本週志工櫃台 PIN Code</h6>
+          <div class="text-muted small">可同時開啟多組 PIN，停用後立即無法登入。</div>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="createCounterPin()">新增一組 PIN</button>
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetCounterPins()">重設本週 PIN</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>PIN Code</th>
+              <th>有效期限</th>
+              <th>使用次數</th>
+              <th>狀態</th>
+              <th class="text-end">功能</th>
+            </tr>
+          </thead>
+          <tbody id="counterPinTableBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </section>

@@ -9,7 +9,65 @@ function registerCounterRoutes(app) {
     try {
       const currentUser = parseUser(req);
       await assertFeatureEditable(currentUser, 'counter');
-      res.json(await getOrCreateCurrentPinCode(currentUser));
+      res.json(await createPinCode(currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/counter/pin-codes', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureEditable(currentUser, 'counter');
+      res.json(await getCurrentPinCodes());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/counter/pin-codes', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'counter');
+      res.json(await createPinCode(currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.patch('/counter/pin-codes/:pinId/deactivate', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'counter');
+      const result = await pool.query(
+        `UPDATE counter_pin_codes
+         SET is_active = false, updated_at = now()
+         WHERE pin_id = $1
+         RETURNING *`,
+        [req.params.pinId]
+      );
+      if (!result.rowCount) throw new Error('找不到 PIN Code');
+      res.json({ success: true, message: 'PIN Code 已停用', pinCode: toPinCodeResponse(result.rows[0]) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/counter/pin-codes/reset-current-week', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'counter');
+      const week = getTaipeiSundayWeekRange();
+      await pool.query(
+        `UPDATE counter_pin_codes
+         SET is_active = false, updated_at = now()
+         WHERE valid_from = $1
+           AND valid_until = $2
+           AND is_active`,
+        [week.validFrom, week.validUntil]
+      );
+      const pinCode = await createPinCode(currentUser);
+      res.json({ success: true, message: '本週 PIN Code 已重設', pinCode });
     } catch (err) {
       next(err);
     }
@@ -93,20 +151,21 @@ async function getCounterTransactions(query) {
   }));
 }
 
-async function getOrCreateCurrentPinCode(currentUser) {
+async function getCurrentPinCodes() {
   const week = getTaipeiSundayWeekRange();
   const { rows } = await pool.query(
     `SELECT *
      FROM counter_pin_codes
      WHERE valid_from = $1
        AND valid_until = $2
-       AND is_active
-     ORDER BY created_at DESC
-     LIMIT 1`,
+     ORDER BY is_active DESC, created_at DESC`,
     [week.validFrom, week.validUntil]
   );
-  if (rows[0]) return toPinCodeResponse(rows[0]);
+  return rows.map(toPinCodeResponse);
+}
 
+async function createPinCode(currentUser) {
+  const week = getTaipeiSundayWeekRange();
   const pinCode = await generateUniquePinCode();
   const result = await pool.query(
     `INSERT INTO counter_pin_codes (
@@ -136,9 +195,11 @@ async function generateUniquePinCode() {
 
 function toPinCodeResponse(row) {
   return {
+    pinId: row.pin_id,
     pinCode: row.pin_code,
     validFrom: row.valid_from,
     validUntil: row.valid_until,
+    isActive: Boolean(row.is_active),
     usageCount: Number(row.usage_count || 0),
     lastUsedAt: row.last_used_at
   };

@@ -1,12 +1,15 @@
 <script>
 let counterTransactions = [];
+let counterPinCodes = [];
 
 function openCounterWorkbench() {
   recordFeatureUsage('counter');
   document.getElementById('mainTitle').textContent = '志工櫃台';
   hideAllMainViews();
   document.getElementById('counterWorkbenchView').classList.remove('d-none');
+  toggleCounterPinManagement();
   loadCounterTransactions();
+  if (canManageCounterPins()) loadCounterPins();
 }
 
 function loadCounterTransactions() {
@@ -42,6 +45,86 @@ function renderCounterTransactions() {
     `;
     body.appendChild(tr);
   });
+}
+
+function toggleCounterPinManagement() {
+  const canManage = canManageCounterPins();
+  const panel = document.getElementById('counterPinManagementPanel');
+  const tab = document.getElementById('counterPinManagementTab');
+  if (panel) panel.classList.toggle('d-none', !canManage);
+  if (tab) tab.classList.toggle('d-none', !canManage);
+}
+
+function canManageCounterPins() {
+  if (!currentUser || currentUser.workspaceMode === 'counter') return false;
+  return getFeatureAccess('counter') === 'edit';
+}
+
+function loadCounterPins() {
+  setListLoading('counterPinTableBody', true, 'PIN 載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      counterPinCodes = rows || [];
+      renderCounterPins();
+    })
+    .withFailureHandler(showError)
+    .getCounterPinCodes(currentUser);
+}
+
+function renderCounterPins() {
+  const body = document.getElementById('counterPinTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!counterPinCodes.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">本週尚未建立 PIN Code</td></tr>';
+    return;
+  }
+
+  counterPinCodes.forEach(pin => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="badge bg-dark fs-6">${escapeHtml(pin.pinCode)}</span></td>
+      <td>${escapeHtml(formatFormsDateTime(pin.validUntil))}</td>
+      <td>${escapeHtml(pin.usageCount || 0)}</td>
+      <td>${pin.isActive ? '<span class="badge bg-success">啟用中</span>' : '<span class="badge bg-secondary">已停用</span>'}</td>
+      <td class="text-end">
+        ${pin.isActive ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deactivateCounterPin('${escapeAttr(pin.pinId)}')">停用</button>` : ''}
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function createCounterPin() {
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(`已新增 PIN Code：${res.pinCode}`);
+      loadCounterPins();
+    })
+    .withFailureHandler(showError)
+    .createCounterPinCode({ currentUser });
+}
+
+function deactivateCounterPin(pinId) {
+  if (!confirm('確定要停用此 PIN Code？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadCounterPins();
+    })
+    .withFailureHandler(showError)
+    .deactivateCounterPinCode({ pinId, currentUser });
+}
+
+function resetCounterPins() {
+  if (!confirm('確定要停用本週所有 PIN Code 並產生一組新的 PIN？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(`${res.message}：${res.pinCode.pinCode}`);
+      loadCounterPins();
+    })
+    .withFailureHandler(showError)
+    .resetCurrentWeekCounterPinCodes({ currentUser });
 }
 
 function markCounterTransactionPaid(transactionId) {
