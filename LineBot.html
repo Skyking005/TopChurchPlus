@@ -1,0 +1,75 @@
+<section id="lineBotView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">LINE BOT 管理系統</h5>
+        <div class="text-muted small">LINE EDM、會友綁定、BOT 功能設定與外部互動紀錄整合管理</div>
+      </div>
+      <button type="button" class="btn btn-outline-primary" onclick="loadLineBotDashboard()">重新整理</button>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-4">
+        <div class="linebot-metric">
+          <div class="text-muted small">牧養主檔 LINE 綁定</div>
+          <div id="lineBotBoundMembers" class="linebot-metric-value">-</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="linebot-metric">
+          <div class="text-muted small">LINE 使用者資料表</div>
+          <div id="lineBotUsers" class="linebot-metric-value">-</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="linebot-metric">
+          <div class="text-muted small">最近互動時間</div>
+          <div id="lineBotLastInteraction" class="linebot-metric-value linebot-metric-date">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12 col-xl-6">
+        <div class="linebot-module">
+          <div class="linebot-module-title">LINE EDM</div>
+          <div class="text-muted small mb-3">管理分眾名單、訊息草稿、排程與發送紀錄。</div>
+          <div class="linebot-placeholder">功能入口已建立，後續將接入 EDM 範本、發送名單與排程資料。</div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="linebot-module">
+          <div class="linebot-module-title">LINE 連結與會友綁定</div>
+          <div class="text-muted small mb-3">檢視會友 LINE 綁定狀態，處理重複綁定與未綁定名單。</div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>會堂</th>
+                  <th class="text-end">會友數</th>
+                  <th class="text-end">已綁定</th>
+                  <th class="text-end">綁定率</th>
+                </tr>
+              </thead>
+              <tbody id="lineBotChurchStatsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="linebot-module">
+          <div class="linebot-module-title">BOT 功能設定</div>
+          <div class="text-muted small mb-3">統一管理 QT 下單、表單入口、場地借用、會友服務等 BOT 模組開關。</div>
+          <div id="lineBotFeatureList" class="linebot-feature-list"></div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="linebot-module">
+          <div class="linebot-module-title">Webhook 與事件紀錄</div>
+          <div class="text-muted small mb-3">集中檢視 LINE BOT webhook 狀態、錯誤事件與最近互動。</div>
+          <div id="lineBotWebhookStatus" class="linebot-placeholder">尚未接入 LINE webhook 事件紀錄。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

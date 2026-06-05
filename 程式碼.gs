@@ -233,6 +233,10 @@ function getQtReport(type, filters, currentUser) {
   }, currentUser);
 }
 
+function getLineBotDashboard(currentUser) {
+  return apiRequest('get', '/linebot/dashboard', null, null, currentUser);
+}
+
 function getQtInventoryMovements(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory/movements', null, {

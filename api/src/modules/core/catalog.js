@@ -25,6 +25,7 @@ const SYSTEM_FEATURES = [
   'forms',
   'counter',
   'qt',
+  'linebot',
   'pastoral',
   'education',
   'media',

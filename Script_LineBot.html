@@ -1,0 +1,86 @@
+<script>
+let lineBotDashboard = null;
+
+function openLineBotSystem() {
+  recordFeatureUsage('linebot');
+  document.getElementById('mainTitle').textContent = 'LINE BOT 管理系統';
+  hideAllMainViews();
+  document.getElementById('lineBotView').classList.remove('d-none');
+  loadLineBotDashboard();
+}
+
+function loadLineBotDashboard() {
+  document.getElementById('lineBotBoundMembers').textContent = '...';
+  document.getElementById('lineBotUsers').textContent = '...';
+  document.getElementById('lineBotLastInteraction').textContent = '...';
+  setListLoading('lineBotChurchStatsBody', true, 'LINE 綁定資料載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotDashboard = data || {};
+      renderLineBotDashboard();
+    })
+    .withFailureHandler(showError)
+    .getLineBotDashboard(currentUser);
+}
+
+function renderLineBotDashboard() {
+  document.getElementById('lineBotBoundMembers').textContent = lineBotDashboard.boundMemberCount || 0;
+  document.getElementById('lineBotUsers').textContent = lineBotDashboard.lineUserCount || 0;
+  document.getElementById('lineBotLastInteraction').textContent = formatLineBotDateTime(lineBotDashboard.lastInteractionAt) || '尚無互動';
+  renderLineBotChurchStats(lineBotDashboard.churchStats || []);
+  renderLineBotFeatureList(lineBotDashboard.features || []);
+}
+
+function renderLineBotChurchStats(rows) {
+  const body = document.getElementById('lineBotChurchStatsBody');
+  body.innerHTML = '';
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">尚無會堂綁定統計</td></tr>';
+    return;
+  }
+  rows.forEach(row => {
+    const rate = row.memberCount ? Math.round((row.boundCount / row.memberCount) * 1000) / 10 : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.churchName)}</td>
+      <td class="text-end">${escapeHtml(row.memberCount)}</td>
+      <td class="text-end">${escapeHtml(row.boundCount)}</td>
+      <td class="text-end">${escapeHtml(rate)}%</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderLineBotFeatureList(features) {
+  const box = document.getElementById('lineBotFeatureList');
+  box.innerHTML = '';
+  if (!features.length) {
+    box.innerHTML = '<div class="linebot-placeholder">尚未設定 BOT 功能模組。</div>';
+    return;
+  }
+  features.forEach(feature => {
+    const item = document.createElement('div');
+    item.className = 'linebot-feature-item';
+    item.innerHTML = `
+      <div>
+        <div class="fw-semibold">${escapeHtml(feature.title)}</div>
+        <div class="text-muted small">${escapeHtml(feature.description)}</div>
+      </div>
+      <span class="badge ${feature.enabled ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${feature.enabled ? '規劃中' : '未啟用'}</span>
+    `;
+    box.appendChild(item);
+  });
+}
+
+function formatLineBotDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
+}
+</script>

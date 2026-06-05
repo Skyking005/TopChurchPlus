@@ -49,6 +49,12 @@ const SYSTEM_FEATURES = [
     action: 'openQtSystem'
   },
   {
+    key: 'linebot',
+    title: 'LINE BOT管理系統',
+    desc: 'LINE EDM、會友綁定與 BOT 服務設定',
+    action: 'openLineBotSystem'
+  },
+  {
     key: 'pastoral',
     title: '牧養管理系統',
     desc: '牧養關懷、名單與跟進紀錄',
@@ -87,9 +93,9 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qt', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
@@ -438,7 +444,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -471,7 +477,7 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -496,6 +502,7 @@ function backToFeatureMenu() {
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
+  document.getElementById('lineBotView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
@@ -604,6 +611,7 @@ function openProjectSystem() {
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
+  document.getElementById('lineBotView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -624,6 +632,7 @@ function openPurchaseSystem() {
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
+  document.getElementById('lineBotView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
