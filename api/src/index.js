@@ -7,21 +7,14 @@ const { createErrorHandler } = require('./middleware/error-handler');
 const { registerAuthRoutes } = require('./modules/auth/routes');
 const { FEATURE_ACCESS_RANK, PARAM_CATEGORIES, SYSTEM_FEATURES } = require('./modules/core/catalog');
 const { registerCoreRoutes } = require('./modules/core/routes');
+const { registerSystemRoutes } = require('./modules/system/routes');
 
 const app = createApp();
 
 app.use(createApiKeyMiddleware({ publicPaths: ['/health'] }));
 registerCoreRoutes(app);
 registerAuthRoutes(app);
-
-app.get('/initial-data', async (req, res, next) => {
-  try {
-    const [params, accounts, featurePermissions] = await Promise.all([getParams(), getAccounts(), getFeaturePermissions()]);
-    res.json({ params, accounts, featurePermissions });
-  } catch (err) {
-    next(err);
-  }
-});
+registerSystemRoutes(app);
 
 app.get('/projects', async (req, res, next) => {
   try {
@@ -410,118 +403,6 @@ app.delete('/locations/:locationId', async (req, res, next) => {
   }
 });
 
-app.get('/system/users', async (req, res, next) => {
-  try {
-    assertSuperAdmin(parseUser(req));
-    res.json(await getAccounts());
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post('/system/users', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const user = req.body.user || {};
-    const staffId = normalizeValue(user.staffId);
-    const email = normalizeValue(user.email).toLowerCase();
-    const name = normalizeValue(user.name);
-    const position = String(user.position || '').trim();
-
-    await pool.query(
-      `INSERT INTO accounts (staff_id, email, name, position, role, updated_at)
-       VALUES ($1, $2, $3, $4, '使用者', now())
-       ON CONFLICT (staff_id) DO UPDATE SET
-         email = EXCLUDED.email,
-         name = EXCLUDED.name,
-         position = EXCLUDED.position,
-         updated_at = now()`,
-      [staffId, email, name, position]
-    );
-
-    await pool.query(
-      `INSERT INTO account_roles (staff_id, role)
-       VALUES ($1, $2)
-       ON CONFLICT (staff_id, role) DO NOTHING`,
-      [staffId, '使用者']
-    );
-
-    res.json({ success: true, message: '使用者已儲存' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.put('/system/users/:staffId/pastoral-churches', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const staffId = req.params.staffId;
-    const churchIds = Array.isArray(req.body.churchIds) ? req.body.churchIds : [];
-    await savePastoralChurchPermissions(staffId, churchIds);
-    res.json({ success: true, message: '牧養資料權限已儲存', users: await getAccounts() });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.put('/system/users/:staffId/roles', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const staffId = req.params.staffId;
-    const roles = normalizeRoles(req.body.roles, null);
-    if (!roles.length) throw new Error('請至少選擇一個權限身分');
-
-    const exists = await pool.query('SELECT staff_id FROM accounts WHERE staff_id = $1', [staffId]);
-    if (!exists.rows[0]) throw new Error('找不到使用者資料');
-
-    await tx(async client => {
-      await client.query('DELETE FROM account_roles WHERE staff_id = $1', [staffId]);
-      for (const role of roles) {
-        await client.query(
-          `INSERT INTO account_roles (staff_id, role)
-           VALUES ($1, $2)
-           ON CONFLICT (staff_id, role) DO NOTHING`,
-          [staffId, role]
-        );
-      }
-      await client.query('UPDATE accounts SET role = $1, updated_at = now() WHERE staff_id = $2', [roles[0], staffId]);
-    });
-
-    res.json({ success: true, message: '使用者權限已儲存' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post('/usage', async (req, res, next) => {
-  try {
-    await recordUsage(req.body.currentUser, req.body.featureKey, req.body.action, req.body.metadata);
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get('/system/feature-permissions', async (req, res, next) => {
-  try {
-    assertSuperAdmin(parseUser(req));
-    res.json(await getFeaturePermissions());
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.put('/system/feature-permissions', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const permissions = Array.isArray(req.body.permissions) ? req.body.permissions : [];
-    await saveFeaturePermissions(permissions);
-    res.json({ success: true, message: '功能權限已儲存', featurePermissions: await getFeaturePermissions() });
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.get('/projects/:projectId/meetings', async (req, res, next) => {
   try {
     const currentUser = parseUser(req);
@@ -637,62 +518,6 @@ app.patch('/projects/:projectId/meetings/:meetingId/status', async (req, res, ne
   }
 });
 
-app.get('/params/:type', async (req, res, next) => {
-  try {
-    assertSuperAdmin(parseUser(req));
-    res.json(await getParamValues(req.params.type));
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post('/params/:type', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const value = normalizeValue(req.body.value);
-    const type = normalizeParamType(req.params.type);
-    const existing = await getParamValues(type);
-    if (existing.includes(value)) throw new Error('參數已存在');
-    await pool.query(
-      'INSERT INTO params (category, value, sort_order) VALUES ($1, $2, $3)',
-      [type, value, existing.length + 1]
-    );
-    res.json({ success: true, message: '已新增參數' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.put('/params/:type', async (req, res, next) => {
-  try {
-    assertSuperAdmin(req.body.currentUser);
-    const type = normalizeParamType(req.params.type);
-    const oldValue = normalizeValue(req.body.oldValue);
-    const newValue = normalizeValue(req.body.newValue);
-    const result = await pool.query(
-      'UPDATE params SET value = $1, updated_at = now() WHERE category = $2 AND value = $3',
-      [newValue, type, oldValue]
-    );
-    if (!result.rowCount) throw new Error('找不到要修改的參數');
-    res.json({ success: true, message: '已更新參數' });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.delete('/params/:type/:value', async (req, res, next) => {
-  try {
-    assertSuperAdmin(parseUser(req));
-    const type = normalizeParamType(req.params.type);
-    const value = decodeURIComponent(req.params.value);
-    const result = await pool.query('DELETE FROM params WHERE category = $1 AND value = $2', [type, value]);
-    if (!result.rowCount) throw new Error('找不到要刪除的參數');
-    res.json({ success: true, message: '已刪除參數' });
-  } catch (err) {
-    next(err);
-  }
-});
-
 app.use(createErrorHandler());
 
 async function getParams() {
@@ -706,88 +531,6 @@ async function getParams() {
   params.chargeOptions = params.chargeOptions.length ? params.chargeOptions : ['是', '否'];
   params.departments = params.departments.length ? params.departments : getDefaultDepartments();
   return params;
-}
-
-async function getParamValues(type) {
-  const category = normalizeParamType(type);
-  const { rows } = await pool.query(
-    'SELECT value FROM params WHERE category = $1 ORDER BY sort_order, value',
-    [category]
-  );
-  return rows.map(row => row.value);
-}
-
-async function getAccounts() {
-  const { rows } = await pool.query(`
-    SELECT
-      a.staff_id,
-      a.email,
-      a.name,
-      a.position,
-      a.role,
-      array_remove(array_agg(DISTINCT ar.role), NULL) AS roles,
-      array_remove(array_agg(DISTINCT apcp.church_id), NULL) AS pastoral_church_ids
-    FROM accounts a
-    LEFT JOIN account_roles ar ON ar.staff_id = a.staff_id
-    LEFT JOIN account_pastoral_church_permissions apcp ON apcp.staff_id = a.staff_id
-    GROUP BY a.staff_id, a.email, a.name, a.position, a.role
-    ORDER BY
-      CASE WHEN a.staff_id ~ '^[0-9]+$' THEN a.staff_id::int END NULLS LAST,
-      a.staff_id
-  `);
-  return rows.map(row => ({
-    staffId: row.staff_id,
-    email: row.email,
-    name: row.name,
-    position: row.position,
-    role: row.role,
-    roles: normalizeRoles(row.roles, row.role),
-    pastoralChurchIds: (row.pastoral_church_ids || []).map(Number).filter(Number.isFinite)
-  }));
-}
-
-async function savePastoralChurchPermissions(staffId, churchIds) {
-  const exists = await pool.query('SELECT staff_id FROM accounts WHERE staff_id = $1', [staffId]);
-  if (!exists.rows[0]) throw new Error('找不到使用者資料');
-
-  const normalizedChurchIds = [...new Set(churchIds.map(id => Number(id)).filter(id => Number.isInteger(id)))];
-  if (normalizedChurchIds.length) {
-    const found = await pool.query('SELECT id FROM churches WHERE id = ANY($1::int[])', [normalizedChurchIds]);
-    if (found.rows.length !== normalizedChurchIds.length) throw new Error('包含不存在的會堂資料');
-  }
-
-  await tx(async client => {
-    await client.query('DELETE FROM account_pastoral_church_permissions WHERE staff_id = $1', [staffId]);
-    for (const churchId of normalizedChurchIds) {
-      await client.query(
-        `INSERT INTO account_pastoral_church_permissions (staff_id, church_id)
-         VALUES ($1, $2)
-         ON CONFLICT (staff_id, church_id) DO NOTHING`,
-        [staffId, churchId]
-      );
-    }
-  });
-}
-
-async function getAccountRoles(staffId, fallbackRole) {
-  const { rows } = await pool.query(
-    'SELECT role FROM account_roles WHERE staff_id = $1 ORDER BY role',
-    [staffId]
-  );
-  return normalizeRoles(rows.map(row => row.role), fallbackRole);
-}
-
-async function getFeaturePermissions() {
-  const { rows } = await pool.query(
-    `SELECT role, feature_key, access_level
-     FROM role_feature_permissions
-     ORDER BY role, feature_key`
-  );
-  return rows.map(row => ({
-    role: row.role,
-    featureKey: row.feature_key,
-    accessLevel: row.access_level
-  }));
 }
 
 async function getEffectiveFeaturePermissions(user) {
@@ -832,25 +575,6 @@ async function assertFeatureEditable(user, featureKey) {
   const access = await getFeatureAccess(user, featureKey);
   if (access === 'edit') return true;
   throw new Error('沒有此系統功能的操作權限');
-}
-
-async function saveFeaturePermissions(permissions) {
-  return tx(async client => {
-    await client.query('DELETE FROM role_feature_permissions');
-    for (const item of permissions) {
-      const role = normalizeValue(item.role);
-      const featureKey = normalizeValue(item.featureKey);
-      const accessLevel = String(item.accessLevel || 'none').trim();
-      if (!SYSTEM_FEATURES.includes(featureKey)) throw new Error(`未知的系統功能：${featureKey}`);
-      if (!['none', 'read', 'edit'].includes(accessLevel)) throw new Error('未知的權限層級');
-      await client.query(
-        `INSERT INTO role_feature_permissions (role, feature_key, access_level)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (role, feature_key) DO UPDATE SET access_level = EXCLUDED.access_level, updated_at = now()`,
-        [role, featureKey, accessLevel]
-      );
-    }
-  });
 }
 
 function normalizeRoles(roles, fallbackRole) {
@@ -2034,41 +1758,6 @@ async function getPastoralChurchAccess(user) {
   return { all: false, churchIds: rows.map(row => Number(row.church_id)).filter(Number.isFinite) };
 }
 
-async function recordUsage(user, featureKey, action = 'open', metadata = {}) {
-  if (!user || !user.staffId) return;
-  if (!SYSTEM_FEATURES.includes(featureKey)) return;
-  await pool.query(
-    `INSERT INTO system_usage_logs (staff_id, feature_key, action, metadata)
-     VALUES ($1, $2, $3, $4::jsonb)`,
-    [
-      String(user.staffId),
-      featureKey,
-      String(action || 'open').slice(0, 50),
-      JSON.stringify(metadata && typeof metadata === 'object' ? metadata : {})
-    ]
-  );
-}
-
-async function getFeatureUsageSummary(staffId) {
-  if (!staffId) return {};
-  const { rows } = await pool.query(
-    `SELECT feature_key, count(*)::int AS count, max(created_at) AS last_used_at
-     FROM system_usage_logs
-     WHERE staff_id = $1
-       AND action = 'open'
-       AND created_at >= now() - interval '180 days'
-     GROUP BY feature_key`,
-    [String(staffId)]
-  );
-  return rows.reduce((acc, row) => {
-    acc[row.feature_key] = {
-      count: row.count,
-      lastUsedAt: row.last_used_at
-    };
-    return acc;
-  }, {});
-}
-
 function formatGender(value) {
   if (value === 1) return '男';
   if (value === 0) return '女';
@@ -2134,11 +1823,6 @@ function formatDate(value) {
 function formatDateTime(value) {
   if (!value) return '';
   return new Date(value).toISOString();
-}
-
-function normalizeParamType(type) {
-  if (!PARAM_CATEGORIES[type]) throw new Error('未知的參數類型');
-  return type;
 }
 
 function normalizeValue(value) {
