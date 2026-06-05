@@ -234,6 +234,10 @@ function getEducationCourses(filters, currentUser) {
   }, currentUser);
 }
 
+function getEducationClassForecast(currentUser) {
+  return apiRequest('get', '/education/class-forecast', null, null, currentUser);
+}
+
 function getEducationCourseDetail(courseId, currentUser) {
   return apiRequest('get', `/education/courses/${encodeURIComponent(courseId)}`, null, null, currentUser);
 }

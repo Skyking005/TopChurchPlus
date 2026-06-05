@@ -179,6 +179,7 @@ async function buildLoginUser(user, email, deviceType) {
     name: user.name,
     position: user.position,
     department: user.department || '',
+    departments: normalizeDepartments(user.department),
     role: user.role,
     roles,
     featurePermissions,
@@ -376,6 +377,10 @@ function normalizeRoles(roles, fallbackRole) {
     .map(role => String(role || '').trim())
     .filter(Boolean);
   return [...new Set(normalized)];
+}
+
+function normalizeDepartments(value) {
+  return [...new Set(String(value || '').split(/[、,，]/).map(item => item.trim()).filter(Boolean))];
 }
 
 function hashLoginCode(verificationId, code) {

@@ -25,6 +25,16 @@ function registerEducationRoutes(app) {
     }
   });
 
+  app.get('/education/class-forecast', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertEducationReadable(currentUser);
+      res.json(await getClassForecast());
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/education/courses/:courseId', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -113,6 +123,86 @@ async function getCourses(query) {
     values
   );
   return rows.map(toCourseListItem);
+}
+
+async function getClassForecast() {
+  const stageDefinitions = [
+    { key: 'e1', label: 'E1', patterns: ['E1'] },
+    { key: 'growth', label: '成長班', patterns: ['成長班'] },
+    { key: 'e2', label: 'E2', patterns: ['E2'] },
+    { key: 'disciple', label: '門徒班', patterns: ['門徒班'] },
+    { key: 'e3', label: 'E3', patterns: ['E3'] },
+    { key: 'leader', label: '領袖班', patterns: ['領袖班'] }
+  ];
+
+  const { rows } = await pool.query(
+    `SELECT
+       pm.id AS member_id,
+       pm.name AS member_name,
+       ch.name AS church_name,
+       mc.name AS category_name,
+       lower(coalesce(cat.category_name, '') || ' ' || coalesce(c.course_name, '')) AS course_text,
+       bool_or(e.is_completed) AS is_completed,
+       bool_or(NOT e.is_completed AND c.status <> 'archived') AS is_pending
+     FROM pastoral_members pm
+     LEFT JOIN churches ch ON ch.id = pm.church_id
+     LEFT JOIN membership_categories mc ON mc.code = pm.membership_category_code
+     LEFT JOIN education_enrollments e ON e.member_id = pm.id
+     LEFT JOIN education_courses c ON c.course_id = e.course_id
+     LEFT JOIN education_course_categories cat ON cat.category_id = c.category_id
+     WHERE pm.is_active = true
+     GROUP BY pm.id, pm.name, ch.name, mc.name, lower(coalesce(cat.category_name, '') || ' ' || coalesce(c.course_name, ''))`
+  );
+
+  const members = new Map();
+  rows.forEach(row => {
+    if (!members.has(row.member_id)) {
+      members.set(row.member_id, {
+        memberId: row.member_id,
+        memberName: row.member_name,
+        churchName: row.church_name || '',
+        categoryName: row.category_name || '',
+        completed: new Set(),
+        pending: new Set()
+      });
+    }
+    const member = members.get(row.member_id);
+    stageDefinitions.forEach(stage => {
+      if (matchesEducationStage(row.course_text, stage.patterns)) {
+        if (row.is_completed) member.completed.add(stage.key);
+        if (row.is_pending) member.pending.add(stage.key);
+      }
+    });
+  });
+
+  const sequence = stageDefinitions.map((stage, index) => ({
+    ...stage,
+    prerequisiteKey: index === 0 ? null : stageDefinitions[index - 1].key,
+    prerequisiteLabel: index === 0 ? '尚未完成 E1' : `已完成 ${stageDefinitions[index - 1].label}`
+  }));
+
+  return sequence.map(stage => {
+    const eligibleMembers = [...members.values()].filter(member => {
+      const hasPrerequisite = stage.prerequisiteKey ? member.completed.has(stage.prerequisiteKey) : true;
+      return hasPrerequisite && !member.completed.has(stage.key);
+    });
+    const pendingMembers = eligibleMembers.filter(member => member.pending.has(stage.key));
+    const estimatedMembers = eligibleMembers.filter(member => !member.pending.has(stage.key));
+    return {
+      stageKey: stage.key,
+      stageName: stage.label,
+      prerequisite: stage.prerequisiteLabel,
+      eligibleCount: eligibleMembers.length,
+      pendingCount: pendingMembers.length,
+      estimatedCount: estimatedMembers.length,
+      sampleMembers: estimatedMembers.slice(0, 12).map(member => ({
+        memberId: member.memberId,
+        memberName: member.memberName,
+        churchName: member.churchName,
+        categoryName: member.categoryName
+      }))
+    };
+  });
 }
 
 async function getCourseDetail(courseId) {
@@ -219,6 +309,11 @@ function normalizeDate(value) {
 async function generateCourseId(client) {
   const { rows } = await client.query('SELECT COALESCE(max(course_id), 0)::int + 1 AS next_id FROM education_courses');
   return rows[0].next_id;
+}
+
+function matchesEducationStage(courseText, patterns) {
+  const text = String(courseText || '').toLowerCase();
+  return patterns.some(pattern => text.includes(String(pattern).toLowerCase()));
 }
 
 function toCourseListItem(row) {

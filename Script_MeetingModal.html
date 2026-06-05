@@ -425,7 +425,7 @@ function renderMeetingDepartmentOptions(accounts = getSortedAccounts()) {
   const currentValue = select.value;
   const departments = [
     ...(initialData?.params?.departments || []),
-    ...accounts.map(account => account.department)
+    ...accounts.flatMap(account => getAccountDepartments(account))
   ]
     .map(value => String(value || '').trim())
     .filter(Boolean);
@@ -446,7 +446,7 @@ function updateMeetingAttendeeTools(accounts = getSortedAccounts()) {
   const departmentSelect = document.getElementById('meetingDepartmentSelect');
   if (!tools) return;
   const hasBulkSelect = accounts.length > 3;
-  const hasDepartments = [...new Set(accounts.map(account => String(account.department || '').trim()).filter(Boolean))].length > 0;
+  const hasDepartments = [...new Set(accounts.flatMap(account => getAccountDepartments(account)))].length > 0;
   tools.classList.toggle('d-none', !hasBulkSelect && !hasDepartments);
   document.querySelectorAll('.meeting-attendee-tool').forEach(el => {
     const isDepartmentTool = el.id === 'meetingDepartmentSelect' || el.textContent.trim() === '勾選部門';
@@ -456,7 +456,17 @@ function updateMeetingAttendeeTools(accounts = getSortedAccounts()) {
 }
 
 function formatMeetingAttendeeLabel(account) {
-  return [account.name, account.position, account.department].filter(Boolean).join(' ');
+  return [account.name, account.position, getAccountDepartments(account).join('、')].filter(Boolean).join(' ');
+}
+
+function getAccountDepartments(account) {
+  if (Array.isArray(account?.departments)) {
+    return account.departments.map(value => String(value || '').trim()).filter(Boolean);
+  }
+  return String(account?.department || '')
+    .split(/[、,，]/)
+    .map(value => value.trim())
+    .filter(Boolean);
 }
 
 function selectAllMeetingAttendees() {
@@ -481,7 +491,7 @@ function selectMeetingAttendeesByDepartment() {
   }
   if (errorBox) errorBox.textContent = '';
   getSortedAccounts()
-    .filter(account => String(account.department || '').trim() === department)
+    .filter(account => getAccountDepartments(account).includes(department))
     .forEach(account => {
       const checkbox = document.getElementById(`meeting_attendee_${account.staffId}`);
       if (checkbox && !checkbox.disabled) checkbox.checked = true;

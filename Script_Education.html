@@ -20,6 +20,7 @@ function openEducationSystem() {
 
 function loadEducationSystem() {
   setListLoading('educationCourseTableBody', true, '課程資料載入中...');
+  loadEducationClassForecast();
   google.script.run
     .withSuccessHandler(categories => {
       educationCategories = categories || [];
@@ -28,6 +29,54 @@ function loadEducationSystem() {
     })
     .withFailureHandler(showError)
     .getEducationCourseCategories(currentUser);
+}
+
+function loadEducationClassForecast() {
+  const grid = document.getElementById('educationClassForecastGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="col-12"><div class="list-loading-box text-muted">開班預估資料載入中...</div></div>';
+  google.script.run
+    .withSuccessHandler(renderEducationClassForecast)
+    .withFailureHandler(err => {
+      grid.innerHTML = `<div class="col-12"><div class="text-danger small">${escapeHtml(err.message || err)}</div></div>`;
+    })
+    .getEducationClassForecast(currentUser);
+}
+
+function renderEducationClassForecast(rows) {
+  const grid = document.getElementById('educationClassForecastGrid');
+  if (!grid) return;
+  const items = rows || [];
+  if (!items.length) {
+    grid.innerHTML = '<div class="col-12"><div class="text-muted small">尚無可預估的課程資料</div></div>';
+    return;
+  }
+  grid.innerHTML = '';
+  items.forEach(item => {
+    const sampleText = (item.sampleMembers || [])
+      .slice(0, 4)
+      .map(member => member.memberName)
+      .filter(Boolean)
+      .join('、');
+    const col = document.createElement('div');
+    col.className = 'col-12 col-md-6 col-xl-4';
+    col.innerHTML = `
+      <div class="education-forecast-card">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <div class="fw-semibold">${escapeHtml(item.stageName)}</div>
+            <div class="text-muted small">${escapeHtml(item.prerequisite || '')}</div>
+          </div>
+          <span class="badge bg-primary">${escapeHtml(item.estimatedCount || 0)} 人</span>
+        </div>
+        <div class="education-forecast-meta mt-2">
+          可就讀 ${escapeHtml(item.eligibleCount || 0)} 人，已在修 ${escapeHtml(item.pendingCount || 0)} 人
+        </div>
+        <div class="text-muted small mt-2">${sampleText ? `名單例：${escapeHtml(sampleText)}` : '目前沒有待開班名單'}</div>
+      </div>
+    `;
+    grid.appendChild(col);
+  });
 }
 
 function setupEducationCategoryOptions() {

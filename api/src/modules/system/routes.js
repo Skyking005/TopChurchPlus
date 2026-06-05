@@ -32,7 +32,7 @@ function registerSystemRoutes(app) {
       const email = normalizeRequiredValue(user.email, '電子信箱不可空白').toLowerCase();
       const name = normalizeRequiredValue(user.name, '姓名不可空白');
       const position = String(user.position || '').trim();
-      const department = String(user.department || '').trim();
+      const department = normalizeDepartments(user.departments || user.department).join('、');
 
       await pool.query(
         `INSERT INTO accounts (staff_id, email, name, position, department, role, updated_at)
@@ -257,6 +257,7 @@ async function getAccounts() {
     name: row.name,
     position: row.position,
     department: row.department || '',
+    departments: normalizeDepartments(row.department),
     role: row.role,
     roles: normalizeRoles(row.roles, row.role),
     pastoralChurchIds: (row.pastoral_church_ids || []).map(Number).filter(Number.isFinite)
@@ -358,6 +359,11 @@ function normalizeRoles(roles, fallbackRole) {
     .map(role => String(role || '').trim())
     .filter(Boolean);
   return [...new Set(normalized)];
+}
+
+function normalizeDepartments(value) {
+  const values = Array.isArray(value) ? value : String(value || '').split(/[、,，]/);
+  return [...new Set(values.map(item => String(item || '').trim()).filter(Boolean))];
 }
 
 function normalizeParamType(type) {
