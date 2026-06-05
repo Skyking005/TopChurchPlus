@@ -28,7 +28,7 @@ const SYSTEM_FEATURES = [
     key: 'venue',
     title: '場地預約系統',
     desc: '場地借用、時段查詢與預約管理',
-    action: 'openComingSoonSystem'
+    action: 'openVenueSystem'
   },
   {
     key: 'forms',
@@ -369,7 +369,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'pastoralView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -414,6 +414,7 @@ function backToFeatureMenu() {
   document.getElementById('featureSelectionView').classList.remove('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
@@ -517,6 +518,7 @@ function openProjectSystem() {
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -532,6 +534,7 @@ function openPurchaseSystem() {
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
+  document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');

@@ -104,6 +104,96 @@ function deletePastoralMember(payload) {
   );
 }
 
+function getVenueResources(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/venues/resources', null, {
+    hall: filters.hall || ''
+  }, currentUser);
+}
+
+function saveVenueResourceCalendar(payload) {
+  return apiRequest('put', '/venues/resources/calendar', {
+    currentUser: payload.currentUser,
+    resource: payload.resource
+  });
+}
+
+function getVenueAvailability(filters, currentUser) {
+  filters = filters || {};
+  const startAt = filters.startAt || new Date().toISOString();
+  const endAt = filters.endAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const data = apiRequest('get', '/venues/availability', null, {
+    hall: filters.hall || '',
+    mainLocation: filters.mainLocation || '',
+    startAt,
+    endAt
+  }, currentUser);
+
+  const resources = (data.resources || []).filter(resource => {
+    if (filters.mainLocation && resource.mainLocation !== filters.mainLocation) return false;
+    return true;
+  });
+  const databaseReservations = data.reservations || [];
+  const calendarEvents = [];
+  const calendarErrors = [];
+
+  resources.forEach(resource => {
+    if (!resource.calendarId) return;
+    try {
+      const calendar = CalendarApp.getCalendarById(resource.calendarId);
+      if (!calendar) {
+        calendarErrors.push({
+          hall: resource.hall,
+          mainLocation: resource.mainLocation,
+          calendarId: resource.calendarId,
+          message: '找不到此 Google 行事曆'
+        });
+        return;
+      }
+      calendar.getEvents(new Date(startAt), new Date(endAt)).forEach(event => {
+        calendarEvents.push({
+          source: 'google_calendar',
+          hall: resource.hall,
+          mainLocation: resource.mainLocation,
+          title: event.getTitle(),
+          startAt: event.getStartTime().toISOString(),
+          endAt: event.getEndTime().toISOString(),
+          calendarId: resource.calendarId,
+          calendarEventId: event.getId()
+        });
+      });
+    } catch (err) {
+      calendarErrors.push({
+        hall: resource.hall,
+        mainLocation: resource.mainLocation,
+        calendarId: resource.calendarId,
+        message: err.message || String(err)
+      });
+    }
+  });
+
+  const events = databaseReservations
+    .map(item => Object.assign({ source: 'database' }, item))
+    .concat(calendarEvents);
+
+  return {
+    resources: resources.map(resource => {
+      const resourceEvents = events.filter(event =>
+        event.hall === resource.hall && event.mainLocation === resource.mainLocation
+      );
+      return Object.assign({}, resource, {
+        status: resourceEvents.length ? '使用中' : '可使用',
+        events: resourceEvents
+      });
+    }),
+    reservations: databaseReservations,
+    calendarEvents,
+    calendarErrors,
+    startAt,
+    endAt
+  };
+}
+
 function getProjects(filters, currentUser) {
   filters = filters || {};
   currentUser = currentUser || filters.currentUser;

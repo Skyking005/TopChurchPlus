@@ -10,6 +10,7 @@ const { registerPastoralRoutes } = require('./modules/pastoral/routes');
 const { registerFinanceRoutes } = require('./modules/finance/routes');
 const { registerProjectRoutes } = require('./modules/project/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
+const { registerVenueRoutes } = require('./modules/venue/routes');
 
 const app = createApp();
 
@@ -21,6 +22,7 @@ registerPastoralRoutes(app);
 registerAssetRoutes(app);
 registerFinanceRoutes(app);
 registerProjectRoutes(app);
+registerVenueRoutes(app);
 
 app.use(createErrorHandler());
 
