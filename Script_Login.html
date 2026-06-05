@@ -345,7 +345,14 @@ function preloadInitialData(callback) {
     .getInitialData();
 }
 
-window.addEventListener('load', () => preloadInitialData());
+window.addEventListener('load', () => {
+  const publicFormId = String(window.APP_BOOTSTRAP?.publicFormId || '').trim();
+  if (publicFormId) {
+    openPublicFormFill(publicFormId);
+    return;
+  }
+  preloadInitialData();
+});
 
 function logout() {
   currentUser = null;

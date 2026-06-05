@@ -25,6 +25,7 @@ const FORM_QUESTION_TYPES = [
 function openFormsSystem() {
   recordFeatureUsage('forms');
   const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
+  isPublicFormMode = false;
   document.getElementById('mainTitle').textContent = '表單系統';
   ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
@@ -35,9 +36,40 @@ function openFormsSystem() {
   document.getElementById('saveFormBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('deleteFormBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('previewFormBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('copyPublicFormLinkBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('viewFormResponsesBtn').classList.toggle('d-none', !canEdit);
   backToFormsList(false);
   loadForms();
+}
+
+function openPublicFormFill(formId) {
+  isPublicFormMode = true;
+  currentUser = null;
+  document.getElementById('loginView')?.classList.add('d-none');
+  document.getElementById('mainView')?.classList.remove('d-none');
+  document.querySelector('.topbar')?.classList.add('d-none');
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('formsView').classList.remove('d-none');
+  document.getElementById('formsListView').classList.add('d-none');
+  document.getElementById('formEditorView').classList.add('d-none');
+  document.getElementById('formResponsesView').classList.add('d-none');
+  document.getElementById('formFillView').classList.remove('d-none');
+  document.getElementById('formFillTitle').textContent = '表單載入中...';
+  document.getElementById('formFillDescription').textContent = '';
+  document.getElementById('formFillQuestions').innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>表單載入中...</div>';
+  document.getElementById('formFillError').textContent = '';
+  document.getElementById('submitFormResponseBtn').classList.remove('d-none');
+  google.script.run
+    .withSuccessHandler(setFormFill)
+    .withFailureHandler(err => {
+      document.getElementById('formFillQuestions').innerHTML = '';
+      document.getElementById('formFillTitle').textContent = '無法開啟表單';
+      document.getElementById('formFillError').textContent = err.message || err;
+    })
+    .getPublicFormDetail(formId);
 }
 
 function loadForms() {
@@ -80,6 +112,7 @@ function renderFormsTable() {
         <div class="btn-group btn-group-sm">
           <button type="button" class="btn btn-outline-secondary" onclick="openFormEditor('${escapeAttr(form.formId)}')">編輯</button>
           <button type="button" class="btn btn-outline-primary" onclick="openFormFill('${escapeAttr(form.formId)}')">填寫</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="copyPublicFormLink('${escapeAttr(form.formId)}', '${escapeAttr(form.visibility)}', '${escapeAttr(form.status)}', ${form.requireLogin ? 'true' : 'false'})">連結</button>
           <button type="button" class="btn btn-outline-secondary" onclick="openFormResponses('${escapeAttr(form.formId)}')">回覆</button>
         </div>
       </td>
@@ -158,6 +191,7 @@ function toggleFormFeeFields() {
 }
 
 function backToFormsList(shouldLoad = true) {
+  if (isPublicFormMode) return;
   const list = document.getElementById('formsListView');
   const editor = document.getElementById('formEditorView');
   const fill = document.getElementById('formFillView');
@@ -173,6 +207,58 @@ function previewCurrentForm() {
   const formId = document.getElementById('formId').value;
   if (!formId) return alert('請先儲存表單後再預覽');
   openFormFill(formId);
+}
+
+function copyCurrentFormPublicLink() {
+  const formId = document.getElementById('formId').value;
+  if (!formId) return alert('請先儲存表單後再複製公開連結');
+  copyPublicFormLink(
+    formId,
+    document.getElementById('formVisibility').value,
+    document.getElementById('formStatus').value,
+    document.getElementById('formRequireLogin').checked
+  );
+}
+
+function copyPublicFormLink(formId, visibility, status, requireLogin) {
+  if (visibility !== 'public' || status !== 'published' || requireLogin) {
+    alert('公開連結需將表單設定為「已發布 / 公開 / 不需要登入」。');
+    return;
+  }
+  const url = buildPublicFormUrl(formId);
+  copyTextToClipboard(url)
+    .then(() => alert('公開表單連結已複製'))
+    .catch(() => prompt('請複製公開表單連結', url));
+}
+
+function buildPublicFormUrl(formId) {
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('form', formId);
+  return url.toString();
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy') ? resolve() : reject(new Error('copy failed'));
+    } catch (err) {
+      reject(err);
+    } finally {
+      document.body.removeChild(textarea);
+    }
+  });
 }
 
 function viewCurrentFormResponses() {
@@ -197,6 +283,11 @@ function setFormFill(data) {
   document.getElementById('formFillView').classList.remove('d-none');
   document.getElementById('formFillTitle').textContent = form.title || '';
   document.getElementById('formFillDescription').textContent = form.description || '';
+  const respondentBlock = document.getElementById('formRespondentNameBlock');
+  const respondentInput = document.getElementById('formRespondentName');
+  const showRespondent = isPublicFormMode || !currentUser;
+  respondentBlock.classList.toggle('d-none', !showRespondent);
+  respondentInput.value = showRespondent ? '' : (currentUser?.name || '');
   const notice = document.getElementById('formFillFeeNotice');
   if (form.hasFee) {
     notice.classList.remove('d-none');
@@ -295,24 +386,47 @@ async function submitCurrentFormResponse() {
     errorBox.textContent = err.message || err;
     return;
   }
-  google.script.run
+  const respondentName = document.getElementById('formRespondentName')?.value.trim()
+    || (currentUser && currentUser.name ? currentUser.name : '');
+  const runner = google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
-      alert(res.message);
-      backToFormsList(true);
+      if (isPublicFormMode) {
+        renderPublicFormSuccess(res);
+      } else {
+        alert(res.message);
+        backToFormsList(true);
+      }
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
-    })
-    .submitFormResponse({
-      formId: form.formId,
-      currentUser,
-      response: {
-        respondentName: currentUser && currentUser.name ? currentUser.name : '',
-        answers
-      }
     });
+  const payload = {
+    formId: form.formId,
+    response: {
+      respondentName,
+      answers
+    }
+  };
+  if (isPublicFormMode) {
+    runner.submitPublicFormResponse(payload);
+  } else {
+    payload.currentUser = currentUser;
+    runner.submitFormResponse(payload);
+  }
+}
+
+function renderPublicFormSuccess(res) {
+  document.getElementById('submitFormResponseBtn').classList.add('d-none');
+  document.getElementById('formFillQuestions').innerHTML = `
+    <div class="alert alert-success mb-0">
+      <h5 class="mb-2">表單已送出</h5>
+      <div>${escapeHtml(res.message || '感謝您的填寫。')}</div>
+      ${res.paymentAmount ? `<div class="mt-2">待繳金額：${escapeHtml(formatMoney(res.paymentAmount))}</div>` : ''}
+    </div>
+  `;
+  document.getElementById('formFillError').textContent = '';
 }
 
 function openFormResponses(formId) {

@@ -1,7 +1,9 @@
 const DOC_EXPORT_FOLDER_NAME = '卓越行道會專案文件';
 
-function doGet() {
-  return HtmlService.createTemplateFromFile('Index')
+function doGet(e) {
+  const template = HtmlService.createTemplateFromFile('Index');
+  template.publicFormId = e && e.parameter ? String(e.parameter.form || e.parameter.publicForm || '') : '';
+  return template
     .evaluate()
     .setTitle('卓越行道會行政系統')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
@@ -121,6 +123,10 @@ function getFormDetail(formId, currentUser) {
   return apiRequest('get', `/forms/${encodeURIComponent(formId)}`, null, null, currentUser);
 }
 
+function getPublicFormDetail(formId) {
+  return apiRequest('get', `/public/forms/${encodeURIComponent(formId)}`);
+}
+
 function saveForm(payload) {
   const formId = payload.formId || payload.form?.formId || '';
   if (formId) {
@@ -155,6 +161,21 @@ function submitFormResponse(payload) {
       response: payload.response
     }
   );
+}
+
+function submitPublicFormResponse(payload) {
+  return apiRequest(
+    'post',
+    `/public/forms/${encodeURIComponent(payload.formId)}/responses`,
+    {
+      response: payload.response
+    }
+  );
+}
+
+function getPublicFormUrl(formId) {
+  const url = ScriptApp.getService().getUrl();
+  return `${url}?form=${encodeURIComponent(formId)}`;
 }
 
 function getFormResponses(formId, currentUser) {

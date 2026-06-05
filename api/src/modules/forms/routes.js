@@ -29,6 +29,15 @@ function registerFormsRoutes(app) {
     }
   });
 
+  app.get('/public/forms/:formId', async (req, res, next) => {
+    try {
+      const detail = await getPublicFormDetail(req.params.formId);
+      res.json(detail);
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/forms/:formId/responses', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -57,6 +66,15 @@ function registerFormsRoutes(app) {
       const currentUser = req.body.currentUser || {};
       await assertFeatureReadable(currentUser, 'forms');
       res.json(await submitFormResponse(req.params.formId, req.body.response || {}, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/public/forms/:formId/responses', async (req, res, next) => {
+    try {
+      const detail = await getPublicFormDetail(req.params.formId);
+      res.json(await submitFormResponse(detail.form.formId, req.body.response || {}, null));
     } catch (err) {
       next(err);
     }
@@ -289,7 +307,7 @@ async function submitFormResponse(formId, payload, currentUser) {
   if (form.requireLogin && (!currentUser || !currentUser.name)) throw new Error('此表單需要登入後才能填寫');
 
   const answers = normalizeResponseAnswers(payload.answers || [], detail.questions);
-  const respondentName = normalizeText(payload.respondentName) || currentUser.name || '';
+  const respondentName = normalizeText(payload.respondentName) || (currentUser && currentUser.name ? currentUser.name : '');
 
   return tx(async client => {
     let counterTransactionId = null;
@@ -499,6 +517,15 @@ function normalizeFormPayload(payload) {
   };
 }
 
+async function getPublicFormDetail(formId) {
+  const detail = await getFormDetail(formId);
+  const form = detail.form;
+  if (form.status !== 'published') throw new Error('此表單尚未開放填寫');
+  if (form.visibility !== 'public') throw new Error('此表單不是公開表單');
+  if (form.requireLogin) throw new Error('此表單需要登入後才能填寫');
+  return detail;
+}
+
 function normalizeQuestion(question) {
   const title = normalizeText(question.title);
   if (!title) return null;
@@ -552,6 +579,8 @@ function toFormListItem(row) {
     formType: row.form_type || 'survey',
     status: row.status,
     visibility: row.visibility,
+    requireLogin: row.require_login,
+    allowMultipleResponses: row.allow_multiple_responses,
     hasFee: Boolean(row.has_fee),
     feeTitle: row.fee_title,
     feeAmount: Number(row.fee_amount || 0),

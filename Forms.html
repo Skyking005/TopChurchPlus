@@ -57,6 +57,7 @@
         </div>
         <div class="btn-group">
           <button type="button" class="btn btn-outline-secondary" id="previewFormBtn" onclick="previewCurrentForm()">預覽填寫</button>
+          <button type="button" class="btn btn-outline-secondary" id="copyPublicFormLinkBtn" onclick="copyCurrentFormPublicLink()">公開連結</button>
           <button type="button" class="btn btn-outline-secondary" id="viewFormResponsesBtn" onclick="viewCurrentFormResponses()">查看回覆</button>
           <button type="button" class="btn btn-outline-danger" id="deleteFormBtn" onclick="archiveCurrentForm()">封存</button>
           <button type="button" class="btn btn-primary" id="saveFormBtn" onclick="submitForm()">儲存表單</button>
@@ -152,6 +153,10 @@
         <h5 id="formFillTitle" class="mb-1"></h5>
         <div id="formFillDescription" class="text-muted"></div>
         <div id="formFillFeeNotice" class="alert alert-warning mt-3 mb-0 d-none"></div>
+        <div id="formRespondentNameBlock" class="mt-3 d-none">
+          <label class="form-label">填寫者姓名</label>
+          <input id="formRespondentName" class="form-control" placeholder="請輸入姓名">
+        </div>
       </div>
       <div id="formFillQuestions" class="form-questions-list"></div>
       <div id="formFillError" class="text-danger small mt-3"></div>
