@@ -47,6 +47,7 @@ function openSystemManagement() {
 function setupSystemManagement() {
   renderParameterTypeOptions();
   renderSystemPositionOptions();
+  renderSystemDepartmentOptions();
   loadParameterItems();
 }
 
@@ -76,6 +77,18 @@ function renderSystemPositionOptions() {
     const opt = document.createElement('option');
     opt.value = position;
     opt.textContent = position;
+    select.appendChild(opt);
+  });
+}
+
+function renderSystemDepartmentOptions() {
+  const select = document.getElementById('systemUserDepartment');
+  if (!select) return;
+  select.innerHTML = '<option value="">未設定</option>';
+  (initialData?.params?.departments || []).forEach(department => {
+    const opt = document.createElement('option');
+    opt.value = department;
+    opt.textContent = department;
     select.appendChild(opt);
   });
 }
@@ -144,7 +157,7 @@ function deleteParameterItem(encodedValue) {
 }
 
 function refreshParametersAfterChange() {
-  google.script.run.withSuccessHandler(data => { initialData = data; setupSearchOptions(); setupDetailOptions(); renderSystemPositionOptions(); loadParameterItems(); })
+  google.script.run.withSuccessHandler(data => { initialData = data; setupSearchOptions(); setupDetailOptions(); renderSystemPositionOptions(); renderSystemDepartmentOptions(); loadParameterItems(); })
     .withFailureHandler(err => { document.getElementById('parameterModalError').textContent = err.message || err; })
     .getInitialData();
 }
@@ -229,11 +242,11 @@ function renderSystemUsers() {
   const body = document.getElementById('systemUserTableBody');
   if (!body) return;
   body.innerHTML = '';
-  if (!systemUsers.length) { body.innerHTML = '<tr><td colspan="5" class="text-muted">目前沒有使用者資料</td></tr>'; return; }
+  if (!systemUsers.length) { body.innerHTML = '<tr><td colspan="6" class="text-muted">目前沒有使用者資料</td></tr>'; return; }
   systemUsers.forEach(user => {
     const encodedStaffId = encodeURIComponent(user.staffId);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(user.staffId)}</td><td>${escapeHtml(user.name)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.position)}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemUser('${encodedStaffId}')">編輯</button></td>`;
+    tr.innerHTML = `<td>${escapeHtml(user.staffId)}</td><td>${escapeHtml(user.name)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.position)}</td><td>${escapeHtml(user.department || '')}</td><td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemUser('${encodedStaffId}')">編輯</button></td>`;
     body.appendChild(tr);
   });
 }
@@ -244,6 +257,7 @@ function resetSystemUserForm() {
   document.getElementById('systemUserEmail').value = '';
   document.getElementById('systemUserName').value = '';
   document.getElementById('systemUserPosition').value = '';
+  document.getElementById('systemUserDepartment').value = '';
   document.getElementById('systemUserError').textContent = '';
 }
 
@@ -256,13 +270,14 @@ function editSystemUser(encodedStaffId) {
   document.getElementById('systemUserEmail').value = user.email || '';
   document.getElementById('systemUserName').value = user.name || '';
   document.getElementById('systemUserPosition').value = user.position || '';
+  document.getElementById('systemUserDepartment').value = user.department || '';
 }
 
 function saveSystemUser() {
   const btn = document.getElementById('saveSystemUserBtn');
   const errorBox = document.getElementById('systemUserError');
   const staffIdInput = document.getElementById('systemUserStaffId');
-  const user = { staffId: staffIdInput.value.trim(), email: document.getElementById('systemUserEmail').value.trim(), name: document.getElementById('systemUserName').value.trim(), position: document.getElementById('systemUserPosition').value };
+  const user = { staffId: staffIdInput.value.trim(), email: document.getElementById('systemUserEmail').value.trim(), name: document.getElementById('systemUserName').value.trim(), position: document.getElementById('systemUserPosition').value, department: document.getElementById('systemUserDepartment').value };
   errorBox.textContent = '';
   if (!user.staffId || !user.email || !user.name) { errorBox.textContent = '請填寫序號、Email 與姓名'; return; }
   setButtonLoading(btn, true, '儲存中...');
@@ -316,7 +331,7 @@ function saveSelectedUserRoles() {
 }
 
 function reloadInitialDataOnly() {
-  google.script.run.withSuccessHandler(data => { initialData = data; renderSystemPositionOptions(); featurePermissions = data.featurePermissions || []; }).withFailureHandler(showError).getInitialData();
+  google.script.run.withSuccessHandler(data => { initialData = data; renderSystemPositionOptions(); renderSystemDepartmentOptions(); featurePermissions = data.featurePermissions || []; }).withFailureHandler(showError).getInitialData();
 }
 
 function loadPastoralPermissionOptions() {

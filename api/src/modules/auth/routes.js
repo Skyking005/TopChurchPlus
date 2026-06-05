@@ -57,7 +57,7 @@ function registerAuthRoutes(app) {
       if (!verificationId || !code) throw new Error('請輸入驗證碼');
 
       const { rows } = await pool.query(
-        `SELECT c.*, a.email AS account_email, a.name, a.position, a.role, a.staff_id
+        `SELECT c.*, a.email AS account_email, a.name, a.position, a.department, a.role, a.staff_id
          FROM login_verification_challenges c
          JOIN accounts a ON a.staff_id = c.staff_id
          WHERE c.id = $1`,
@@ -178,6 +178,7 @@ async function buildLoginUser(user, email, deviceType) {
     email,
     name: user.name,
     position: user.position,
+    department: user.department || '',
     role: user.role,
     roles,
     featurePermissions,

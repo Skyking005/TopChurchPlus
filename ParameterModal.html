@@ -48,12 +48,13 @@
           <div class="col-md-2"><label class="form-label">序號</label><input id="systemUserStaffId" class="form-control"></div>
           <div class="col-md-3"><label class="form-label">Email</label><input id="systemUserEmail" class="form-control"></div>
           <div class="col-md-2"><label class="form-label">姓名</label><input id="systemUserName" class="form-control"></div>
-          <div class="col-md-3"><label class="form-label">職稱</label><select id="systemUserPosition" class="form-select"></select></div>
+          <div class="col-md-2"><label class="form-label">職稱</label><select id="systemUserPosition" class="form-select"></select></div>
+          <div class="col-md-2"><label class="form-label">部門</label><select id="systemUserDepartment" class="form-select"></select></div>
           <div class="col-md-2 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary w-50" onclick="resetSystemUserForm()">清空</button><button id="saveSystemUserBtn" type="button" class="btn btn-primary w-50" onclick="saveSystemUser()">儲存</button></div>
         </div>
       </div></div>
       <div id="systemUserError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>序號</th><th>姓名</th><th>Email</th><th>職稱</th><th class="text-end">功能</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>序號</th><th>姓名</th><th>Email</th><th>職稱</th><th>部門</th><th class="text-end">功能</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
     </div>
 
     <div id="userRoleManagePane" class="tab-pane fade">

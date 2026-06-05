@@ -32,16 +32,18 @@ function registerSystemRoutes(app) {
       const email = normalizeRequiredValue(user.email, '電子信箱不可空白').toLowerCase();
       const name = normalizeRequiredValue(user.name, '姓名不可空白');
       const position = String(user.position || '').trim();
+      const department = String(user.department || '').trim();
 
       await pool.query(
-        `INSERT INTO accounts (staff_id, email, name, position, role, updated_at)
-         VALUES ($1, $2, $3, $4, '使用者', now())
+        `INSERT INTO accounts (staff_id, email, name, position, department, role, updated_at)
+         VALUES ($1, $2, $3, $4, $5, '使用者', now())
          ON CONFLICT (staff_id) DO UPDATE SET
            email = EXCLUDED.email,
            name = EXCLUDED.name,
            position = EXCLUDED.position,
+           department = EXCLUDED.department,
            updated_at = now()`,
-        [staffId, email, name, position]
+        [staffId, email, name, position, department]
       );
 
       await pool.query(
@@ -213,13 +215,14 @@ async function getAccounts() {
       a.email,
       a.name,
       a.position,
+      a.department,
       a.role,
       array_remove(array_agg(DISTINCT ar.role), NULL) AS roles,
       array_remove(array_agg(DISTINCT apcp.church_id), NULL) AS pastoral_church_ids
     FROM accounts a
     LEFT JOIN account_roles ar ON ar.staff_id = a.staff_id
     LEFT JOIN account_pastoral_church_permissions apcp ON apcp.staff_id = a.staff_id
-    GROUP BY a.staff_id, a.email, a.name, a.position, a.role
+    GROUP BY a.staff_id, a.email, a.name, a.position, a.department, a.role
     ORDER BY
       CASE WHEN a.staff_id ~ '^[0-9]+$' THEN a.staff_id::int END NULLS LAST,
       a.staff_id
@@ -229,6 +232,7 @@ async function getAccounts() {
     email: row.email,
     name: row.name,
     position: row.position,
+    department: row.department || '',
     role: row.role,
     roles: normalizeRoles(row.roles, row.role),
     pastoralChurchIds: (row.pastoral_church_ids || []).map(Number).filter(Number.isFinite)
@@ -358,3 +362,4 @@ function parseUser(req) {
 }
 
 module.exports = { registerSystemRoutes };
+

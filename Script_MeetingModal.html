@@ -90,6 +90,9 @@ function setMeetingModalReadonly(isReadonly) {
   document.querySelectorAll('.meeting-attendee-checkbox').forEach(el => {
     el.disabled = isReadonly;
   });
+  document.querySelectorAll('.meeting-attendee-tool').forEach(el => {
+    el.disabled = isReadonly;
+  });
 
   document.getElementById('confirmMeetingBtn').style.display = isReadonly ? 'none' : '';
 }
@@ -297,6 +300,7 @@ if (attendees.length === 0) {
 function renderMeetingAttendeesCheckboxes(selectedNames = []) {
   const container = document.getElementById('meetingAttendeesGroup');
   container.innerHTML = '';
+  renderMeetingDepartmentOptions();
 
   const selectedSet = new Set(
     selectedNames.map(v => String(v).trim()).filter(Boolean)
@@ -317,12 +321,67 @@ function renderMeetingAttendeesCheckboxes(selectedNames = []) {
         ${selectedSet.has(account.name) ? 'checked' : ''}
       >
       <label class="form-check-label" for="${id}">
-        ${escapeHtml(formatAccountName(account))}
+        ${escapeHtml(formatMeetingAttendeeLabel(account))}
       </label>
     `;
 
     container.appendChild(wrapper);
   });
+}
+
+function renderMeetingDepartmentOptions() {
+  const select = document.getElementById('meetingDepartmentSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  const departments = [
+    ...(initialData?.params?.departments || []),
+    ...getSortedAccounts().map(account => account.department)
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean);
+  const uniqueDepartments = [...new Set(departments)];
+
+  select.innerHTML = '<option value="">選擇部門</option>';
+  uniqueDepartments.forEach(department => {
+    const opt = document.createElement('option');
+    opt.value = department;
+    opt.textContent = department;
+    select.appendChild(opt);
+  });
+  if (currentValue && uniqueDepartments.includes(currentValue)) select.value = currentValue;
+}
+
+function formatMeetingAttendeeLabel(account) {
+  return [account.name, account.position, account.department].filter(Boolean).join(' ');
+}
+
+function selectAllMeetingAttendees() {
+  document.querySelectorAll('.meeting-attendee-checkbox').forEach(el => {
+    if (!el.disabled) el.checked = true;
+  });
+}
+
+function clearMeetingAttendees() {
+  document.querySelectorAll('.meeting-attendee-checkbox').forEach(el => {
+    if (!el.disabled) el.checked = false;
+  });
+}
+
+function selectMeetingAttendeesByDepartment() {
+  const select = document.getElementById('meetingDepartmentSelect');
+  const department = String(select?.value || '').trim();
+  const errorBox = document.getElementById('meetingModalError');
+  if (!department) {
+    if (errorBox) errorBox.textContent = '請先選擇部門';
+    return;
+  }
+  if (errorBox) errorBox.textContent = '';
+  getSortedAccounts()
+    .filter(account => String(account.department || '').trim() === department)
+    .forEach(account => {
+      const checkbox = document.getElementById(`meeting_attendee_${account.staffId}`);
+      if (checkbox && !checkbox.disabled) checkbox.checked = true;
+    });
 }
 
 function getSelectedMeetingAttendees() {
