@@ -2,7 +2,7 @@
 let qtOptions = { productTypes: [], pricePlans: [], churches: [] };
 let qtInventoryRows = [];
 let qtMovementRows = [];
-let qtOrderState = { page: 1, pageSize: 10, total: 0, rows: [] };
+let qtOrderState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let qtActiveTab = 'orders';
 let qtMovementModalInstance = null;
 let qtTransferModalInstance = null;
@@ -66,7 +66,7 @@ function loadQtOrders(page = 1) {
     .withSuccessHandler(result => {
       qtOrderState = {
         page: result.page || qtOrderState.page,
-        pageSize: result.pageSize || 10,
+        pageSize: result.pageSize || 20,
         total: result.total || 0,
         rows: result.rows || []
       };
@@ -76,7 +76,7 @@ function loadQtOrders(page = 1) {
     .getQtOrders({
       keyword: document.getElementById('qtOrderKeyword').value.trim(),
       page: qtOrderState.page,
-      pageSize: qtOrderState.pageSize || 10
+      pageSize: qtOrderState.pageSize || 20
     }, currentUser);
 }
 
@@ -104,12 +104,12 @@ function renderQtOrders() {
       body.appendChild(tr);
     });
   }
-  const pageCount = Math.max(Math.ceil((qtOrderState.total || 0) / (qtOrderState.pageSize || 10)), 1);
+  const pageCount = Math.max(Math.ceil((qtOrderState.total || 0) / (qtOrderState.pageSize || 20)), 1);
   document.getElementById('qtOrderPageInfo').textContent = `第 ${qtOrderState.page} / ${pageCount} 頁，共 ${qtOrderState.total} 筆`;
 }
 
 function changeQtOrderPage(delta) {
-  const pageCount = Math.max(Math.ceil((qtOrderState.total || 0) / (qtOrderState.pageSize || 10)), 1);
+  const pageCount = Math.max(Math.ceil((qtOrderState.total || 0) / (qtOrderState.pageSize || 20)), 1);
   const nextPage = Math.min(Math.max((qtOrderState.page || 1) + delta, 1), pageCount);
   if (nextPage !== qtOrderState.page) loadQtOrders(nextPage);
 }

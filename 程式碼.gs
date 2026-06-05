@@ -76,7 +76,7 @@ function getPastoralMembers(filters, currentUser) {
     churchId: filters.churchId || '',
     groupId: filters.groupId || '',
     page: filters.page || 1,
-    pageSize: filters.pageSize || 10
+    pageSize: filters.pageSize || 20
   }, currentUser);
 }
 
@@ -246,7 +246,7 @@ function getQtOrders(filters, currentUser) {
   return apiRequest('get', '/qt/orders', null, {
     keyword: filters.keyword || '',
     page: filters.page || 1,
-    pageSize: filters.pageSize || 10
+    pageSize: filters.pageSize || 20
   }, currentUser);
 }
 
@@ -596,7 +596,7 @@ function getAssets(filters, currentUser) {
     hall: filters.hall || '',
     status: filters.status || '',
     page: filters.page || 1,
-    pageSize: filters.pageSize || 10,
+    pageSize: filters.pageSize || 20,
     sortBy: filters.sortBy || 'assetId',
     sortDirection: filters.sortDirection || 'asc'
   }, currentUser);

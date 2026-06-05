@@ -145,7 +145,7 @@ async function getPastoralMembers(query, currentUser) {
   const churchId = String(query.churchId || '').trim();
   const groupId = String(query.groupId || '').trim();
   const page = Math.max(Number(query.page || 1), 1);
-  const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 100);
+  const pageSize = Math.min(Math.max(Number(query.pageSize || 20), 1), 100);
   const offset = (page - 1) * pageSize;
   const where = [];
   const values = [];

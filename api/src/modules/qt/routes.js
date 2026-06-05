@@ -95,7 +95,7 @@ function registerQtRoutes(app) {
 
 async function getOrders(query) {
   const page = Math.max(Number(query.page || 1), 1);
-  const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 50);
+  const pageSize = Math.min(Math.max(Number(query.pageSize || 20), 1), 50);
   const offset = (page - 1) * pageSize;
   const keyword = String(query.keyword || '').trim();
   const values = [];

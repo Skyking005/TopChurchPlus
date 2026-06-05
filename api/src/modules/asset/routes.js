@@ -120,7 +120,7 @@ async function getAssets(query) {
   const hall = String(query.hall || '').trim();
   const status = String(query.status || '').trim();
   const page = Math.max(Number(query.page || 1), 1);
-  const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 100);
+  const pageSize = Math.min(Math.max(Number(query.pageSize || 20), 1), 100);
   const offset = (page - 1) * pageSize;
   const sortMap = {
     assetId: 'a.asset_id',
