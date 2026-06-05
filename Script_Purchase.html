@@ -1,4 +1,4 @@
-<script>
+﻿<script>
 let allPurchases = [];
 let currentPurchasePage = 1;
 let currentPurchaseDetail = null;
@@ -7,6 +7,7 @@ let expenseProofModalInstance = null;
 let paymentModalInstance = null;
 let purchaseProjectOptions = [];
 let paymentRequests = [];
+let currentEditingPaymentId = '';
 
 const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
 
@@ -225,13 +226,13 @@ function renderPaymentRequests() {
       <td class="text-end">${formatMoney(row.totalAmount || 0)}</td>
       <td>${escapeHtml(row.expenseProofCount || 0)} 筆</td>
       <td class="text-end">
+        <button class="btn btn-sm btn-outline-secondary" onclick="openPaymentRequestEditor('${escapeAttr(row.paymentId)}')">編輯</button>
         <button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(row.paymentId)}')">新增支出證明</button>
       </td>
     `;
     body.appendChild(tr);
   });
 }
-
 function renderPurchases() {
   renderDesktopPurchases();
   renderMobilePurchases();
@@ -488,9 +489,21 @@ function renderPurchaseQuotePdfs(files) {
 function viewPurchaseQuotePdf(purchaseId, fileId, fileName) {
   google.script.run
     .withSuccessHandler(file => {
+      if (!file || !file.dataUrl) {
+        alert('報價單 PDF 沒有可讀取的檔案內容');
+        return;
+      }
       const win = window.open('', '_blank');
       if (!win) {
-        alert('瀏覽器阻擋新分頁，請允許彈出視窗後再試一次');
+        const link = document.createElement('a');
+        link.href = file.dataUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.download = file.fileName || fileName || 'quote.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        alert('瀏覽器可能阻擋新視窗，已改用下載/新分頁連結開啟。');
         return;
       }
       win.document.write(`
@@ -506,7 +519,6 @@ function viewPurchaseQuotePdf(purchaseId, fileId, fileName) {
     .withFailureHandler(showError)
     .getPurchaseQuotePdfData({ currentUser, purchaseId, fileId });
 }
-
 function closeCurrentPurchase() {
   const purchaseId = document.getElementById('purchaseId').value;
   if (!purchaseId) return alert('請先保存採購申請');
@@ -542,20 +554,24 @@ function renderSimpleSubList(containerId, rows, idKey, amountKey, docType) {
   rows.forEach(row => {
     const item = document.createElement('div');
     item.className = 'purchase-sub-item';
-    const encodedId = encodeURIComponent(row[idKey]);
+    const docId = row[idKey];
+    const encodedId = encodeURIComponent(docId);
     item.innerHTML = `
       <div class="d-flex justify-content-between align-items-start gap-2">
         <div>
-          <div class="fw-bold">${escapeHtml(row[idKey])}</div>
+          <div class="fw-bold">${escapeHtml(docId)}</div>
           <div class="text-muted">${amountKey}：${formatMoney(row[amountKey] || 0)}</div>
         </div>
-        <button class="btn btn-sm btn-outline-primary" onclick="exportPurchaseDocument('${docType}', '${encodedId}', this)">匯出 Doc</button>
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+          ${docType === 'payment' ? `<button class="btn btn-sm btn-outline-secondary" onclick="openPaymentRequestEditor('${escapeAttr(docId)}')">編輯</button>` : ''}
+          ${docType === 'payment' ? `<button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(docId)}')">新增支出證明</button>` : ''}
+          <button class="btn btn-sm btn-outline-primary" onclick="exportPurchaseDocument('${docType}', '${encodedId}', this)">匯出 Doc</button>
+        </div>
       </div>
     `;
     container.appendChild(item);
   });
 }
-
 function applyPurchaseClosedState() {
   const isClosed = document.getElementById('purchaseStatus').value === '已結案';
   const hasPurchaseId = Boolean(document.getElementById('purchaseId').value);
@@ -787,32 +803,62 @@ function openIndependentPaymentModal() {
 }
 
 function openPaymentModal(options = {}) {
-  const independent = Boolean(options.independent);
-  if (!independent && !requireSavedPurchase()) return;
+  const payment = options.payment || null;
+  const independent = Boolean(options.independent) || Boolean(payment && !payment['請購編號']);
+  currentEditingPaymentId = options.paymentId || '';
+  if (!independent && !payment && !requireSavedPurchase()) return;
+
   const units = normalizeOptionList(initialData?.params?.units || []);
-  document.getElementById('paymentPurchaseId').value = independent ? '' : document.getElementById('purchaseId').value;
-  document.getElementById('paymentHall').value = independent ? (units[0] || '') : document.getElementById('purchaseHall').value;
-  document.getElementById('paymentHall').disabled = !independent;
-  document.getElementById('paymentClaimant').value = getCurrentUserNameWithPosition();
-  document.getElementById('paymentRequestDate').value = todayString();
-  document.getElementById('paymentTotal').value = '0';
-  document.getElementById('paymentOffsetAmount').value = '';
-  document.getElementById('paymentBehalfAmount').value = '';
-  document.getElementById('paymentReturnAmount').value = '';
-  document.getElementById('paymentBank').value = '';
-  document.getElementById('paymentBranch').value = '';
-  document.getElementById('paymentAccountName').value = '';
-  document.getElementById('paymentAccountNo').value = '';
+  const purchaseId = payment ? (payment['請購編號'] || '') : (independent ? '' : document.getElementById('purchaseId').value);
+  const hall = payment ? (payment['請款會堂'] || '') : (independent ? (units[0] || '') : document.getElementById('purchaseHall').value);
+
+  document.getElementById('paymentPurchaseId').value = purchaseId;
+  document.getElementById('paymentHall').value = hall;
+  document.getElementById('paymentHall').disabled = !independent && !payment;
+  document.getElementById('paymentClaimant').value = payment ? (payment['請款人'] || getCurrentUserNameWithPosition()) : getCurrentUserNameWithPosition();
+  document.getElementById('paymentRequestDate').value = payment ? (payment['申請日期'] || todayString()) : todayString();
+  document.getElementById('paymentTotal').value = payment ? formatMoney(payment['請款總金額'] || 0) : '0';
+  document.getElementById('paymentHasAdvance').value = payment ? (payment['是否有預借'] || '否') : '否';
+  setSelectValue('paymentMethod', payment ? (payment['支付方式'] || '') : document.getElementById('paymentMethod').value);
+  document.getElementById('paymentOffsetAmount').value = payment ? (payment['轉正'] || '') : '';
+  document.getElementById('paymentBehalfAmount').value = payment ? (payment['代支'] || '') : '';
+  document.getElementById('paymentReturnAmount').value = payment ? (payment['繳回'] || '') : '';
+  document.getElementById('paymentBank').value = payment ? (payment['匯款銀行'] || '') : '';
+  document.getElementById('paymentBranch').value = payment ? (payment['分行'] || '') : '';
+  document.getElementById('paymentAccountName').value = payment ? (payment['帳戶名稱'] || '') : '';
+  document.getElementById('paymentAccountNo').value = payment ? (payment['帳號'] || '') : '';
   document.getElementById('paymentModalError').textContent = '';
   document.getElementById('paymentItemBody').innerHTML = '';
-  fillPaymentAdvanceOptions(independent);
-  addPaymentItemRow();
+
+  fillPaymentAdvanceOptions(independent || !purchaseId);
+  if (payment && payment['預借編號']) {
+    setSelectValue('paymentAdvanceId', payment['預借編號']);
+    document.getElementById('paymentAdvanceAmount').value = formatMoney(payment['前已預借金額'] || 0);
+  }
+  const rows = payment && Array.isArray(payment.items) ? payment.items : [];
+  if (rows.length) rows.forEach(row => addPaymentItemRow(row));
+  else addPaymentItemRow();
+
   togglePaymentAdvanceFields();
   togglePaymentBankInfo();
   paymentModalInstance = new bootstrap.Modal(document.getElementById('paymentModal'));
   paymentModalInstance.show();
 }
 
+function openPaymentRequestEditor(paymentId) {
+  ensurePurchaseOptionsReady(() => {
+    google.script.run
+      .withSuccessHandler(data => {
+        openPaymentModal({
+          independent: !(data.payment && data.payment['請購編號']),
+          paymentId,
+          payment: data.payment
+        });
+      })
+      .withFailureHandler(showError)
+      .getPaymentRequestDetail(paymentId, currentUser);
+  });
+}
 function fillPaymentAdvanceOptions(independent = false) {
   const select = document.getElementById('paymentAdvanceId');
   select.innerHTML = '<option value="">請選擇預借單</option>';
@@ -833,16 +879,15 @@ function fillPaymentAdvanceOptions(independent = false) {
 function addPaymentItemRow(data = {}) {
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input class="form-control payment-item-name" value="${escapeAttr(data['項目'])}"></td>
+    <td><input class="form-control payment-item-name" value="${escapeAttr(data['項目'] || '')}"></td>
     <td><input type="number" class="form-control payment-item-qty" value="${escapeAttr(data['數量'] || '')}" oninput="updatePaymentItemSubtotal(this)"></td>
     <td><input type="number" class="form-control payment-item-price" value="${escapeAttr(data['單價'] || '')}" oninput="updatePaymentItemSubtotal(this)"></td>
     <td><input class="form-control payment-item-subtotal text-end" value="${escapeAttr(data['總價'] || '')}" disabled></td>
-    <td><input class="form-control payment-item-note" value="${escapeAttr(data['備註'])}"></td>
+    <td><input class="form-control payment-item-note" value="${escapeAttr(data['備註'] || '')}"></td>
     <td><button class="btn btn-sm btn-outline-danger" onclick="removePurchaseRow(this); calculatePaymentTotal()">刪除</button></td>
   `;
   document.getElementById('paymentItemBody').appendChild(tr);
 }
-
 function updatePaymentItemSubtotal(input) {
   const tr = input.closest('tr');
   const qty = Number(tr.querySelector('.payment-item-qty').value || 0);
@@ -867,11 +912,11 @@ function collectPaymentItems() {
     }))
     .filter(row => row['項目'] || row['數量'] || row['單價'] || row['備註']);
 }
-
 function submitPaymentRequest() {
   const btn = document.getElementById('confirmPaymentBtn');
   const errorBox = document.getElementById('paymentModalError');
   const payment = {
+    '請款編號': currentEditingPaymentId,
     '請款會堂': document.getElementById('paymentHall').value,
     '請款人': document.getElementById('paymentClaimant').value,
     '申請日期': document.getElementById('paymentRequestDate').value,
@@ -891,13 +936,14 @@ function submitPaymentRequest() {
   errorBox.textContent = '';
   if (!items.length) return errorBox.textContent = '請至少新增一筆請款詳情';
 
-  setButtonLoading(btn, true, '保存中...');
+  setButtonLoading(btn, true, '儲存中...');
   const purchaseId = document.getElementById('paymentPurchaseId').value;
   const runner = google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
       paymentModalInstance.hide();
       alert(res.message);
+      currentEditingPaymentId = '';
       if (purchaseId) openPurchase(purchaseId);
       else loadPaymentRequests();
     })
@@ -905,13 +951,14 @@ function submitPaymentRequest() {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
     });
-  if (purchaseId) {
+  if (currentEditingPaymentId) {
+    runner.updatePaymentRequest({ currentUser, paymentId: currentEditingPaymentId, payment, items });
+  } else if (purchaseId) {
     runner.addPurchasePaymentRequest({ currentUser, purchaseId, payment, items });
   } else {
     runner.addIndependentPaymentRequest({ currentUser, payment, items });
   }
 }
-
 function toggleAdvanceBankInfo() {
   const method = document.getElementById('advancePaymentMethod').value;
   document.getElementById('advanceBankInfo').classList.toggle('d-none', method === '以現金交付借款人');
@@ -959,3 +1006,4 @@ function todayString() {
   return new Date().toISOString().slice(0, 10);
 }
 </script>
+

@@ -139,6 +139,15 @@ function registerFinanceRoutes(app) {
   }
 });
 
+  app.put('/payment-requests/:paymentId', async (req, res, next) => {
+  try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
+    res.json(await savePaymentRequest(null, req.body, req.params.paymentId));
+  } catch (err) {
+    next(err);
+  }
+});
+
   app.post('/payment-requests/:paymentId/expense-proofs', async (req, res, next) => {
   try {
     await assertFeatureEditable(req.body.currentUser, 'finance');
@@ -323,6 +332,14 @@ async function savePurchaseAdvance(purchaseId, payload) {
       ]
     );
     await replacePurchaseRows(client, 'purchase_advance_items', 'advance_id', advanceId, items, insertAdvanceItem);
+    await recordDomainEvent({
+      eventType: 'finance.advance_created',
+      systemKey: 'finance',
+      entityType: 'advance',
+      entityId: advanceId,
+      payload: { purchaseId, totalAmount, itemCount: items.length },
+      currentUser
+    }, client);
     return { success: true, advanceId, message: '預借申請已建立' };
   });
 }
@@ -354,6 +371,14 @@ async function saveExpenseProof(purchaseId, payload) {
       ]
     );
     await replacePurchaseRows(client, 'purchase_expense_proof_items', 'proof_id', proofId, items, insertExpenseProofItem);
+    await recordDomainEvent({
+      eventType: 'finance.expense_proof_created',
+      systemKey: 'finance',
+      entityType: 'expense_proof',
+      entityId: proofId,
+      payload: { purchaseId, paidAmount, itemCount: items.length },
+      currentUser
+    }, client);
     return { success: true, proofId, message: '支出證明申請已建立' };
   });
 }
@@ -398,25 +423,46 @@ async function saveExpenseProofForPayment(paymentId, payload) {
   });
 }
 
-async function savePaymentRequest(purchaseId, payload) {
+async function savePaymentRequest(purchaseId, payload, existingPaymentId = '') {
   const { currentUser, payment, items = [] } = payload;
   assertDesktop(currentUser);
-  if (purchaseId) await assertPurchaseEditable(purchaseId);
+  const oldPayment = existingPaymentId ? await assertPaymentEditable(existingPaymentId) : null;
+  const targetPurchaseId = purchaseId || (oldPayment && oldPayment.purchase_id) || '';
+  if (targetPurchaseId) await assertPurchaseEditable(targetPurchaseId);
   if (!items.length) throw new Error('請至少新增一筆請款詳情');
   if (payment['支付方式'] === '匯款交付墊款人' && !payment['帳號']) throw new Error('匯款交付墊款人時請填寫匯款資料');
 
   return tx(async client => {
-    const paymentId = await generateSerialId(client, 'purchase_payment_requests', 'payment_id', 'R');
+    const isNew = !existingPaymentId;
+    const paymentId = existingPaymentId || await generateSerialId(client, 'purchase_payment_requests', 'payment_id', 'R');
     const totalAmount = items.reduce((sum, row) => sum + Number(row['總價'] || 0), 0);
     await client.query(
       `INSERT INTO purchase_payment_requests (
         payment_id, purchase_id, hall, claimant, request_date, total_amount, has_advance,
         payment_method, advance_id, advance_amount, offset_amount, behalf_amount, return_amount,
         bank, branch, account_name, account_no
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      ON CONFLICT (payment_id) DO UPDATE SET
+        purchase_id = EXCLUDED.purchase_id,
+        hall = EXCLUDED.hall,
+        claimant = EXCLUDED.claimant,
+        request_date = EXCLUDED.request_date,
+        total_amount = EXCLUDED.total_amount,
+        has_advance = EXCLUDED.has_advance,
+        payment_method = EXCLUDED.payment_method,
+        advance_id = EXCLUDED.advance_id,
+        advance_amount = EXCLUDED.advance_amount,
+        offset_amount = EXCLUDED.offset_amount,
+        behalf_amount = EXCLUDED.behalf_amount,
+        return_amount = EXCLUDED.return_amount,
+        bank = EXCLUDED.bank,
+        branch = EXCLUDED.branch,
+        account_name = EXCLUDED.account_name,
+        account_no = EXCLUDED.account_no,
+        updated_at = now()`,
       [
         paymentId,
-        purchaseId || null,
+        targetPurchaseId || null,
         payment['請款會堂'] || '',
         payment['請款人'] || currentUser.name || '',
         payment['申請日期'] || new Date(),
@@ -437,8 +483,8 @@ async function savePaymentRequest(purchaseId, payload) {
     await replacePurchaseRows(client, 'purchase_payment_items', 'payment_id', paymentId, items, insertPaymentItem);
     await createEntityLink({
       sourceSystem: 'finance',
-      sourceType: purchaseId ? 'purchase' : 'independent_payment',
-      sourceId: purchaseId || paymentId,
+      sourceType: targetPurchaseId ? 'purchase' : 'independent_payment',
+      sourceId: targetPurchaseId || paymentId,
       targetSystem: 'finance',
       targetType: 'payment_request',
       targetId: paymentId,
@@ -447,14 +493,14 @@ async function savePaymentRequest(purchaseId, payload) {
       currentUser
     }, client);
     await recordDomainEvent({
-      eventType: 'finance.payment_request_created',
+      eventType: isNew ? 'finance.payment_request_created' : 'finance.payment_request_updated',
       systemKey: 'finance',
       entityType: 'payment_request',
       entityId: paymentId,
-      payload: { purchaseId: purchaseId || '', totalAmount, itemCount: items.length },
+      payload: { purchaseId: targetPurchaseId || '', totalAmount, itemCount: items.length },
       currentUser
     }, client);
-    return { success: true, paymentId, message: '請款申請已建立' };
+    return { success: true, paymentId, message: isNew ? '請款申請已建立' : '請款申請已更新' };
   });
 }
 

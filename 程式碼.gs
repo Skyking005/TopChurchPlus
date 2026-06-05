@@ -954,6 +954,14 @@ function addIndependentPaymentRequest(payload) {
   return apiRequest('post', '/payment-requests', payload);
 }
 
+function updatePaymentRequest(payload) {
+  return apiRequest(
+    'put',
+    `/payment-requests/${encodeURIComponent(payload.paymentId)}`,
+    payload
+  );
+}
+
 function addPaymentExpenseProof(payload) {
   return apiRequest(
     'post',
