@@ -1,0 +1,112 @@
+<div id="formsView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">表單系統</h5>
+        <div class="text-muted small">建立表單、題目與選項</div>
+      </div>
+      <button type="button" class="btn btn-primary" id="addFormBtn" onclick="newForm()">新增表單</button>
+    </div>
+
+    <div id="formsListView">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">關鍵字</label>
+          <input id="formsKeyword" class="form-control" placeholder="表單標題或說明" onkeydown="handleFormsSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">狀態</label>
+          <select id="formsStatusFilter" class="form-select">
+            <option value="">未封存</option>
+            <option value="draft">草稿</option>
+            <option value="published">已發布</option>
+            <option value="closed">已關閉</option>
+            <option value="archived">已封存</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadForms()">搜尋</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>表單</th>
+              <th>狀態</th>
+              <th>可見範圍</th>
+              <th>題數</th>
+              <th>建立者</th>
+              <th>更新時間</th>
+              <th>功能</th>
+            </tr>
+          </thead>
+          <tbody id="formsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="formEditorView" class="d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-secondary" onclick="backToFormsList()">返回清單</button>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-danger" id="deleteFormBtn" onclick="archiveCurrentForm()">封存</button>
+          <button type="button" class="btn btn-primary" id="saveFormBtn" onclick="submitForm()">儲存表單</button>
+        </div>
+      </div>
+
+      <input type="hidden" id="formId">
+      <div class="form-builder-shell">
+        <div class="form-builder-main">
+          <div class="form-title-panel">
+            <input id="formTitle" class="form-control form-title-input" placeholder="未命名表單">
+            <textarea id="formDescription" class="form-control mt-2" rows="2" placeholder="表單說明"></textarea>
+            <div class="row g-2 mt-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label">狀態</label>
+                <select id="formStatus" class="form-select form-builder-input">
+                  <option value="draft">草稿</option>
+                  <option value="published">已發布</option>
+                  <option value="closed">已關閉</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">可見範圍</label>
+                <select id="formVisibility" class="form-select form-builder-input">
+                  <option value="internal">內部同工</option>
+                  <option value="members">會友</option>
+                  <option value="public">公開</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">回覆設定</label>
+                <div class="form-check">
+                  <input id="formRequireLogin" class="form-check-input form-builder-input" type="checkbox" checked>
+                  <label class="form-check-label" for="formRequireLogin">需要登入</label>
+                </div>
+                <div class="form-check">
+                  <input id="formAllowMultipleResponses" class="form-check-input form-builder-input" type="checkbox" checked>
+                  <label class="form-check-label" for="formAllowMultipleResponses">允許重複填寫</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="formQuestionsList" class="form-questions-list"></div>
+          <div id="formEditorError" class="text-danger small mt-3"></div>
+        </div>
+
+        <div class="form-builder-tools">
+          <button type="button" class="btn btn-outline-primary w-100" onclick="addFormQuestion('short_text')">新增題目</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('single_choice')">單選題</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('multiple_choice')">複選題</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('paragraph')">段落題</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('date')">日期題</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

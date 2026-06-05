@@ -92,13 +92,14 @@
       <h5 class="mb-0">會友資料</h5>
       <div class="btn-group">
         <button type="button" class="btn btn-outline-primary btn-sm d-none" id="editPastoralMemberBtn" onclick="editActivePastoralMember()">編輯</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="cancelPastoralEditBtn" onclick="cancelPastoralInlineEdit()">取消編輯</button>
         <button type="button" class="btn btn-outline-danger btn-sm d-none" id="deletePastoralMemberBtn" onclick="deleteActivePastoralMember()">停用</button>
         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closePastoralDetailPanel()">全部關閉</button>
       </div>
     </div>
     <ul id="pastoralDetailTabs" class="nav nav-tabs mb-3"></ul>
 
-    <div class="row g-3">
+    <div id="pastoralDetailReadView" class="row g-3">
       <div class="col-12 col-lg-4">
         <div class="pastoral-detail-block">
           <h6>基本資料</h6>
@@ -124,18 +125,17 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <div class="modal fade" id="pastoralMemberModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="pastoralMemberModalTitle">會友資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div id="pastoralDetailEditView" class="d-none">
+      <div class="pastoral-detail-block">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="mb-0" id="pastoralMemberEditorTitle">編輯會友</h6>
+          <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cancelPastoralInlineEdit()">取消</button>
+            <button type="button" class="btn btn-primary btn-sm" id="savePastoralMemberBtn" onclick="submitPastoralMember()">儲存</button>
+          </div>
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="pastoralEditMemberId">
-          <div class="row g-3">
+        <input type="hidden" id="pastoralEditMemberId">
+        <div class="row g-3">
             <div class="col-12 col-md-3">
               <label class="form-label">會堂</label>
               <select id="pastoralEditChurchId" class="form-select pastoral-edit-input"></select>
@@ -297,13 +297,8 @@
               <label class="form-label">備註</label>
               <textarea id="pastoralEditNote" class="form-control pastoral-edit-input" rows="3"></textarea>
             </div>
-          </div>
-          <div id="pastoralMemberModalError" class="text-danger small mt-3"></div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
-          <button type="button" class="btn btn-primary" id="savePastoralMemberBtn" onclick="submitPastoralMember()">儲存</button>
-        </div>
+        <div id="pastoralMemberModalError" class="text-danger small mt-3"></div>
       </div>
     </div>
   </div>
