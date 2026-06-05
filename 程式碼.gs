@@ -876,6 +876,16 @@ function savePurchase(payload) {
   return apiRequest('post', '/purchases', payload);
 }
 
+function getPurchaseQuotePdfData(payload) {
+  return apiRequest(
+    'get',
+    `/purchases/${encodeURIComponent(payload.purchaseId)}/quote-pdfs/${encodeURIComponent(payload.fileId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
 function closePurchase(payload) {
   return apiRequest(
     'patch',

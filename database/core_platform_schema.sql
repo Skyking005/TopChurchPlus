@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS files (
   file_size bigint,
   storage_provider text NOT NULL DEFAULT 'nas',
   storage_path text NOT NULL,
+  file_data bytea,
   uploaded_by_staff_id text REFERENCES accounts(staff_id) ON DELETE SET NULL,
   uploaded_by_member_id integer REFERENCES pastoral_members(id) ON DELETE SET NULL,
   checksum text,
@@ -62,6 +63,10 @@ CREATE TABLE IF NOT EXISTS file_links (
 
 CREATE INDEX IF NOT EXISTS idx_file_links_entity
   ON file_links (entity_type, entity_id, file_type, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_file_links_purchase_quotes
+  ON file_links (entity_type, entity_id, file_type, created_at DESC)
+  WHERE entity_type = 'purchase' AND file_type = 'quote_pdf';
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   audit_id bigserial PRIMARY KEY,

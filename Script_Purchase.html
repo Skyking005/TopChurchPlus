@@ -340,9 +340,11 @@ function renderPurchaseDetail(data) {
   document.getElementById('purchaseTotalAmount').value = formatMoney(p['總計金額'] || 0);
   document.getElementById('purchaseSummary').value = p['採購摘要'] || '';
   document.getElementById('purchaseReason').value = p['申請詳細原因'] || '';
+  document.getElementById('purchaseQuotePdf').value = '';
 
   renderPurchaseItemRows(data.items || []);
   renderPurchaseSubLists(data);
+  renderPurchaseQuotePdfs(data.quotePdfs || []);
   applyPurchaseClosedState();
 }
 
@@ -422,17 +424,87 @@ function saveCurrentPurchase() {
   if (!items.length) return alert('請至少新增一筆請購詳情');
 
   setButtonLoading(btn, true, '保存中...');
+  readPurchaseQuotePdfAttachment(quotePdf => {
+    google.script.run
+      .withSuccessHandler(res => {
+        setButtonLoading(btn, false);
+        alert(res.message);
+        openPurchase(res.purchaseId);
+      })
+      .withFailureHandler(err => {
+        setButtonLoading(btn, false);
+        showError(err);
+      })
+      .savePurchase({ currentUser, purchase, items, quotePdf });
+  }, err => {
+    setButtonLoading(btn, false);
+    showError(err);
+  });
+}
+
+function readPurchaseQuotePdfAttachment(onSuccess, onError) {
+  const input = document.getElementById('purchaseQuotePdf');
+  const file = input && input.files ? input.files[0] : null;
+  if (!file) {
+    onSuccess(null);
+    return;
+  }
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    onError('報價單附件僅支援 PDF');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    onError('報價單 PDF 不可超過 10MB');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    onSuccess({
+      fileName: file.name,
+      mimeType: 'application/pdf',
+      fileSize: file.size,
+      data: reader.result
+    });
+  };
+  reader.onerror = () => onError('讀取報價單 PDF 失敗');
+  reader.readAsDataURL(file);
+}
+
+function renderPurchaseQuotePdfs(files) {
+  const container = document.getElementById('purchaseQuotePdfList');
+  if (!container) return;
+  if (!files.length) {
+    container.innerHTML = '<span class="text-muted small">尚未上傳報價單 PDF</span>';
+    return;
+  }
+  const purchaseId = document.getElementById('purchaseId').value;
+  container.innerHTML = files.map(file => `
+    <button type="button" class="btn btn-sm btn-outline-primary me-2 mb-2" onclick="viewPurchaseQuotePdf('${escapeAttr(purchaseId)}', '${escapeAttr(file.fileId)}', '${escapeAttr(file.fileName)}')">
+      ${escapeHtml(file.fileName)}
+    </button>
+  `).join('');
+}
+
+function viewPurchaseQuotePdf(purchaseId, fileId, fileName) {
   google.script.run
-    .withSuccessHandler(res => {
-      setButtonLoading(btn, false);
-      alert(res.message);
-      openPurchase(res.purchaseId);
+    .withSuccessHandler(file => {
+      const win = window.open('', '_blank');
+      if (!win) {
+        alert('瀏覽器阻擋新分頁，請允許彈出視窗後再試一次');
+        return;
+      }
+      win.document.write(`
+        <html>
+          <head><title>${escapeHtml(file.fileName || fileName || '報價單 PDF')}</title></head>
+          <body style="margin:0">
+            <iframe src="${file.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>
+          </body>
+        </html>
+      `);
+      win.document.close();
     })
-    .withFailureHandler(err => {
-      setButtonLoading(btn, false);
-      showError(err);
-    })
-    .savePurchase({ currentUser, purchase, items });
+    .withFailureHandler(showError)
+    .getPurchaseQuotePdfData({ currentUser, purchaseId, fileId });
 }
 
 function closeCurrentPurchase() {

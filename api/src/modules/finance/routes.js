@@ -4,7 +4,9 @@ const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/p
 const { assertDesktop, parseUser } = require('../../shared/users');
 const { formatDate } = require('../../shared/format');
 
+
 const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
+const QUOTE_PDF_MAX_BYTES = 10 * 1024 * 1024;
 
 function registerFinanceRoutes(app) {
   app.get('/purchases', async (req, res, next) => {
@@ -49,7 +51,16 @@ function registerFinanceRoutes(app) {
   } catch (err) {
     next(err);
   }
-});
+  });
+
+  app.get('/purchases/:purchaseId/quote-pdfs/:fileId', async (req, res, next) => {
+  try {
+    await assertFeatureReadable(parseUser(req), 'finance');
+    res.json(await getPurchaseQuotePdfData(req.params.purchaseId, req.params.fileId));
+  } catch (err) {
+    next(err);
+  }
+  });
 
   app.post('/purchases', async (req, res, next) => {
   try {
@@ -193,14 +204,15 @@ async function getPurchaseDetail(purchaseId) {
   const purchase = rows[0];
   if (!purchase) throw new Error('找不到採購資料');
 
-  const [items, advances, advanceItems, expenseProofs, expenseProofItems, payments, paymentItems] = await Promise.all([
+  const [items, advances, advanceItems, expenseProofs, expenseProofItems, payments, paymentItems, quotePdfs] = await Promise.all([
     getPurchaseChildRows('purchase_items', 'purchase_id', purchaseId),
     getPurchaseChildRows('purchase_advances', 'purchase_id', purchaseId),
     getAdvanceItems(purchaseId),
     getPurchaseChildRows('purchase_expense_proofs', 'purchase_id', purchaseId),
     getExpenseProofItems(purchaseId),
     getPurchaseChildRows('purchase_payment_requests', 'purchase_id', purchaseId),
-    getPaymentItems(purchaseId)
+    getPaymentItems(purchaseId),
+    getPurchaseQuotePdfs(purchaseId)
   ]);
 
   return {
@@ -208,12 +220,13 @@ async function getPurchaseDetail(purchaseId) {
     items: items.map(toPurchaseItem),
     advances: advances.map(row => toAdvance(row, advanceItems.filter(item => item.advance_id === row.advance_id))),
     expenseProofs: expenseProofs.map(row => toExpenseProof(row, expenseProofItems.filter(item => item.proof_id === row.proof_id))),
-    payments: payments.map(row => toPaymentRequest(row, paymentItems.filter(item => item.payment_id === row.payment_id)))
+    payments: payments.map(row => toPaymentRequest(row, paymentItems.filter(item => item.payment_id === row.payment_id))),
+    quotePdfs
   };
 }
 
 async function savePurchase(payload) {
-  const { currentUser, purchase, items = [], sourceEntity = null, sourceProjectId = '' } = payload;
+  const { currentUser, purchase, items = [], sourceEntity = null, sourceProjectId = '', quotePdf = null } = payload;
   assertDesktop(currentUser);
   if (!purchase['採購摘要']) throw new Error('請填寫採購摘要');
   if (!items.length) throw new Error('請至少新增一筆請購詳情');
@@ -260,6 +273,7 @@ async function savePurchase(payload) {
     );
 
     await replacePurchaseRows(client, 'purchase_items', 'purchase_id', purchaseId, items, insertPurchaseItem);
+    if (quotePdf) await savePurchaseQuotePdf(client, purchaseId, quotePdf, currentUser);
     await linkPurchaseSource(client, {
       currentUser,
       purchaseId,
@@ -621,7 +635,8 @@ function createEmptyPurchase(currentUser) {
     items: [],
     advances: [],
     expenseProofs: [],
-    payments: []
+    payments: [],
+    quotePdfs: []
   };
 }
 
@@ -631,6 +646,98 @@ async function getPurchaseChildRows(table, column, value) {
     : 'created_at, updated_at';
   const { rows } = await pool.query(`SELECT * FROM ${table} WHERE ${column} = $1 ORDER BY ${orderBy}`, [value]);
   return rows;
+}
+
+async function getPurchaseQuotePdfs(purchaseId) {
+  const { rows } = await pool.query(
+    `SELECT f.file_id, f.original_name, f.mime_type, f.file_size, f.uploaded_at
+     FROM file_links fl
+     JOIN files f ON f.file_id = fl.file_id
+     WHERE fl.entity_type = 'purchase'
+       AND fl.entity_id = $1
+       AND fl.file_type = 'quote_pdf'
+       AND NOT f.is_deleted
+     ORDER BY fl.sort_order, f.uploaded_at DESC`,
+    [purchaseId]
+  );
+  return rows.map(row => ({
+    fileId: row.file_id,
+    fileName: row.original_name,
+    mimeType: row.mime_type,
+    fileSize: Number(row.file_size || 0),
+    uploadedAt: row.uploaded_at
+  }));
+}
+
+async function getPurchaseQuotePdfData(purchaseId, fileId) {
+  const { rows } = await pool.query(
+    `SELECT f.file_id, f.original_name, f.mime_type, f.file_size, f.file_data
+     FROM file_links fl
+     JOIN files f ON f.file_id = fl.file_id
+     WHERE fl.entity_type = 'purchase'
+       AND fl.entity_id = $1
+       AND fl.file_type = 'quote_pdf'
+       AND fl.file_id = $2
+       AND NOT f.is_deleted`,
+    [purchaseId, fileId]
+  );
+  const file = rows[0];
+  if (!file || !file.file_data) throw new Error('找不到報價單 PDF');
+  return {
+    fileId: file.file_id,
+    fileName: file.original_name,
+    mimeType: file.mime_type,
+    fileSize: Number(file.file_size || 0),
+    dataUrl: `data:${file.mime_type};base64,${file.file_data.toString('base64')}`
+  };
+}
+
+async function savePurchaseQuotePdf(client, purchaseId, value, currentUser) {
+  const file = normalizeQuotePdf(value);
+  if (!file) return null;
+  const { rows } = await client.query(
+    `INSERT INTO files (
+       original_name, stored_name, mime_type, file_size, storage_provider, storage_path,
+       uploaded_by_staff_id, file_data
+     ) VALUES ($1,$2,$3,$4,'postgres',$5,$6,$7)
+     RETURNING file_id`,
+    [
+      file.fileName,
+      `${purchaseId}_${Date.now()}_${file.fileName}`,
+      file.mimeType,
+      file.fileSize,
+      `finance/purchases/${purchaseId}/quotes/${file.fileName}`,
+      currentUser && currentUser.staffId ? String(currentUser.staffId) : null,
+      file.buffer
+    ]
+  );
+  const fileId = rows[0].file_id;
+  await client.query(
+    `INSERT INTO file_links (file_id, entity_type, entity_id, file_type, sort_order)
+     VALUES ($1, 'purchase', $2, 'quote_pdf', 0)
+     ON CONFLICT (file_id, entity_type, entity_id, file_type) DO NOTHING`,
+    [fileId, purchaseId]
+  );
+  return fileId;
+}
+
+function normalizeQuotePdf(value) {
+  if (!value || typeof value !== 'object') return null;
+  const fileName = String(value.fileName || 'quote.pdf').trim() || 'quote.pdf';
+  const mimeType = String(value.mimeType || '').trim();
+  const data = String(value.data || '').trim();
+  if (!data) return null;
+  if (mimeType !== 'application/pdf') throw new Error('報價單附件僅支援 PDF');
+  const base64 = data.includes(',') ? data.split(',').pop() : data;
+  const buffer = Buffer.from(base64, 'base64');
+  if (!buffer.length) return null;
+  if (buffer.length > QUOTE_PDF_MAX_BYTES) throw new Error('報價單 PDF 不可超過 10MB');
+  return {
+    fileName,
+    mimeType,
+    fileSize: buffer.length,
+    buffer
+  };
 }
 
 async function getAdvanceItems(purchaseId) {
