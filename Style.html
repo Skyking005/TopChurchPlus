@@ -152,6 +152,21 @@
     width: 150px;
     height: 42px;
     background-image: var(--brand-logo-wordmark);
+    border: 0;
+    padding: 0;
+    background-color: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: opacity .15s ease, box-shadow .15s ease;
+  }
+
+  .topbar-brand:hover {
+    opacity: .82;
+  }
+
+  .topbar-brand:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, .22);
   }
 
   .topbar-title {
