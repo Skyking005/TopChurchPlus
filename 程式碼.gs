@@ -161,6 +161,38 @@ function getFormResponses(formId, currentUser) {
   return apiRequest('get', `/forms/${encodeURIComponent(formId)}/responses`, null, null, currentUser);
 }
 
+function getEducationCourseCategories(currentUser) {
+  return apiRequest('get', '/education/course-categories', null, null, currentUser);
+}
+
+function getEducationCourses(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/education/courses', null, {
+    keyword: filters.keyword || '',
+    categoryId: filters.categoryId || '',
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function getEducationCourseDetail(courseId, currentUser) {
+  return apiRequest('get', `/education/courses/${encodeURIComponent(courseId)}`, null, null, currentUser);
+}
+
+function saveEducationCourse(payload) {
+  const courseId = payload.courseId || payload.course?.courseId || '';
+  if (courseId) {
+    return apiRequest(
+      'put',
+      `/education/courses/${encodeURIComponent(courseId)}`,
+      { currentUser: payload.currentUser, course: payload.course }
+    );
+  }
+  return apiRequest('post', '/education/courses', {
+    currentUser: payload.currentUser,
+    course: payload.course
+  });
+}
+
 function getCounterTransactions(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/counter/transactions', null, {

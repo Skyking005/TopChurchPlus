@@ -24,7 +24,7 @@ function openFormsSystem() {
   recordFeatureUsage('forms');
   const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '表單系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'educationView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

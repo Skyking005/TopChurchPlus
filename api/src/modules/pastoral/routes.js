@@ -319,9 +319,29 @@ async function getPastoralMemberDetail(memberId, currentUser) {
     [memberId]
   );
 
+  const educationEnrollments = await pool.query(
+    `SELECT
+       e.enrollment_id,
+       e.is_completed,
+       e.note,
+       c.course_id,
+       c.course_name,
+       c.start_date,
+       c.end_date,
+       cat.category_name,
+       cat.sort_order
+     FROM education_enrollments e
+     JOIN education_courses c ON c.course_id = e.course_id
+     LEFT JOIN education_course_categories cat ON cat.category_id = c.category_id
+     WHERE e.member_id = $1
+     ORDER BY cat.sort_order, c.start_date DESC NULLS LAST, c.course_id DESC`,
+    [memberId]
+  );
+
   return {
     member: toPastoralMemberDetail(member),
-    careRecords: careRecords.rows.map(toPastoralCareRecord)
+    careRecords: careRecords.rows.map(toPastoralCareRecord),
+    educationEnrollments: educationEnrollments.rows.map(toPastoralEducationEnrollment)
   };
 }
 
@@ -761,6 +781,19 @@ function toPastoralCareRecord(row) {
     careAt: formatDateTime(row.care_at),
     staffName: [row.staff_name, row.staff_position].filter(Boolean).join(' '),
     content: row.content || ''
+  };
+}
+
+function toPastoralEducationEnrollment(row) {
+  return {
+    enrollmentId: row.enrollment_id,
+    courseId: row.course_id,
+    courseName: row.course_name,
+    categoryName: row.category_name,
+    startDate: formatDate(row.start_date),
+    endDate: formatDate(row.end_date),
+    isCompleted: Boolean(row.is_completed),
+    note: row.note || ''
   };
 }
 

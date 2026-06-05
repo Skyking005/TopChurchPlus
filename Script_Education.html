@@ -1,0 +1,206 @@
+<script>
+let educationCategories = [];
+let educationCourses = [];
+let currentEducationCourseDetail = null;
+
+function openEducationSystem() {
+  recordFeatureUsage('education');
+  const canEdit = getFeatureAccess('education') === 'edit' && currentUser.deviceType !== 'mobile';
+  document.getElementById('mainTitle').textContent = '教育管理系統';
+  hideAllMainViews();
+  document.getElementById('educationView').classList.remove('d-none');
+  document.getElementById('addEducationCourseBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('saveEducationCourseBtn').classList.toggle('d-none', !canEdit);
+  document.querySelectorAll('.education-edit-input').forEach(el => {
+    el.disabled = !canEdit;
+  });
+  backToEducationList(false);
+  loadEducationSystem();
+}
+
+function loadEducationSystem() {
+  setListLoading('educationCourseTableBody', true, '課程資料載入中...');
+  google.script.run
+    .withSuccessHandler(categories => {
+      educationCategories = categories || [];
+      setupEducationCategoryOptions();
+      loadEducationCourses();
+    })
+    .withFailureHandler(showError)
+    .getEducationCourseCategories(currentUser);
+}
+
+function setupEducationCategoryOptions() {
+  fillEducationCategorySelect('educationCategoryFilter', true);
+  fillEducationCategorySelect('educationCourseCategoryId', false);
+}
+
+function fillEducationCategorySelect(id, includeAll) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部</option>' : '<option value="">未分類</option>';
+  educationCategories.forEach(category => {
+    const opt = document.createElement('option');
+    opt.value = category.categoryId;
+    opt.textContent = category.categoryName;
+    select.appendChild(opt);
+  });
+}
+
+function loadEducationCourses() {
+  setListLoading('educationCourseTableBody', true, '課程資料載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      educationCourses = rows || [];
+      renderEducationCourses();
+    })
+    .withFailureHandler(showError)
+    .getEducationCourses({
+      keyword: document.getElementById('educationKeyword').value,
+      categoryId: document.getElementById('educationCategoryFilter').value,
+      status: document.getElementById('educationStatusFilter').value
+    }, currentUser);
+}
+
+function renderEducationCourses() {
+  const body = document.getElementById('educationCourseTableBody');
+  body.innerHTML = '';
+  if (!educationCourses.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無課程資料</td></tr>';
+    return;
+  }
+  educationCourses.forEach(course => {
+    const completedText = `${course.completedCount || 0} / ${course.enrollmentCount || 0}`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button type="button" class="project-link" onclick="openEducationCourse('${escapeAttr(course.courseId)}')">${escapeHtml(course.courseName)}</button></td>
+      <td>${escapeHtml(course.categoryName || '')}</td>
+      <td>${escapeHtml(formatEducationDateRange(course.startDate, course.endDate))}</td>
+      <td>${renderEducationStatusBadge(course.status)}</td>
+      <td>${escapeHtml(course.enrollmentCount || 0)}</td>
+      <td>${escapeHtml(completedText)}</td>
+      <td><button type="button" class="btn btn-outline-secondary btn-sm" onclick="openEducationCourse('${escapeAttr(course.courseId)}')">查看</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function newEducationCourse() {
+  setEducationCourseDetail({
+    course: {
+      courseId: '',
+      categoryId: educationCategories[0]?.categoryId || '',
+      courseName: '',
+      startDate: '',
+      endDate: '',
+      status: 'active'
+    },
+    enrollments: []
+  });
+}
+
+function openEducationCourse(courseId) {
+  setListLoading('educationEnrollmentTableBody', true, '學員資料載入中...');
+  google.script.run
+    .withSuccessHandler(setEducationCourseDetail)
+    .withFailureHandler(showError)
+    .getEducationCourseDetail(courseId, currentUser);
+}
+
+function setEducationCourseDetail(data) {
+  currentEducationCourseDetail = data || { course: {}, enrollments: [] };
+  const course = currentEducationCourseDetail.course || {};
+  document.getElementById('educationListView').classList.add('d-none');
+  document.getElementById('educationDetailView').classList.remove('d-none');
+  document.getElementById('educationCourseId').value = course.courseId || '';
+  document.getElementById('educationCourseCategoryId').value = course.categoryId || '';
+  document.getElementById('educationCourseName').value = course.courseName || '';
+  document.getElementById('educationCourseStartDate').value = course.startDate || '';
+  document.getElementById('educationCourseEndDate').value = course.endDate || '';
+  document.getElementById('educationCourseStatus').value = course.status || 'active';
+  document.getElementById('educationCourseError').textContent = '';
+  renderEducationEnrollments(currentEducationCourseDetail.enrollments || []);
+}
+
+function renderEducationEnrollments(rows) {
+  const body = document.getElementById('educationEnrollmentTableBody');
+  const summary = document.getElementById('educationEnrollmentSummary');
+  body.innerHTML = '';
+  const completed = rows.filter(row => row.isCompleted).length;
+  summary.textContent = `共 ${rows.length} 位，完成 ${completed} 位`;
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">尚無學員紀錄</td></tr>';
+    return;
+  }
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml([row.memberName, row.titleName].filter(Boolean).join(' '))}</td>
+      <td>${escapeHtml(row.churchName || '')}</td>
+      <td>${escapeHtml(row.categoryName || '')}</td>
+      <td>${row.isCompleted ? '<span class="badge bg-success">已完成</span>' : '<span class="badge bg-secondary">未完成</span>'}</td>
+      <td>${escapeHtml(row.note || '')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function submitEducationCourse() {
+  const btn = document.getElementById('saveEducationCourseBtn');
+  const errorBox = document.getElementById('educationCourseError');
+  const course = {
+    courseId: document.getElementById('educationCourseId').value,
+    categoryId: document.getElementById('educationCourseCategoryId').value,
+    courseName: document.getElementById('educationCourseName').value.trim(),
+    startDate: document.getElementById('educationCourseStartDate').value,
+    endDate: document.getElementById('educationCourseEndDate').value,
+    status: document.getElementById('educationCourseStatus').value
+  };
+  errorBox.textContent = '';
+  if (!course.courseName) {
+    errorBox.textContent = '請填寫課程名稱';
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      openEducationCourse(res.courseId);
+      loadEducationCourses();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveEducationCourse({ courseId: course.courseId, course, currentUser });
+}
+
+function backToEducationList(shouldLoad = true) {
+  const list = document.getElementById('educationListView');
+  const detail = document.getElementById('educationDetailView');
+  if (list) list.classList.remove('d-none');
+  if (detail) detail.classList.add('d-none');
+  if (shouldLoad) loadEducationCourses();
+}
+
+function handleEducationSearchKey(event) {
+  if (event.key === 'Enter') loadEducationCourses();
+}
+
+function renderEducationStatusBadge(status) {
+  const text = formatEducationStatus(status);
+  const cls = status === 'active' ? 'bg-success' : status === 'closed' ? 'bg-secondary' : 'bg-dark';
+  return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+}
+
+function formatEducationStatus(status) {
+  return { active: '進行中', closed: '已結束', archived: '封存' }[status] || status || '';
+}
+
+function formatEducationDateRange(startDate, endDate) {
+  if (startDate && endDate) return `${startDate} ~ ${endDate}`;
+  return startDate || endDate || '';
+}
+</script>

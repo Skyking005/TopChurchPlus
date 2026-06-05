@@ -1,0 +1,110 @@
+<div id="educationView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">教育管理系統</h5>
+        <div class="text-muted small">課程管理與學員修課狀態</div>
+      </div>
+      <button type="button" class="btn btn-primary" id="addEducationCourseBtn" onclick="newEducationCourse()">新增課程</button>
+    </div>
+
+    <div id="educationListView">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-lg-4">
+          <label class="form-label">關鍵字</label>
+          <input id="educationKeyword" class="form-control" placeholder="課程名稱、分類" onkeydown="handleEducationSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-4 col-lg-3">
+          <label class="form-label">課程分類</label>
+          <select id="educationCategoryFilter" class="form-select"></select>
+        </div>
+        <div class="col-12 col-md-4 col-lg-3">
+          <label class="form-label">狀態</label>
+          <select id="educationStatusFilter" class="form-select">
+            <option value="">全部</option>
+            <option value="active">進行中</option>
+            <option value="closed">已結束</option>
+            <option value="archived">封存</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-4 col-lg-2 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadEducationCourses()">搜尋</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>課程名稱</th>
+              <th>分類</th>
+              <th>日期</th>
+              <th>狀態</th>
+              <th>學員</th>
+              <th>完成</th>
+              <th>功能</th>
+            </tr>
+          </thead>
+          <tbody id="educationCourseTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="educationDetailView" class="d-none">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <button type="button" class="btn btn-outline-secondary" onclick="backToEducationList()">返回清單</button>
+        <button type="button" class="btn btn-primary" id="saveEducationCourseBtn" onclick="submitEducationCourse()">儲存課程</button>
+      </div>
+
+      <input type="hidden" id="educationCourseId">
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label">課程分類</label>
+          <select id="educationCourseCategoryId" class="form-select education-edit-input"></select>
+        </div>
+        <div class="col-12 col-md-8">
+          <label class="form-label">課程名稱</label>
+          <input id="educationCourseName" class="form-control education-edit-input">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">開始日期</label>
+          <input id="educationCourseStartDate" type="date" class="form-control education-edit-input">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">結束日期</label>
+          <input id="educationCourseEndDate" type="date" class="form-control education-edit-input">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">狀態</label>
+          <select id="educationCourseStatus" class="form-select education-edit-input">
+            <option value="active">進行中</option>
+            <option value="closed">已結束</option>
+            <option value="archived">封存</option>
+          </select>
+        </div>
+      </div>
+      <div id="educationCourseError" class="text-danger small mb-3"></div>
+
+      <div class="pastoral-detail-block">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="mb-0">學員清單</h6>
+          <span id="educationEnrollmentSummary" class="text-muted small"></span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle">
+            <thead>
+              <tr>
+                <th>姓名</th>
+                <th>會堂</th>
+                <th>分類</th>
+                <th>狀態</th>
+                <th>備註</th>
+              </tr>
+            </thead>
+            <tbody id="educationEnrollmentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

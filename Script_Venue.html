@@ -6,7 +6,7 @@ let venueCalendarModalInstance = null;
 function openVenueSystem() {
   recordFeatureUsage('venue');
   document.getElementById('mainTitle').textContent = '場地預約系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'formsView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'formsView', 'educationView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

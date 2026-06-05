@@ -12,7 +12,7 @@ function openPastoralSystem() {
   recordFeatureUsage('pastoral');
   const canEditPastoral = getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '牧養管理系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'formsView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'formsView', 'educationView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -269,6 +269,7 @@ function renderActivePastoralDetail() {
     ['子女', member.childrenText]
   ]);
 
+  renderPastoralEducationStatus(data.educationEnrollments || []);
   renderPastoralCareRecords(data.careRecords || []);
 }
 
@@ -532,6 +533,31 @@ function renderPastoralCareRecords(records) {
     item.innerHTML = `
       <div class="pastoral-care-meta">${escapeHtml(formatPastoralDateTime(record.careAt))} ${escapeHtml(record.staffName || '')}</div>
       <div>${escapeHtml(record.content)}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderPastoralEducationStatus(records) {
+  const container = document.getElementById('pastoralEducationStatus');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!records.length) {
+    container.innerHTML = '<div class="text-muted">尚無課程紀錄</div>';
+    return;
+  }
+  records.forEach(record => {
+    const item = document.createElement('div');
+    item.className = 'pastoral-care-item';
+    item.innerHTML = `
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div>
+          <strong>${escapeHtml(record.courseName)}</strong>
+          <span class="text-muted small ms-2">${escapeHtml(record.categoryName || '')}</span>
+        </div>
+        ${record.isCompleted ? '<span class="badge bg-success">已完成</span>' : '<span class="badge bg-secondary">未完成</span>'}
+      </div>
+      <div class="pastoral-care-meta">${escapeHtml(formatEducationDateRange(record.startDate, record.endDate))}${record.note ? ` / ${escapeHtml(record.note)}` : ''}</div>
     `;
     container.appendChild(item);
   });

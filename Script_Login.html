@@ -58,7 +58,7 @@ const SYSTEM_FEATURES = [
     key: 'education',
     title: '教育管理系統',
     desc: '課程、學員、教材與教育行政',
-    action: 'openComingSoonSystem'
+    action: 'openEducationSystem'
   },
   {
     key: 'media',
@@ -438,7 +438,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -471,7 +471,7 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -494,6 +494,7 @@ function backToFeatureMenu() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('educationView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
@@ -600,6 +601,7 @@ function openProjectSystem() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('educationView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -618,6 +620,7 @@ function openPurchaseSystem() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('educationView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');

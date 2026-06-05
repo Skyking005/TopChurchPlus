@@ -7,6 +7,7 @@ const { registerAssetRoutes } = require('./modules/asset/routes');
 const { registerAuthRoutes } = require('./modules/auth/routes');
 const { registerCoreRoutes } = require('./modules/core/routes');
 const { registerCounterRoutes } = require('./modules/counter/routes');
+const { registerEducationRoutes } = require('./modules/education/routes');
 const { registerPastoralRoutes } = require('./modules/pastoral/routes');
 const { registerFinanceRoutes } = require('./modules/finance/routes');
 const { registerFormsRoutes } = require('./modules/forms/routes');
@@ -25,6 +26,7 @@ registerPastoralRoutes(app);
 registerAssetRoutes(app);
 registerFinanceRoutes(app);
 registerFormsRoutes(app);
+registerEducationRoutes(app);
 registerProjectRoutes(app);
 registerVenueRoutes(app);
 
