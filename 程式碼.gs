@@ -200,6 +200,36 @@ function getCounterTransactions(filters, currentUser) {
   }, currentUser);
 }
 
+function getQtOptions(currentUser) {
+  return apiRequest('get', '/qt/options', null, null, currentUser);
+}
+
+function getQtInventory(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/inventory', null, {
+    issueMonth: filters.issueMonth || '',
+    churchId: filters.churchId || '',
+    productType: filters.productType || ''
+  }, currentUser);
+}
+
+function getQtInventoryMovements(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/inventory/movements', null, {
+    issueMonth: filters.issueMonth || '',
+    churchId: filters.churchId || '',
+    productType: filters.productType || ''
+  }, currentUser);
+}
+
+function addQtInventoryMovement(payload) {
+  return apiRequest('post', '/qt/inventory/movements', payload);
+}
+
+function transferQtInventory(payload) {
+  return apiRequest('post', '/qt/inventory/transfers', payload);
+}
+
 function markCounterTransactionPaid(payload) {
   return apiRequest(
     'patch',

@@ -12,6 +12,7 @@ const { registerPastoralRoutes } = require('./modules/pastoral/routes');
 const { registerFinanceRoutes } = require('./modules/finance/routes');
 const { registerFormsRoutes } = require('./modules/forms/routes');
 const { registerProjectRoutes } = require('./modules/project/routes');
+const { registerQtRoutes } = require('./modules/qt/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
 
@@ -28,6 +29,7 @@ registerFinanceRoutes(app);
 registerFormsRoutes(app);
 registerEducationRoutes(app);
 registerProjectRoutes(app);
+registerQtRoutes(app);
 registerVenueRoutes(app);
 
 app.use(createErrorHandler());

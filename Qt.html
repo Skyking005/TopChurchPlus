@@ -1,0 +1,194 @@
+<section id="qtView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">QT 管理系統</h5>
+        <div class="text-muted small">每月會堂庫存、調撥與下單前庫存檢查</div>
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary" onclick="openQtMovementModal()">新增異動</button>
+        <button type="button" class="btn btn-outline-primary" onclick="openQtTransferModal()">庫存調撥</button>
+      </div>
+    </div>
+
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-12 col-md-3">
+        <label class="form-label">月份</label>
+        <input id="qtIssueMonth" type="month" class="form-control">
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">會堂</label>
+        <select id="qtChurchFilter" class="form-select"></select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">QT 類型</label>
+        <select id="qtProductFilter" class="form-select"></select>
+      </div>
+      <div class="col-12 col-md-3 d-grid">
+        <button type="button" class="btn btn-primary" onclick="loadQtInventory()">查詢</button>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-xl-7">
+        <div class="card h-100">
+          <div class="card-header section-header">
+            <span>庫存總覽</span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadQtInventory()">重新整理</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>月份</th>
+                  <th>會堂</th>
+                  <th>QT 類型</th>
+                  <th class="text-end">入庫</th>
+                  <th class="text-end">出庫/預扣</th>
+                  <th class="text-end">可用庫存</th>
+                </tr>
+              </thead>
+              <tbody id="qtInventoryTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-5">
+        <div class="card h-100">
+          <div class="card-header">價格方案</div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>方案</th>
+                  <th>類型</th>
+                  <th class="text-end">月數</th>
+                  <th class="text-end">金額</th>
+                </tr>
+              </thead>
+              <tbody id="qtPricePlanTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header section-header">
+        <span>庫存異動紀錄</span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadQtMovements()">重新整理</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>月份</th>
+              <th>會堂</th>
+              <th>QT 類型</th>
+              <th>異動</th>
+              <th class="text-end">數量</th>
+              <th>備註</th>
+            </tr>
+          </thead>
+          <tbody id="qtMovementTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="modal fade" id="qtMovementModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">QT 庫存異動</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">月份</label>
+            <input id="qtMovementMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">會堂</label>
+            <select id="qtMovementChurch" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">QT 類型</label>
+            <select id="qtMovementProduct" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">異動類型</label>
+            <select id="qtMovementType" class="form-select">
+              <option value="initial_stock">期初庫存</option>
+              <option value="receive">進貨入庫</option>
+              <option value="sale">銷售出庫</option>
+              <option value="reserve">預扣庫存</option>
+              <option value="release">解除預扣</option>
+              <option value="adjustment">盤點調整</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">數量</label>
+            <input id="qtMovementQuantity" type="number" min="1" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">備註</label>
+            <input id="qtMovementNote" class="form-control">
+          </div>
+        </div>
+        <div id="qtMovementError" class="text-danger small mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="confirmQtMovementBtn" onclick="submitQtMovement()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="qtTransferModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">QT 庫存調撥</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">月份</label>
+            <input id="qtTransferMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">QT 類型</label>
+            <select id="qtTransferProduct" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">調出會堂</label>
+            <select id="qtTransferFromChurch" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">調入會堂</label>
+            <select id="qtTransferToChurch" class="form-select"></select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">數量</label>
+            <input id="qtTransferQuantity" type="number" min="1" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">備註</label>
+            <input id="qtTransferNote" class="form-control">
+          </div>
+        </div>
+        <div id="qtTransferError" class="text-danger small mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="confirmQtTransferBtn" onclick="submitQtTransfer()">調撥</button>
+      </div>
+    </div>
+  </div>
+</div>

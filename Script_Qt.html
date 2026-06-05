@@ -1,0 +1,259 @@
+<script>
+let qtOptions = { productTypes: [], pricePlans: [], churches: [] };
+let qtInventoryRows = [];
+let qtMovementRows = [];
+let qtMovementModalInstance = null;
+let qtTransferModalInstance = null;
+
+function openQtSystem() {
+  recordFeatureUsage('qt');
+  document.getElementById('mainTitle').textContent = 'QT 管理系統';
+  hideAllMainViews();
+  document.getElementById('qtView').classList.remove('d-none');
+  const month = getCurrentIssueMonth();
+  if (!document.getElementById('qtIssueMonth').value) document.getElementById('qtIssueMonth').value = month;
+  loadQtSystem();
+}
+
+function loadQtSystem() {
+  setListLoading(['qtInventoryTableBody', 'qtMovementTableBody', 'qtPricePlanTableBody'], true);
+  google.script.run
+    .withSuccessHandler(options => {
+      qtOptions = options || { productTypes: [], pricePlans: [], churches: [] };
+      setupQtOptions();
+      renderQtPricePlans();
+      loadQtInventory();
+    })
+    .withFailureHandler(showError)
+    .getQtOptions(currentUser);
+}
+
+function setupQtOptions() {
+  fillQtChurchSelect('qtChurchFilter', true);
+  fillQtChurchSelect('qtMovementChurch', false);
+  fillQtChurchSelect('qtTransferFromChurch', false);
+  fillQtChurchSelect('qtTransferToChurch', false);
+  fillQtProductSelect('qtProductFilter', true);
+  fillQtProductSelect('qtMovementProduct', false);
+  fillQtProductSelect('qtTransferProduct', false);
+}
+
+function fillQtChurchSelect(id, includeAll) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部會堂</option>' : '';
+  qtOptions.churches.forEach(church => {
+    const opt = document.createElement('option');
+    opt.value = church.churchId;
+    opt.textContent = church.churchName;
+    select.appendChild(opt);
+  });
+}
+
+function fillQtProductSelect(id, includeAll) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部類型</option>' : '';
+  qtOptions.productTypes.forEach(type => {
+    const opt = document.createElement('option');
+    opt.value = type.productType;
+    opt.textContent = type.productName;
+    select.appendChild(opt);
+  });
+}
+
+function loadQtInventory() {
+  setListLoading('qtInventoryTableBody', true, 'QT 庫存載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      qtInventoryRows = rows || [];
+      renderQtInventory();
+      loadQtMovements();
+    })
+    .withFailureHandler(showError)
+    .getQtInventory(getQtFilters(), currentUser);
+}
+
+function loadQtMovements() {
+  setListLoading('qtMovementTableBody', true, 'QT 異動紀錄載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      qtMovementRows = rows || [];
+      renderQtMovements();
+    })
+    .withFailureHandler(showError)
+    .getQtInventoryMovements(getQtFilters(), currentUser);
+}
+
+function getQtFilters() {
+  return {
+    issueMonth: `${document.getElementById('qtIssueMonth').value || getCurrentIssueMonth()}-01`,
+    churchId: document.getElementById('qtChurchFilter').value,
+    productType: document.getElementById('qtProductFilter').value
+  };
+}
+
+function renderQtInventory() {
+  const body = document.getElementById('qtInventoryTableBody');
+  body.innerHTML = '';
+  if (!qtInventoryRows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">此月份尚無庫存資料</td></tr>';
+    return;
+  }
+  qtInventoryRows.forEach(row => {
+    const stockClass = row.availableQuantity <= 0 ? 'text-danger fw-bold' : row.availableQuantity <= 10 ? 'text-warning fw-bold' : 'text-success fw-bold';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml((row.issueMonth || '').slice(0, 7))}</td>
+      <td>${escapeHtml(row.churchName)}</td>
+      <td>${escapeHtml(row.productName)}</td>
+      <td class="text-end">${escapeHtml(row.inboundQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.outboundQuantity || 0)}</td>
+      <td class="text-end ${stockClass}">${escapeHtml(row.availableQuantity || 0)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderQtMovements() {
+  const body = document.getElementById('qtMovementTableBody');
+  body.innerHTML = '';
+  if (!qtMovementRows.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無異動紀錄</td></tr>';
+    return;
+  }
+  qtMovementRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(formatFormsDateTime(row.createdAt))}</td>
+      <td>${escapeHtml((row.issueMonth || '').slice(0, 7))}</td>
+      <td>${escapeHtml(row.churchName)}</td>
+      <td>${escapeHtml(row.productName)}</td>
+      <td>${escapeHtml(formatQtMovementType(row.movementType))}</td>
+      <td class="text-end ${row.quantity < 0 ? 'text-danger' : 'text-success'}">${escapeHtml(row.quantity)}</td>
+      <td>${escapeHtml(row.note || '')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderQtPricePlans() {
+  const body = document.getElementById('qtPricePlanTableBody');
+  body.innerHTML = '';
+  qtOptions.pricePlans.forEach(plan => {
+    const type = qtOptions.productTypes.find(item => item.productType === plan.productType);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(plan.planName)}</td>
+      <td>${escapeHtml(type ? type.productName : plan.productType)}</td>
+      <td class="text-end">${escapeHtml(plan.durationMonths)}</td>
+      <td class="text-end">${formatMoney(plan.unitPrice || 0)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function openQtMovementModal() {
+  document.getElementById('qtMovementMonth').value = document.getElementById('qtIssueMonth').value || getCurrentIssueMonth();
+  document.getElementById('qtMovementChurch').value = document.getElementById('qtChurchFilter').value || qtOptions.churches[0]?.churchId || '';
+  document.getElementById('qtMovementProduct').value = document.getElementById('qtProductFilter').value || qtOptions.productTypes[0]?.productType || '';
+  document.getElementById('qtMovementType').value = 'receive';
+  document.getElementById('qtMovementQuantity').value = '';
+  document.getElementById('qtMovementNote').value = '';
+  document.getElementById('qtMovementError').textContent = '';
+  qtMovementModalInstance = new bootstrap.Modal(document.getElementById('qtMovementModal'));
+  qtMovementModalInstance.show();
+}
+
+function submitQtMovement() {
+  const btn = document.getElementById('confirmQtMovementBtn');
+  const errorBox = document.getElementById('qtMovementError');
+  const movement = {
+    issueMonth: `${document.getElementById('qtMovementMonth').value}-01`,
+    churchId: document.getElementById('qtMovementChurch').value,
+    productType: document.getElementById('qtMovementProduct').value,
+    movementType: document.getElementById('qtMovementType').value,
+    quantity: Number(document.getElementById('qtMovementQuantity').value || 0),
+    note: document.getElementById('qtMovementNote').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!movement.quantity || movement.quantity <= 0) {
+    errorBox.textContent = '請填寫大於 0 的數量';
+    return;
+  }
+  setButtonLoading(btn, true, '保存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      qtMovementModalInstance.hide();
+      alert(res.message);
+      loadQtInventory();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .addQtInventoryMovement({ currentUser, movement });
+}
+
+function openQtTransferModal() {
+  document.getElementById('qtTransferMonth').value = document.getElementById('qtIssueMonth').value || getCurrentIssueMonth();
+  document.getElementById('qtTransferProduct').value = document.getElementById('qtProductFilter').value || qtOptions.productTypes[0]?.productType || '';
+  document.getElementById('qtTransferFromChurch').value = document.getElementById('qtChurchFilter').value || qtOptions.churches[0]?.churchId || '';
+  document.getElementById('qtTransferToChurch').value = qtOptions.churches.find(church => String(church.churchId) !== String(document.getElementById('qtTransferFromChurch').value))?.churchId || '';
+  document.getElementById('qtTransferQuantity').value = '';
+  document.getElementById('qtTransferNote').value = '';
+  document.getElementById('qtTransferError').textContent = '';
+  qtTransferModalInstance = new bootstrap.Modal(document.getElementById('qtTransferModal'));
+  qtTransferModalInstance.show();
+}
+
+function submitQtTransfer() {
+  const btn = document.getElementById('confirmQtTransferBtn');
+  const errorBox = document.getElementById('qtTransferError');
+  const transfer = {
+    issueMonth: `${document.getElementById('qtTransferMonth').value}-01`,
+    productType: document.getElementById('qtTransferProduct').value,
+    fromChurchId: document.getElementById('qtTransferFromChurch').value,
+    toChurchId: document.getElementById('qtTransferToChurch').value,
+    quantity: Number(document.getElementById('qtTransferQuantity').value || 0),
+    note: document.getElementById('qtTransferNote').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!transfer.quantity || transfer.quantity <= 0) {
+    errorBox.textContent = '請填寫大於 0 的數量';
+    return;
+  }
+  setButtonLoading(btn, true, '調撥中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      qtTransferModalInstance.hide();
+      alert(res.message);
+      loadQtInventory();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .transferQtInventory({ currentUser, transfer });
+}
+
+function formatQtMovementType(type) {
+  return {
+    initial_stock: '期初庫存',
+    receive: '進貨入庫',
+    transfer_in: '調撥入庫',
+    transfer_out: '調撥出庫',
+    sale: '銷售出庫',
+    reserve: '預扣庫存',
+    release: '解除預扣',
+    adjustment: '盤點調整'
+  }[type] || type || '';
+}
+
+function getCurrentIssueMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+</script>
