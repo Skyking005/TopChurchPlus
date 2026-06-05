@@ -3,6 +3,9 @@ const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/p
 const { getParams } = require('../../shared/params');
 const { assertDesktop, hasAnyRole, parseQueryUser, parseUser } = require('../../shared/users');
 const { formatDate, formatDateTime, splitCsv } = require('../../shared/format');
+const { normalizeFileInput, saveFileWithLink, toDataUrl } = require('../../shared/files');
+
+const MEETING_RECORD_PDF_MAX_BYTES = 15 * 1024 * 1024;
 
 function registerProjectRoutes(app) {
   app.get('/projects', async (req, res, next) => {
@@ -102,6 +105,16 @@ function registerProjectRoutes(app) {
   }
 });
 
+  app.get('/projects/:projectId/meetings/:meetingId/record-pdfs/:fileId', async (req, res, next) => {
+  try {
+    const currentUser = parseUser(req);
+    await assertProjectAccess(req.params.projectId, currentUser);
+    res.json(await getMeetingRecordPdfData(req.params.projectId, req.params.meetingId, req.params.fileId));
+  } catch (err) {
+    next(err);
+  }
+});
+
   app.post('/projects/:projectId/permissions', async (req, res, next) => {
   try {
     const { currentUser, staffId, permission } = req.body;
@@ -145,7 +158,8 @@ function registerProjectRoutes(app) {
     await assertFullControl(projectId, currentUser);
     const meetingId = await generateMeetingId();
 
-    await pool.query(
+    await tx(async client => {
+      await client.query(
       `INSERT INTO meetings (meeting_id, project_id, meeting_time, topic, agenda, decision, attendees, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
@@ -158,8 +172,12 @@ function registerProjectRoutes(app) {
         splitCsv(meeting['與會者']),
         meeting['會議狀態'] || '預約中'
       ]
-    );
-    res.json({ success: true, message: '已新增會議記錄' });
+      );
+      if (req.body.meetingRecordPdf) {
+        await saveMeetingRecordPdf(client, projectId, meetingId, req.body.meetingRecordPdf, currentUser);
+      }
+    });
+    res.json({ success: true, meetingId, message: '已新增會議記錄' });
   } catch (err) {
     next(err);
   }
@@ -172,7 +190,8 @@ function registerProjectRoutes(app) {
     const old = await pool.query('SELECT status FROM meetings WHERE meeting_id = $1', [req.params.meetingId]);
     if (!old.rows[0]) throw new Error('找不到會議資料');
 
-    await pool.query(
+    await tx(async client => {
+      await client.query(
       `UPDATE meetings
        SET meeting_time = $1, topic = $2, agenda = $3, decision = $4, attendees = $5, status = $6, updated_at = now()
        WHERE meeting_id = $7`,
@@ -185,7 +204,11 @@ function registerProjectRoutes(app) {
         meeting['會議狀態'] || old.rows[0].status,
         req.params.meetingId
       ]
-    );
+      );
+      if (req.body.meetingRecordPdf) {
+        await saveMeetingRecordPdf(client, req.params.projectId, req.params.meetingId, req.body.meetingRecordPdf, currentUser);
+      }
+    });
     res.json({ success: true, message: '已更新會議記錄' });
   } catch (err) {
     next(err);
@@ -401,7 +424,9 @@ async function getPermissions(projectId) {
 
 async function getMeetings(projectId) {
   const { rows } = await pool.query('SELECT * FROM meetings WHERE project_id = $1 ORDER BY meeting_time', [projectId]);
-  return rows.map(toMeetingRow);
+  const meetingIds = rows.map(row => row.meeting_id);
+  const attachmentMap = meetingIds.length ? await getMeetingRecordPdfMap(meetingIds) : new Map();
+  return rows.map(row => toMeetingRow(row, attachmentMap.get(row.meeting_id) || []));
 }
 
 async function replaceRows(client, table, projectId, rows, insertFn) {
@@ -473,7 +498,7 @@ function toBudgetRow(row) {
 function toPermissionRow(row) {
   return { '人員序號': row.staff_id, '姓名': [row.name, row.position].filter(Boolean).join(' '), '權限': row.permission };
 }
-function toMeetingRow(row) {
+function toMeetingRow(row, recordPdfs = []) {
   return {
     '會議編號': row.meeting_id,
     '計畫編號': row.project_id,
@@ -482,8 +507,80 @@ function toMeetingRow(row) {
     '討論議題': row.agenda,
     '會議決議': row.decision,
     '與會者': (row.attendees || []).join(','),
-    '會議狀態': row.status
+    '會議狀態': row.status,
+    recordPdfs
   };
+}
+
+async function getMeetingRecordPdfMap(meetingIds) {
+  const { rows } = await pool.query(
+    `SELECT fl.entity_id AS meeting_id, f.file_id, f.original_name, f.mime_type, f.file_size, f.uploaded_at
+     FROM file_links fl
+     JOIN files f ON f.file_id = fl.file_id
+     WHERE fl.entity_type = 'meeting'
+       AND fl.entity_id = ANY($1::text[])
+       AND fl.file_type = 'meeting_record_pdf'
+       AND NOT f.is_deleted
+     ORDER BY fl.entity_id, fl.sort_order, f.uploaded_at DESC`,
+    [meetingIds]
+  );
+  const map = new Map();
+  rows.forEach(row => {
+    if (!map.has(row.meeting_id)) map.set(row.meeting_id, []);
+    map.get(row.meeting_id).push({
+      fileId: row.file_id,
+      fileName: row.original_name,
+      mimeType: row.mime_type,
+      fileSize: Number(row.file_size || 0),
+      uploadedAt: row.uploaded_at
+    });
+  });
+  return map;
+}
+
+async function getMeetingRecordPdfData(projectId, meetingId, fileId) {
+  const { rows } = await pool.query(
+    `SELECT f.file_id, f.original_name, f.mime_type, f.file_size, f.file_data
+     FROM file_links fl
+     JOIN files f ON f.file_id = fl.file_id
+     JOIN meetings m ON m.meeting_id = fl.entity_id
+     WHERE fl.entity_type = 'meeting'
+       AND fl.entity_id = $1
+       AND fl.file_type = 'meeting_record_pdf'
+       AND fl.file_id = $2
+       AND m.project_id = $3
+       AND NOT f.is_deleted`,
+    [meetingId, fileId, projectId]
+  );
+  const file = rows[0];
+  if (!file || !file.file_data) throw new Error('找不到會議紀錄 PDF');
+  return {
+    fileId: file.file_id,
+    fileName: file.original_name,
+    mimeType: file.mime_type,
+    fileSize: Number(file.file_size || 0),
+    dataUrl: toDataUrl(file)
+  };
+}
+
+async function saveMeetingRecordPdf(client, projectId, meetingId, value, currentUser) {
+  const file = normalizeFileInput(value, {
+    defaultName: 'meeting-record.pdf',
+    allowedMimeTypes: new Set(['application/pdf']),
+    invalidMimeMessage: '會議紀錄附件僅支援 PDF',
+    maxBytes: MEETING_RECORD_PDF_MAX_BYTES,
+    maxBytesMessage: '會議紀錄 PDF 不可超過 15MB'
+  });
+  if (!file) return null;
+  return saveFileWithLink(client, {
+    file,
+    entityType: 'meeting',
+    entityId: meetingId,
+    fileType: 'meeting_record_pdf',
+    storagePath: `project/${projectId}/meetings/${meetingId}/records/${file.fileName}`,
+    storedName: `${meetingId}_${Date.now()}_${file.fileName}`,
+    currentUser
+  });
 }
 
 function createEmptyProject(currentUser) {

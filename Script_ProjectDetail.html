@@ -265,6 +265,7 @@ function renderMeetings(rows) {
       <td>${escapeHtml(r['會議時間'] || '')}</td>
       <td>${escapeHtml(r['會議主題'] || '')}</td>
       <td>${escapeHtml(r['與會者'] || '')}</td>
+      <td>${renderMeetingRecordPdfButtons(r)}</td>
       <td>${escapeHtml(r['會議狀態'] || '')}</td>
       <td>${actionHtml}</td>
     `;
@@ -280,6 +281,52 @@ function renderMeetings(rows) {
 function viewMeeting(encodedMeetingId) {
   meetingViewOnly = true;
   editMeeting(encodedMeetingId);
+}
+
+function renderMeetingRecordPdfButtons(meeting) {
+  const files = Array.isArray(meeting.recordPdfs) ? meeting.recordPdfs : [];
+  if (!files.length) return '<span class="text-muted small">無附件</span>';
+  const projectId = getCurrentProjectId();
+  const meetingId = meeting['會議編號'] || '';
+  return files.map(file => `
+    <button type="button" class="btn btn-sm btn-outline-primary me-2 mb-2" onclick="viewMeetingRecordPdf('${escapeAttr(projectId)}', '${escapeAttr(meetingId)}', '${escapeAttr(file.fileId)}', '${escapeAttr(file.fileName)}')">
+      ${escapeHtml(file.fileName || '會議紀錄 PDF')}
+    </button>
+  `).join('');
+}
+
+function viewMeetingRecordPdf(projectId, meetingId, fileId, fileName) {
+  google.script.run
+    .withSuccessHandler(file => {
+      if (!file || !file.dataUrl) {
+        alert('會議紀錄 PDF 沒有可讀取的檔案內容');
+        return;
+      }
+      const win = window.open('', '_blank');
+      if (!win) {
+        const link = document.createElement('a');
+        link.href = file.dataUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.download = file.fileName || fileName || 'meeting-record.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        alert('瀏覽器可能阻擋新視窗，已改用下載/新分頁連結開啟。');
+        return;
+      }
+      win.document.write(`
+        <html>
+          <head><title>${escapeHtml(file.fileName || fileName || '會議紀錄 PDF')}</title></head>
+          <body style="margin:0">
+            <iframe src="${file.dataUrl}" style="border:0;width:100%;height:100vh"></iframe>
+          </body>
+        </html>
+      `);
+      win.document.close();
+    })
+    .withFailureHandler(showError)
+    .getMeetingRecordPdfData({ currentUser, projectId, meetingId, fileId });
 }
 
 function applySavedProjectActionsVisibility() {

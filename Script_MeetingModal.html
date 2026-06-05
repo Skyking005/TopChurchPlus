@@ -1,5 +1,6 @@
 <script>
 let meetingModalInstance = null;
+let pendingMeetingRecordPdf = null;
 
 function openMeetingModal() {
   if (!getCurrentProjectId()) {
@@ -15,6 +16,7 @@ function openMeetingModal() {
   document.getElementById('meetingAgenda').value = '';
   document.getElementById('meetingDecision').value = '';
   document.getElementById('meetingModalError').textContent = '';
+  resetMeetingRecordImport();
 
   renderMeetingAttendeesCheckboxes([]);
   setMeetingModalReadonly(false);
@@ -60,6 +62,7 @@ function editMeeting(encodedMeetingId) {
   document.getElementById('meetingAgenda').value = meeting['討論議題'] || '';
   document.getElementById('meetingDecision').value = meeting['會議決議'] || '';
   document.getElementById('meetingModalError').textContent = '';
+  resetMeetingRecordImport(meeting);
 
   const selectedNames = String(meeting['與會者'] || '')
     .split(',')
@@ -86,6 +89,8 @@ function setMeetingModalReadonly(isReadonly) {
   document.getElementById('meetingTopic').disabled = isReadonly;
   document.getElementById('meetingAgenda').disabled = isReadonly;
   document.getElementById('meetingDecision').disabled = isReadonly;
+  document.getElementById('meetingRecordWord').disabled = isReadonly;
+  document.getElementById('importMeetingRecordBtn').disabled = isReadonly;
 
   document.querySelectorAll('.meeting-attendee-checkbox').forEach(el => {
     el.disabled = isReadonly;
@@ -279,7 +284,8 @@ if (attendees.length === 0) {
         currentUser,
         projectId: getCurrentProjectId(),
         meetingId,
-        meeting
+        meeting,
+        meetingRecordPdf: pendingMeetingRecordPdf
       });
   } else {
     google.script.run
@@ -295,9 +301,89 @@ if (attendees.length === 0) {
       })
       .addMeeting({
         currentUser,
-        meeting
+        meeting,
+        meetingRecordPdf: pendingMeetingRecordPdf
       });
   }
+}
+
+function resetMeetingRecordImport(meeting = null) {
+  pendingMeetingRecordPdf = null;
+  const input = document.getElementById('meetingRecordWord');
+  const status = document.getElementById('meetingRecordImportStatus');
+  if (input) input.value = '';
+  if (!status) return;
+  const files = meeting && Array.isArray(meeting.recordPdfs) ? meeting.recordPdfs : [];
+  if (files.length) {
+    status.innerHTML = `已保存 PDF 附件：${files.map(file => escapeHtml(file.fileName)).join('、')}`;
+  } else {
+    status.textContent = '上傳 Word 後，系統會自動謄寫文字到會議決議，並在儲存會議時保存 PDF 附件。';
+  }
+}
+
+function importMeetingRecordWord() {
+  const input = document.getElementById('meetingRecordWord');
+  const file = input && input.files ? input.files[0] : null;
+  const status = document.getElementById('meetingRecordImportStatus');
+  const errorBox = document.getElementById('meetingModalError');
+  const btn = document.getElementById('importMeetingRecordBtn');
+  if (!file) {
+    if (errorBox) errorBox.textContent = '請先選擇 Word 會議紀錄';
+    return;
+  }
+  const lowerName = file.name.toLowerCase();
+  if (!lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
+    if (errorBox) errorBox.textContent = '會議紀錄僅支援 Word 檔（.doc 或 .docx）';
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    if (errorBox) errorBox.textContent = 'Word 會議紀錄不可超過 10MB';
+    return;
+  }
+  if (errorBox) errorBox.textContent = '';
+  if (status) status.textContent = '正在匯入 Word 並轉成 PDF...';
+  setButtonLoading(btn, true, '轉換中...');
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    google.script.run
+      .withSuccessHandler(res => {
+        setButtonLoading(btn, false);
+        pendingMeetingRecordPdf = res.pdfFile || null;
+        if (res.decisionText) {
+          const decision = document.getElementById('meetingDecision');
+          decision.value = decision.value.trim()
+            ? `${decision.value.trim()}\n\n${res.decisionText}`
+            : res.decisionText;
+        }
+        if (status) status.textContent = pendingMeetingRecordPdf
+          ? `已轉換 PDF：${pendingMeetingRecordPdf.fileName}，請儲存會議以保存附件。`
+          : '已匯入文字，但沒有產生 PDF。';
+      })
+      .withFailureHandler(err => {
+        setButtonLoading(btn, false);
+        pendingMeetingRecordPdf = null;
+        if (status) status.textContent = '匯入失敗';
+        if (errorBox) errorBox.textContent = err.message || err;
+      })
+      .importMeetingWordRecord({
+        currentUser,
+        projectId: getCurrentProjectId(),
+        meetingId: document.getElementById('meetingId').value,
+        file: {
+          fileName: file.name,
+          mimeType: file.type || (lowerName.endsWith('.docx') ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/msword'),
+          fileSize: file.size,
+          data: reader.result
+        }
+      });
+  };
+  reader.onerror = () => {
+    setButtonLoading(btn, false);
+    if (status) status.textContent = '讀取 Word 檔失敗';
+    if (errorBox) errorBox.textContent = '讀取 Word 檔失敗';
+  };
+  reader.readAsDataURL(file);
 }
 function renderMeetingAttendeesCheckboxes(selectedNames = []) {
   const container = document.getElementById('meetingAttendeesGroup');

@@ -1019,6 +1019,85 @@ function updateMeeting(payload) {
   );
 }
 
+function importMeetingWordRecord(payload) {
+  payload = payload || {};
+  const file = payload.file || {};
+  const fileName = String(file.fileName || '會議紀錄.docx').trim();
+  const mimeType = String(file.mimeType || '').trim();
+  const data = String(file.data || '').trim();
+  if (!data) throw new Error('請選擇要匯入的 Word 會議紀錄');
+  if (!isSupportedMeetingWordMime(fileName, mimeType)) {
+    throw new Error('會議紀錄僅支援 Word 檔（.doc 或 .docx）');
+  }
+
+  const bytes = Utilities.base64Decode(data.indexOf(',') >= 0 ? data.split(',').pop() : data);
+  if (bytes.length > 10 * 1024 * 1024) throw new Error('Word 會議紀錄不可超過 10MB');
+
+  const uploadBlob = Utilities.newBlob(bytes, mimeType || MimeType.MICROSOFT_WORD, fileName);
+  let sourceFile = null;
+  let convertedFile = null;
+
+  try {
+    sourceFile = DriveApp.createFile(uploadBlob);
+    const resource = {
+      title: `${fileName.replace(/\.[^.]+$/, '')}_${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMddHHmmss')}`
+    };
+    convertedFile = Drive.Files.insert(resource, uploadBlob, { convert: true });
+    const doc = DocumentApp.openById(convertedFile.id);
+    const decisionText = doc.getBody().getText().trim();
+    doc.saveAndClose();
+
+    const pdfResponse = UrlFetchApp.fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(convertedFile.id)}/export?mimeType=application/pdf`,
+      {
+        headers: { Authorization: `Bearer ${ScriptApp.getOAuthToken()}` },
+        muteHttpExceptions: true
+      }
+    );
+    if (pdfResponse.getResponseCode() >= 300) {
+      throw new Error(`Word 轉 PDF 失敗：${pdfResponse.getContentText()}`);
+    }
+
+    const pdfName = `${fileName.replace(/\.[^.]+$/, '')}.pdf`;
+    return {
+      success: true,
+      decisionText,
+      pdfFile: {
+        fileName: pdfName,
+        mimeType: 'application/pdf',
+        fileSize: pdfResponse.getBlob().getBytes().length,
+        data: `data:application/pdf;base64,${Utilities.base64Encode(pdfResponse.getBlob().getBytes())}`
+      },
+      message: '已匯入 Word 會議紀錄'
+    };
+  } finally {
+    if (sourceFile) {
+      try { sourceFile.setTrashed(true); } catch (err) {}
+    }
+    if (convertedFile && convertedFile.id) {
+      try { DriveApp.getFileById(convertedFile.id).setTrashed(true); } catch (err) {}
+    }
+  }
+}
+
+function isSupportedMeetingWordMime(fileName, mimeType) {
+  const lowerName = String(fileName || '').toLowerCase();
+  return lowerName.endsWith('.docx') ||
+    lowerName.endsWith('.doc') ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mimeType === 'application/msword';
+}
+
+function getMeetingRecordPdfData(payload) {
+  return apiRequest(
+    'get',
+    `/projects/${encodeURIComponent(payload.projectId)}/meetings/${encodeURIComponent(payload.meetingId)}/record-pdfs/${encodeURIComponent(payload.fileId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
 function cancelMeeting(payload) {
   return updateMeetingStatus(payload, '取消');
 }

@@ -31,6 +31,15 @@
           </div>
 
           <div class="col-12">
+            <label class="form-label">Word 會議紀錄</label>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <input id="meetingRecordWord" type="file" class="form-control" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+              <button id="importMeetingRecordBtn" type="button" class="btn btn-outline-primary" onclick="importMeetingRecordWord()">匯入並轉 PDF</button>
+            </div>
+            <div id="meetingRecordImportStatus" class="form-text">上傳 Word 後，系統會自動謄寫文字到會議決議，並在儲存會議時保存 PDF 附件。</div>
+          </div>
+
+          <div class="col-12">
             <label class="form-label">與會者</label>
             <div id="meetingAttendeeTools" class="d-flex flex-wrap gap-2 align-items-center mb-2">
               <button type="button" class="btn btn-sm btn-outline-secondary meeting-attendee-tool" onclick="selectAllMeetingAttendees()">全選</button>

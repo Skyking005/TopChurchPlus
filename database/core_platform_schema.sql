@@ -68,6 +68,10 @@ CREATE INDEX IF NOT EXISTS idx_file_links_purchase_quotes
   ON file_links (entity_type, entity_id, file_type, created_at DESC)
   WHERE entity_type = 'purchase' AND file_type = 'quote_pdf';
 
+CREATE INDEX IF NOT EXISTS idx_file_links_meeting_records
+  ON file_links (entity_type, entity_id, file_type, created_at DESC)
+  WHERE entity_type = 'meeting' AND file_type = 'meeting_record_pdf';
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   audit_id bigserial PRIMARY KEY,
   staff_id text REFERENCES accounts(staff_id) ON DELETE SET NULL,
