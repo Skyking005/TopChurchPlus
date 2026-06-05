@@ -758,6 +758,29 @@ function addPurchasePaymentRequest(payload) {
   );
 }
 
+function getPaymentRequests(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/payment-requests', null, {
+    keyword: filters.keyword || ''
+  }, currentUser);
+}
+
+function getPaymentRequestDetail(paymentId, currentUser) {
+  return apiRequest('get', `/payment-requests/${encodeURIComponent(paymentId)}`, null, null, currentUser);
+}
+
+function addIndependentPaymentRequest(payload) {
+  return apiRequest('post', '/payment-requests', payload);
+}
+
+function addPaymentExpenseProof(payload) {
+  return apiRequest(
+    'post',
+    `/payment-requests/${encodeURIComponent(payload.paymentId)}/expense-proofs`,
+    payload
+  );
+}
+
 function addProjectPermission(payload) {
   return apiRequest(
     'post',

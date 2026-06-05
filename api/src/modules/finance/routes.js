@@ -100,6 +100,92 @@ function registerFinanceRoutes(app) {
     next(err);
   }
 });
+
+  app.get('/payment-requests', async (req, res, next) => {
+  try {
+    await assertFeatureReadable(parseUser(req), 'finance');
+    res.json(await getPaymentRequests(req.query));
+  } catch (err) {
+    next(err);
+  }
+});
+
+  app.get('/payment-requests/:paymentId', async (req, res, next) => {
+  try {
+    await assertFeatureReadable(parseUser(req), 'finance');
+    res.json(await getPaymentRequestDetail(req.params.paymentId));
+  } catch (err) {
+    next(err);
+  }
+});
+
+  app.post('/payment-requests', async (req, res, next) => {
+  try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
+    res.json(await savePaymentRequest(null, req.body));
+  } catch (err) {
+    next(err);
+  }
+});
+
+  app.post('/payment-requests/:paymentId/expense-proofs', async (req, res, next) => {
+  try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
+    res.json(await saveExpenseProofForPayment(req.params.paymentId, req.body));
+  } catch (err) {
+    next(err);
+  }
+});
+}
+
+async function getPaymentRequests(query) {
+  const keyword = String(query.keyword || '').trim().toLowerCase();
+  const where = [];
+  const values = [];
+
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(pr.payment_id) LIKE $${values.length}
+      OR lower(coalesce(pr.claimant, '')) LIKE $${values.length}
+      OR lower(coalesce(pr.hall, '')) LIKE $${values.length}
+      OR lower(coalesce(pr.purchase_id, '')) LIKE $${values.length}
+      OR lower(coalesce(p.summary, '')) LIKE $${values.length}
+    )`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT pr.*, p.summary AS purchase_summary,
+            count(DISTINCT ep.proof_id)::int AS expense_proof_count
+     FROM purchase_payment_requests pr
+     LEFT JOIN purchases p ON p.purchase_id = pr.purchase_id
+     LEFT JOIN purchase_expense_proofs ep ON ep.payment_id = pr.payment_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     GROUP BY pr.payment_id, p.summary
+     ORDER BY pr.request_date DESC, pr.payment_id DESC`,
+    values
+  );
+  return rows.map(toPaymentRequestListItem);
+}
+
+async function getPaymentRequestDetail(paymentId) {
+  const { rows } = await pool.query(
+    `SELECT pr.*, p.summary AS purchase_summary
+     FROM purchase_payment_requests pr
+     LEFT JOIN purchases p ON p.purchase_id = pr.purchase_id
+     WHERE pr.payment_id = $1`,
+    [paymentId]
+  );
+  if (!rows[0]) throw new Error('找不到請款資料');
+  const [paymentItems, proofs, proofItems] = await Promise.all([
+    getPaymentItemsByPaymentId(paymentId),
+    getPurchaseChildRows('purchase_expense_proofs', 'payment_id', paymentId),
+    getExpenseProofItemsByPaymentId(paymentId)
+  ]);
+  return {
+    payment: toPaymentRequest(rows[0], paymentItems),
+    expenseProofs: proofs.map(row => toExpenseProof(row, proofItems.filter(item => item.proof_id === row.proof_id)))
+  };
 }
 
 async function getPurchaseDetail(purchaseId) {
@@ -258,10 +344,50 @@ async function saveExpenseProof(purchaseId, payload) {
   });
 }
 
+async function saveExpenseProofForPayment(paymentId, payload) {
+  const { currentUser, proof, items = [] } = payload;
+  assertDesktop(currentUser);
+  const payment = await assertPaymentEditable(paymentId);
+  if (!items.length) throw new Error('請至少新增一筆支出證明詳情');
+
+  return tx(async client => {
+    const proofId = await generateSerialId(client, 'purchase_expense_proofs', 'proof_id', 'E');
+    const paidAmount = items.reduce((sum, row) => sum + Number(row['費用'] || 0), 0);
+    await client.query(
+      `INSERT INTO purchase_expense_proofs (
+        proof_id, purchase_id, payment_id, hall, request_date, paid_amount, no_receipt_reason,
+        recipient_name, recipient_identity_no, recipient_address
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        proofId,
+        payment.purchase_id || null,
+        paymentId,
+        proof['請款會堂'] || payment.hall || '',
+        proof['申請日期'] || new Date(),
+        Number(proof['實付金額'] || paidAmount),
+        proof['不能取得單據原因'] || '',
+        proof['姓名'] || '',
+        proof['身分證字號'] || '',
+        proof['地址'] || ''
+      ]
+    );
+    await replacePurchaseRows(client, 'purchase_expense_proof_items', 'proof_id', proofId, items, insertExpenseProofItem);
+    await recordDomainEvent({
+      eventType: 'finance.expense_proof_created',
+      systemKey: 'finance',
+      entityType: 'expense_proof',
+      entityId: proofId,
+      payload: { paymentId, paidAmount, itemCount: items.length },
+      currentUser
+    }, client);
+    return { success: true, proofId, message: '支出證明申請已建立' };
+  });
+}
+
 async function savePaymentRequest(purchaseId, payload) {
   const { currentUser, payment, items = [] } = payload;
   assertDesktop(currentUser);
-  await assertPurchaseEditable(purchaseId);
+  if (purchaseId) await assertPurchaseEditable(purchaseId);
   if (!items.length) throw new Error('請至少新增一筆請款詳情');
   if (payment['支付方式'] === '匯款交付墊款人' && !payment['帳號']) throw new Error('匯款交付墊款人時請填寫匯款資料');
 
@@ -276,7 +402,7 @@ async function savePaymentRequest(purchaseId, payload) {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         paymentId,
-        purchaseId,
+        purchaseId || null,
         payment['請款會堂'] || '',
         payment['請款人'] || currentUser.name || '',
         payment['申請日期'] || new Date(),
@@ -297,8 +423,8 @@ async function savePaymentRequest(purchaseId, payload) {
     await replacePurchaseRows(client, 'purchase_payment_items', 'payment_id', paymentId, items, insertPaymentItem);
     await createEntityLink({
       sourceSystem: 'finance',
-      sourceType: 'purchase',
-      sourceId: purchaseId,
+      sourceType: purchaseId ? 'purchase' : 'independent_payment',
+      sourceId: purchaseId || paymentId,
       targetSystem: 'finance',
       targetType: 'payment_request',
       targetId: paymentId,
@@ -311,7 +437,7 @@ async function savePaymentRequest(purchaseId, payload) {
       systemKey: 'finance',
       entityType: 'payment_request',
       entityId: paymentId,
-      payload: { purchaseId, totalAmount, itemCount: items.length },
+      payload: { purchaseId: purchaseId || '', totalAmount, itemCount: items.length },
       currentUser
     }, client);
     return { success: true, paymentId, message: '請款申請已建立' };
@@ -461,6 +587,22 @@ function toPaymentRequest(row, items) {
   };
 }
 
+function toPaymentRequestListItem(row) {
+  return {
+    paymentId: row.payment_id,
+    purchaseId: row.purchase_id || '',
+    sourceLabel: row.purchase_id ? `採購 ${row.purchase_id}` : '獨立請款',
+    purchaseSummary: row.purchase_summary || '',
+    hall: row.hall || '',
+    claimant: row.claimant || '',
+    requestDate: formatDate(row.request_date),
+    totalAmount: Number(row.total_amount || 0),
+    paymentMethod: row.payment_method || '',
+    hasAdvance: Boolean(row.has_advance),
+    expenseProofCount: Number(row.expense_proof_count || 0)
+  };
+}
+
 function createEmptyPurchase(currentUser) {
   const today = new Date().toISOString().slice(0, 10);
   return {
@@ -515,6 +657,18 @@ async function getExpenseProofItems(purchaseId) {
   return rows;
 }
 
+async function getExpenseProofItemsByPaymentId(paymentId) {
+  const { rows } = await pool.query(
+    `SELECT i.*
+     FROM purchase_expense_proof_items i
+     JOIN purchase_expense_proofs p ON p.proof_id = i.proof_id
+     WHERE p.payment_id = $1
+     ORDER BY i.proof_id, i.sort_order, i.id`,
+    [paymentId]
+  );
+  return rows;
+}
+
 async function getPaymentItems(purchaseId) {
   const { rows } = await pool.query(
     `SELECT i.*
@@ -523,6 +677,17 @@ async function getPaymentItems(purchaseId) {
      WHERE p.purchase_id = $1
      ORDER BY i.payment_id, i.sort_order, i.id`,
     [purchaseId]
+  );
+  return rows;
+}
+
+async function getPaymentItemsByPaymentId(paymentId) {
+  const { rows } = await pool.query(
+    `SELECT i.*
+     FROM purchase_payment_items i
+     WHERE i.payment_id = $1
+     ORDER BY i.sort_order, i.id`,
+    [paymentId]
   );
   return rows;
 }
@@ -564,6 +729,19 @@ async function assertPurchaseEditable(purchaseId) {
   const { rows } = await pool.query('SELECT status FROM purchases WHERE purchase_id = $1', [purchaseId]);
   if (!rows[0]) throw new Error('找不到採購資料');
   if (rows[0].status === '已結案') throw new Error('已結案的採購案不可新增申請單');
+}
+
+async function assertPaymentEditable(paymentId) {
+  const { rows } = await pool.query(
+    `SELECT pr.payment_id, pr.purchase_id, pr.hall, p.status AS purchase_status
+     FROM purchase_payment_requests pr
+     LEFT JOIN purchases p ON p.purchase_id = pr.purchase_id
+     WHERE pr.payment_id = $1`,
+    [paymentId]
+  );
+  if (!rows[0]) throw new Error('找不到請款資料');
+  if (rows[0].purchase_status === '已結案') throw new Error('已結案的採購案不可新增支出證明');
+  return rows[0];
 }
 
 async function generateSerialId(client, table, column, prefix) {

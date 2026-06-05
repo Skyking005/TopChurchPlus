@@ -13,6 +13,9 @@
               <div class="col-md-2 d-grid">
                 <button id="addPurchaseBtn" class="btn btn-success" onclick="openNewPurchase()">新增採購申請</button>
               </div>
+              <div class="col-md-2 d-grid">
+                <button id="addIndependentPaymentBtn" class="btn btn-outline-success" onclick="openIndependentPaymentModal()">獨立請款</button>
+              </div>
             </div>
           </div>
         </div>
@@ -45,6 +48,30 @@
           <button class="btn btn-outline-secondary btn-sm" onclick="prevPurchasePage()">上一頁</button>
           <span id="purchasePager"></span>
           <button class="btn btn-outline-secondary btn-sm" onclick="nextPurchasePage()">下一頁</button>
+        </div>
+
+        <div class="card mt-4">
+          <div class="card-header section-header">
+            <span>請款申請清單</span>
+            <button class="btn btn-sm btn-outline-primary" onclick="loadPaymentRequests()">重新整理</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>請款編號</th>
+                  <th>來源</th>
+                  <th>請款人</th>
+                  <th>會堂</th>
+                  <th>申請日期</th>
+                  <th class="text-end">金額</th>
+                  <th>支出證明</th>
+                  <th class="text-end">功能</th>
+                </tr>
+              </thead>
+              <tbody id="paymentRequestTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -222,6 +249,7 @@
           <div class="modal-body">
             <div class="row g-3 mb-3">
               <div class="col-md-3"><label class="form-label">請購編號</label><input id="proofPurchaseId" class="form-control" disabled></div>
+              <div class="col-md-3"><label class="form-label">請款編號</label><input id="proofPaymentId" class="form-control" disabled></div>
               <div class="col-md-3"><label class="form-label">請款會堂</label><input id="proofHall" class="form-control" disabled></div>
               <div class="col-md-3"><label class="form-label">申請日期</label><input id="proofRequestDate" type="date" class="form-control"></div>
               <div class="col-md-3"><label class="form-label">實付金額</label><input id="proofPaidAmount" class="form-control text-end" disabled></div>

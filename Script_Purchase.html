@@ -6,6 +6,7 @@ let advanceModalInstance = null;
 let expenseProofModalInstance = null;
 let paymentModalInstance = null;
 let purchaseProjectOptions = [];
+let paymentRequests = [];
 
 const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
 
@@ -14,6 +15,7 @@ function loadPurchaseSystem() {
     setupPurchaseOptions();
     loadPurchaseProjectOptions();
     loadPurchases();
+    loadPaymentRequests();
   });
 }
 
@@ -178,12 +180,56 @@ function loadPurchases() {
       allPurchases = rows || [];
       currentPurchasePage = 1;
       renderPurchases();
+      loadPaymentRequests();
     })
     .withFailureHandler(showError)
     .getPurchases({
       keyword: document.getElementById('purchaseSearchKeyword').value,
       currentUser
     });
+}
+
+function loadPaymentRequests() {
+  const body = document.getElementById('paymentRequestTableBody');
+  if (!body) return;
+  setListLoading('paymentRequestTableBody', true, '請款資料載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      paymentRequests = rows || [];
+      renderPaymentRequests();
+    })
+    .withFailureHandler(showError)
+    .getPaymentRequests({
+      keyword: document.getElementById('purchaseSearchKeyword').value
+    }, currentUser);
+}
+
+function renderPaymentRequests() {
+  const body = document.getElementById('paymentRequestTableBody');
+  body.innerHTML = '';
+  if (!paymentRequests.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">尚無請款資料</td></tr>';
+    return;
+  }
+  paymentRequests.slice(0, 30).forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.paymentId)}</td>
+      <td>
+        ${escapeHtml(row.sourceLabel || '')}
+        ${row.purchaseSummary ? `<div class="text-muted small">${escapeHtml(row.purchaseSummary)}</div>` : ''}
+      </td>
+      <td>${escapeHtml(row.claimant || '')}</td>
+      <td>${escapeHtml(row.hall || '')}</td>
+      <td>${escapeHtml(row.requestDate || '')}</td>
+      <td class="text-end">${formatMoney(row.totalAmount || 0)}</td>
+      <td>${escapeHtml(row.expenseProofCount || 0)} 筆</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(row.paymentId)}')">新增支出證明</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
 }
 
 function renderPurchases() {
@@ -562,6 +608,7 @@ function submitAdvance() {
 function openExpenseProofModal() {
   if (!requireSavedPurchase()) return;
   document.getElementById('proofPurchaseId').value = document.getElementById('purchaseId').value;
+  document.getElementById('proofPaymentId').value = '';
   document.getElementById('proofHall').value = document.getElementById('purchaseHall').value;
   document.getElementById('proofRequestDate').value = todayString();
   document.getElementById('proofPaidAmount').value = '0';
@@ -574,6 +621,29 @@ function openExpenseProofModal() {
   addProofItemRow();
   expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
   expenseProofModalInstance.show();
+}
+
+function openExpenseProofForPayment(paymentId) {
+  google.script.run
+    .withSuccessHandler(data => {
+      const payment = data.payment || {};
+      document.getElementById('proofPurchaseId').value = payment['請購編號'] || '';
+      document.getElementById('proofPaymentId').value = payment['請款編號'] || paymentId;
+      document.getElementById('proofHall').value = payment['請款會堂'] || '';
+      document.getElementById('proofRequestDate').value = todayString();
+      document.getElementById('proofPaidAmount').value = '0';
+      document.getElementById('proofNoReceiptReason').value = '';
+      document.getElementById('proofRecipientName').value = '';
+      document.getElementById('proofRecipientId').value = '';
+      document.getElementById('proofRecipientAddress').value = '';
+      document.getElementById('proofModalError').textContent = '';
+      document.getElementById('proofItemBody').innerHTML = '';
+      addProofItemRow();
+      expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
+      expenseProofModalInstance.show();
+    })
+    .withFailureHandler(showError)
+    .getPaymentRequestDetail(paymentId, currentUser);
 }
 
 function addProofItemRow(data = {}) {
@@ -619,24 +689,38 @@ function submitExpenseProof() {
   if (!items.length) return errorBox.textContent = '請至少新增一筆支出證明詳情';
 
   setButtonLoading(btn, true, '保存中...');
-  google.script.run
+  const paymentId = document.getElementById('proofPaymentId').value;
+  const purchaseId = document.getElementById('proofPurchaseId').value;
+  const runner = google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
       expenseProofModalInstance.hide();
       alert(res.message);
-      openPurchase(document.getElementById('purchaseId').value);
+      if (paymentId) loadPaymentRequests();
+      else openPurchase(purchaseId);
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
-    })
-    .addPurchaseExpenseProof({ currentUser, purchaseId: document.getElementById('purchaseId').value, proof, items });
+    });
+  if (paymentId) {
+    runner.addPaymentExpenseProof({ currentUser, paymentId, proof, items });
+  } else {
+    runner.addPurchaseExpenseProof({ currentUser, purchaseId, proof, items });
+  }
 }
 
-function openPaymentModal() {
-  if (!requireSavedPurchase()) return;
-  document.getElementById('paymentPurchaseId').value = document.getElementById('purchaseId').value;
-  document.getElementById('paymentHall').value = document.getElementById('purchaseHall').value;
+function openIndependentPaymentModal() {
+  ensurePurchaseOptionsReady(() => openPaymentModal({ independent: true }));
+}
+
+function openPaymentModal(options = {}) {
+  const independent = Boolean(options.independent);
+  if (!independent && !requireSavedPurchase()) return;
+  const units = normalizeOptionList(initialData?.params?.units || []);
+  document.getElementById('paymentPurchaseId').value = independent ? '' : document.getElementById('purchaseId').value;
+  document.getElementById('paymentHall').value = independent ? (units[0] || '') : document.getElementById('purchaseHall').value;
+  document.getElementById('paymentHall').disabled = !independent;
   document.getElementById('paymentClaimant').value = getCurrentUserNameWithPosition();
   document.getElementById('paymentRequestDate').value = todayString();
   document.getElementById('paymentTotal').value = '0';
@@ -649,7 +733,7 @@ function openPaymentModal() {
   document.getElementById('paymentAccountNo').value = '';
   document.getElementById('paymentModalError').textContent = '';
   document.getElementById('paymentItemBody').innerHTML = '';
-  fillPaymentAdvanceOptions();
+  fillPaymentAdvanceOptions(independent);
   addPaymentItemRow();
   togglePaymentAdvanceFields();
   togglePaymentBankInfo();
@@ -657,9 +741,13 @@ function openPaymentModal() {
   paymentModalInstance.show();
 }
 
-function fillPaymentAdvanceOptions() {
+function fillPaymentAdvanceOptions(independent = false) {
   const select = document.getElementById('paymentAdvanceId');
   select.innerHTML = '<option value="">請選擇預借單</option>';
+  if (independent || !currentPurchaseDetail) {
+    syncSelectedAdvanceAmount();
+    return;
+  }
   (currentPurchaseDetail.advances || []).forEach(row => {
     const option = document.createElement('option');
     option.value = row['預借編號'];
@@ -732,18 +820,24 @@ function submitPaymentRequest() {
   if (!items.length) return errorBox.textContent = '請至少新增一筆請款詳情';
 
   setButtonLoading(btn, true, '保存中...');
-  google.script.run
+  const purchaseId = document.getElementById('paymentPurchaseId').value;
+  const runner = google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
       paymentModalInstance.hide();
       alert(res.message);
-      openPurchase(document.getElementById('purchaseId').value);
+      if (purchaseId) openPurchase(purchaseId);
+      else loadPaymentRequests();
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
-    })
-    .addPurchasePaymentRequest({ currentUser, purchaseId: document.getElementById('purchaseId').value, payment, items });
+    });
+  if (purchaseId) {
+    runner.addPurchasePaymentRequest({ currentUser, purchaseId, payment, items });
+  } else {
+    runner.addIndependentPaymentRequest({ currentUser, payment, items });
+  }
 }
 
 function toggleAdvanceBankInfo() {
