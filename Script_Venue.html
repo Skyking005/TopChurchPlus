@@ -1,0 +1,275 @@
+<script>
+let venueResources = [];
+let venueAvailability = null;
+let venueCalendarModalInstance = null;
+
+function openVenueSystem() {
+  recordFeatureUsage('venue');
+  document.getElementById('mainTitle').textContent = '場地預約系統';
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'detailView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('venueView').classList.remove('d-none');
+  setupVenueDefaults();
+  loadVenueResources(() => loadVenueAvailability());
+}
+
+function setupVenueDefaults() {
+  const dateInput = document.getElementById('venueDate');
+  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+}
+
+function loadVenueResources(callback) {
+  setListLoading(['venueResourceTableBody', 'mobileVenueResourceList'], true);
+  google.script.run
+    .withSuccessHandler(resources => {
+      venueResources = resources || [];
+      setupVenueFilters();
+      if (callback) callback();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('venueError').textContent = err.message || err;
+      renderVenueResources([]);
+    })
+    .getVenueResources({}, currentUser);
+}
+
+function setupVenueFilters() {
+  const hallSelect = document.getElementById('venueHallFilter');
+  const mainLocationSelect = document.getElementById('venueMainLocationFilter');
+  const currentHall = hallSelect.value;
+  const currentMainLocation = mainLocationSelect.value;
+  const halls = [...new Set(venueResources.map(item => item.hall).filter(Boolean))];
+
+  hallSelect.innerHTML = '<option value="">全部會堂</option>';
+  halls.forEach(hall => {
+    const opt = document.createElement('option');
+    opt.value = hall;
+    opt.textContent = hall;
+    hallSelect.appendChild(opt);
+  });
+  if (currentHall && halls.includes(currentHall)) hallSelect.value = currentHall;
+  setupVenueMainLocationOptions(currentMainLocation);
+}
+
+function onVenueHallChanged() {
+  setupVenueMainLocationOptions('');
+}
+
+function setupVenueMainLocationOptions(selectedValue) {
+  const hall = document.getElementById('venueHallFilter').value;
+  const select = document.getElementById('venueMainLocationFilter');
+  const mainLocations = [...new Set(
+    venueResources
+      .filter(item => !hall || item.hall === hall)
+      .map(item => item.mainLocation)
+      .filter(Boolean)
+  )];
+
+  select.innerHTML = '<option value="">全部位置</option>';
+  mainLocations.forEach(mainLocation => {
+    const opt = document.createElement('option');
+    opt.value = mainLocation;
+    opt.textContent = mainLocation;
+    select.appendChild(opt);
+  });
+  if (selectedValue && mainLocations.includes(selectedValue)) select.value = selectedValue;
+}
+
+function loadVenueAvailability() {
+  const errorBox = document.getElementById('venueError');
+  errorBox.textContent = '';
+
+  let filters;
+  try {
+    filters = collectVenueAvailabilityFilters();
+  } catch (err) {
+    errorBox.textContent = err.message || err;
+    return;
+  }
+
+  setListLoading(['venueResourceTableBody', 'mobileVenueResourceList'], true);
+  google.script.run
+    .withSuccessHandler(data => {
+      venueAvailability = data || { resources: [] };
+      renderVenueResources(venueAvailability.resources || []);
+      renderVenueCalendarErrors(venueAvailability.calendarErrors || []);
+    })
+    .withFailureHandler(err => {
+      errorBox.textContent = err.message || err;
+      renderVenueResources([]);
+    })
+    .getVenueAvailability(filters, currentUser);
+}
+
+function collectVenueAvailabilityFilters() {
+  const date = document.getElementById('venueDate').value;
+  const startTime = document.getElementById('venueStartTime').value || '00:00';
+  const endTime = document.getElementById('venueEndTime').value || '23:59';
+  if (!date) throw new Error('請選擇查詢日期');
+
+  const start = new Date(`${date}T${startTime}:00`);
+  const end = new Date(`${date}T${endTime}:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('查詢時間格式錯誤');
+  if (end <= start) throw new Error('結束時間必須晚於開始時間');
+
+  return {
+    hall: document.getElementById('venueHallFilter').value,
+    mainLocation: document.getElementById('venueMainLocationFilter').value,
+    startAt: start.toISOString(),
+    endAt: end.toISOString()
+  };
+}
+
+function renderVenueResources(resources) {
+  const tbody = document.getElementById('venueResourceTableBody');
+  const mobile = document.getElementById('mobileVenueResourceList');
+  tbody.innerHTML = '';
+  mobile.innerHTML = '';
+
+  if (!resources.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">查無場地資料</td></tr>';
+    mobile.innerHTML = '<div class="list-loading-box text-muted">查無場地資料</div>';
+    return;
+  }
+
+  resources.forEach(resource => {
+    const view = getVenueResourceView(resource);
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(resource.hall)}</td>
+      <td>${escapeHtml(resource.mainLocation)}</td>
+      <td>${escapeHtml(resource.locationCount)}</td>
+      <td><span class="venue-status-badge ${view.statusClass}">${escapeHtml(view.status)}</span></td>
+      <td>${escapeHtml(view.calendarText)}</td>
+      <td>${view.eventsHtml}</td>
+      <td class="text-end">${renderVenueActions(resource)}</td>
+    `;
+    tbody.appendChild(row);
+
+    const card = document.createElement('div');
+    card.className = 'project-card-mobile';
+    card.innerHTML = `
+      <h6>${escapeHtml(resource.mainLocation)}</h6>
+      <div class="project-meta">${escapeHtml(resource.hall)} / ${escapeHtml(resource.locationCount)} 個位置</div>
+      <div class="project-meta"><span class="venue-status-badge ${view.statusClass}">${escapeHtml(view.status)}</span></div>
+      <div class="project-meta">${escapeHtml(view.calendarText)}</div>
+      <div class="mt-2">${view.eventsHtml}</div>
+      <div class="mt-2">${renderVenueActions(resource)}</div>
+    `;
+    mobile.appendChild(card);
+  });
+}
+
+function getVenueResourceView(resource) {
+  const hasCalendarError = getVenueCalendarError(resource);
+  const hasCalendar = Boolean(resource.calendarId);
+  const events = resource.events || [];
+  let status = '可使用';
+  let statusClass = 'venue-status-available';
+
+  if (!hasCalendar) {
+    status = '未綁定行事曆';
+    statusClass = 'venue-status-unbound';
+  } else if (hasCalendarError) {
+    status = '行事曆錯誤';
+    statusClass = 'venue-status-error';
+  } else if (events.length) {
+    status = '使用中';
+    statusClass = 'venue-status-busy';
+  }
+
+  return {
+    status,
+    statusClass,
+    calendarText: hasCalendar ? resource.calendarId : '尚未設定',
+    eventsHtml: renderVenueEvents(events)
+  };
+}
+
+function renderVenueEvents(events) {
+  if (!events || !events.length) return '<span class="text-muted">無占用時段</span>';
+  return events.slice(0, 3).map(event => `
+    <div class="venue-event-line">
+      ${escapeHtml(formatVenueTime(event.startAt))}-${escapeHtml(formatVenueTime(event.endAt))}
+      ${escapeHtml(event.title || '未命名')}
+    </div>
+  `).join('') + (events.length > 3 ? `<div class="text-muted small">另有 ${events.length - 3} 筆</div>` : '');
+}
+
+function renderVenueActions(resource) {
+  if (getFeatureAccess('venue') !== 'edit') return '';
+  const hall = encodeURIComponent(resource.hall || '');
+  const mainLocation = encodeURIComponent(resource.mainLocation || '');
+  return `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openVenueCalendarModal('${hall}','${mainLocation}')">行事曆</button>`;
+}
+
+function openVenueCalendarModal(encodedHall, encodedMainLocation) {
+  const hall = decodeURIComponent(encodedHall || '');
+  const mainLocation = decodeURIComponent(encodedMainLocation || '');
+  const resource = venueResources.find(item => item.hall === hall && item.mainLocation === mainLocation)
+    || (venueAvailability?.resources || []).find(item => item.hall === hall && item.mainLocation === mainLocation)
+    || { hall, mainLocation };
+  document.getElementById('venueCalendarHall').value = resource.hall;
+  document.getElementById('venueCalendarMainLocation').value = resource.mainLocation;
+  document.getElementById('venueCalendarLabel').value = [resource.hall, resource.mainLocation].filter(Boolean).join(' / ');
+  document.getElementById('venueCalendarId').value = resource.calendarId || '';
+  document.getElementById('venueCalendarNote').value = resource.note || '';
+  document.getElementById('venueCalendarError').textContent = '';
+  venueCalendarModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('venueCalendarModal'));
+  venueCalendarModalInstance.show();
+}
+
+function submitVenueCalendar() {
+  const btn = document.getElementById('saveVenueCalendarBtn');
+  const errorBox = document.getElementById('venueCalendarError');
+  errorBox.textContent = '';
+  const resource = {
+    hall: document.getElementById('venueCalendarHall').value,
+    mainLocation: document.getElementById('venueCalendarMainLocation').value,
+    calendarId: document.getElementById('venueCalendarId').value.trim(),
+    note: document.getElementById('venueCalendarNote').value.trim()
+  };
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (venueCalendarModalInstance) venueCalendarModalInstance.hide();
+      if (res?.resource) {
+        venueResources = venueResources.map(item =>
+          item.hall === res.resource.hall && item.mainLocation === res.resource.mainLocation ? res.resource : item
+        );
+        setupVenueFilters();
+      }
+      loadVenueAvailability();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveVenueResourceCalendar({ currentUser, resource });
+}
+
+function renderVenueCalendarErrors(errors) {
+  const errorBox = document.getElementById('venueError');
+  if (!errors.length) return;
+  errorBox.textContent = errors.map(item =>
+    `${item.hall} / ${item.mainLocation}：${item.message}`
+  ).join('；');
+}
+
+function getVenueCalendarError(resource) {
+  return (venueAvailability?.calendarErrors || []).find(item =>
+    item.hall === resource.hall && item.mainLocation === resource.mainLocation
+  );
+}
+
+function formatVenueTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+</script>

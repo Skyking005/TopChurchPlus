@@ -1,0 +1,90 @@
+<section id="venueView" class="d-none">
+  <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+    <div>
+      <h5 class="mb-1">場地預約</h5>
+      <div class="text-muted small">依會堂與主要位置查詢場地，並結合 Google 行事曆判斷使用狀況。</div>
+    </div>
+    <button id="refreshVenueBtn" type="button" class="btn btn-outline-primary btn-sm" onclick="loadVenueAvailability()">重新查詢</button>
+  </div>
+
+  <div class="filter-panel mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3">
+        <label class="form-label">日期</label>
+        <input id="venueDate" type="date" class="form-control">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">開始時間</label>
+        <input id="venueStartTime" type="time" class="form-control" value="08:00">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label">結束時間</label>
+        <input id="venueEndTime" type="time" class="form-control" value="22:00">
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label">會堂</label>
+        <select id="venueHallFilter" class="form-select" onchange="onVenueHallChanged()"></select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">主要位置</label>
+        <select id="venueMainLocationFilter" class="form-select"></select>
+      </div>
+      <div class="col-12 text-end">
+        <button type="button" class="btn btn-primary" onclick="loadVenueAvailability()">查詢使用狀況</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="venueError" class="text-danger small mb-2"></div>
+
+  <div class="table-responsive d-none d-md-block">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>會堂</th>
+          <th>主要位置</th>
+          <th>位置數</th>
+          <th>狀態</th>
+          <th>行事曆</th>
+          <th>占用時段</th>
+          <th class="text-end">功能</th>
+        </tr>
+      </thead>
+      <tbody id="venueResourceTableBody"></tbody>
+    </table>
+  </div>
+
+  <div id="mobileVenueResourceList" class="d-md-none mobile-card-list"></div>
+
+  <div class="modal fade" id="venueCalendarModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">場地行事曆設定</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input id="venueCalendarHall" type="hidden">
+          <input id="venueCalendarMainLocation" type="hidden">
+          <div class="mb-3">
+            <label class="form-label">場地</label>
+            <input id="venueCalendarLabel" class="form-control" disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Google 行事曆 ID</label>
+            <input id="venueCalendarId" class="form-control" placeholder="example@group.calendar.google.com">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">備註</label>
+            <textarea id="venueCalendarNote" class="form-control" rows="3"></textarea>
+          </div>
+          <div id="venueCalendarError" class="text-danger small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button id="saveVenueCalendarBtn" type="button" class="btn btn-primary" onclick="submitVenueCalendar()">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
