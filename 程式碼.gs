@@ -974,6 +974,14 @@ function addPaymentExpenseProof(payload) {
   );
 }
 
+function updateExpenseProof(payload) {
+  return apiRequest(
+    'put',
+    `/expense-proofs/${encodeURIComponent(payload.proofId)}`,
+    payload
+  );
+}
+
 function addProjectPermission(payload) {
   return apiRequest(
     'post',

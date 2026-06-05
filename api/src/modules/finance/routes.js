@@ -156,6 +156,15 @@ function registerFinanceRoutes(app) {
     next(err);
   }
 });
+
+  app.put('/expense-proofs/:proofId', async (req, res, next) => {
+  try {
+    await assertFeatureEditable(req.body.currentUser, 'finance');
+    res.json(await updateExpenseProof(req.params.proofId, req.body));
+  } catch (err) {
+    next(err);
+  }
+});
 }
 
 async function getPaymentRequests(query) {
@@ -423,6 +432,49 @@ async function saveExpenseProofForPayment(paymentId, payload) {
   });
 }
 
+async function updateExpenseProof(proofId, payload) {
+  const { currentUser, proof, items = [] } = payload;
+  assertDesktop(currentUser);
+  const existing = await assertExpenseProofEditable(proofId);
+  if (!items.length) throw new Error('請至少新增一筆支出證明詳情');
+
+  return tx(async client => {
+    const paidAmount = items.reduce((sum, row) => sum + Number(row['費用'] || 0), 0);
+    await client.query(
+      `UPDATE purchase_expense_proofs
+       SET hall = $1,
+           request_date = $2,
+           paid_amount = $3,
+           no_receipt_reason = $4,
+           recipient_name = $5,
+           recipient_identity_no = $6,
+           recipient_address = $7,
+           updated_at = now()
+       WHERE proof_id = $8`,
+      [
+        proof['請款會堂'] || existing.hall || '',
+        proof['申請日期'] || new Date(),
+        Number(proof['實付金額'] || paidAmount),
+        proof['不能取得單據原因'] || '',
+        proof['姓名'] || '',
+        proof['身分證字號'] || '',
+        proof['地址'] || '',
+        proofId
+      ]
+    );
+    await replacePurchaseRows(client, 'purchase_expense_proof_items', 'proof_id', proofId, items, insertExpenseProofItem);
+    await recordDomainEvent({
+      eventType: 'finance.expense_proof_updated',
+      systemKey: 'finance',
+      entityType: 'expense_proof',
+      entityId: proofId,
+      payload: { paymentId: existing.payment_id, purchaseId: existing.purchase_id, paidAmount, itemCount: items.length },
+      currentUser
+    }, client);
+    return { success: true, proofId, message: '支出證明申請已更新' };
+  });
+}
+
 async function savePaymentRequest(purchaseId, payload, existingPaymentId = '') {
   const { currentUser, payment, items = [] } = payload;
   assertDesktop(currentUser);
@@ -603,6 +655,7 @@ function toExpenseProof(row, items) {
   return {
     '支出證明編號': row.proof_id,
     '請購編號': row.purchase_id,
+    '請款編號': row.payment_id,
     '請款會堂': row.hall,
     '申請日期': formatDate(row.request_date),
     '實付金額': Number(row.paid_amount || 0),
@@ -894,6 +947,19 @@ async function assertPaymentEditable(paymentId) {
   );
   if (!rows[0]) throw new Error('找不到請款資料');
   if (rows[0].purchase_status === '已結案') throw new Error('已結案的採購案不可新增支出證明');
+  return rows[0];
+}
+
+async function assertExpenseProofEditable(proofId) {
+  const { rows } = await pool.query(
+    `SELECT ep.proof_id, ep.purchase_id, ep.payment_id, ep.hall, p.status AS purchase_status
+     FROM purchase_expense_proofs ep
+     LEFT JOIN purchases p ON p.purchase_id = ep.purchase_id
+     WHERE ep.proof_id = $1`,
+    [proofId]
+  );
+  if (!rows[0]) throw new Error('找不到支出證明資料');
+  if (rows[0].purchase_status === '已結案') throw new Error('已結案的採購案不可編輯支出證明');
   return rows[0];
 }
 

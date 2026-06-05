@@ -5,9 +5,12 @@ let currentPurchaseDetail = null;
 let advanceModalInstance = null;
 let expenseProofModalInstance = null;
 let paymentModalInstance = null;
+let paymentProofListModalInstance = null;
 let purchaseProjectOptions = [];
 let paymentRequests = [];
 let currentEditingPaymentId = '';
+let currentEditingExpenseProofId = '';
+let currentPaymentProofListPaymentId = '';
 
 const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
 
@@ -224,7 +227,10 @@ function renderPaymentRequests() {
       <td>${escapeHtml(row.hall || '')}</td>
       <td>${escapeHtml(row.requestDate || '')}</td>
       <td class="text-end">${formatMoney(row.totalAmount || 0)}</td>
-      <td>${escapeHtml(row.expenseProofCount || 0)} 筆</td>
+      <td>
+        <div>${escapeHtml(row.expenseProofCount || 0)} 筆</div>
+        ${row.expenseProofCount ? `<button class="btn btn-sm btn-outline-secondary mt-1" onclick="openPaymentExpenseProofs('${escapeAttr(row.paymentId)}')">瀏覽/編輯</button>` : '<span class="text-muted small">尚無支出證明</span>'}
+      </td>
       <td class="text-end">
         <button class="btn btn-sm btn-outline-secondary" onclick="openPaymentRequestEditor('${escapeAttr(row.paymentId)}')">編輯</button>
         <button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(row.paymentId)}')">新增支出證明</button>
@@ -233,6 +239,51 @@ function renderPaymentRequests() {
     body.appendChild(tr);
   });
 }
+
+function openPaymentExpenseProofs(paymentId) {
+  currentPaymentProofListPaymentId = paymentId;
+  const body = document.getElementById('paymentProofListBody');
+  const summary = document.getElementById('paymentProofListSummary');
+  body.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>支出證明載入中...</div>';
+  summary.textContent = `請款編號：${paymentId}`;
+  paymentProofListModalInstance = new bootstrap.Modal(document.getElementById('paymentProofListModal'));
+  paymentProofListModalInstance.show();
+  google.script.run
+    .withSuccessHandler(data => renderPaymentExpenseProofs(data))
+    .withFailureHandler(showError)
+    .getPaymentRequestDetail(paymentId, currentUser);
+}
+
+function renderPaymentExpenseProofs(data) {
+  const body = document.getElementById('paymentProofListBody');
+  const summary = document.getElementById('paymentProofListSummary');
+  const payment = data.payment || {};
+  const proofs = data.expenseProofs || [];
+  summary.textContent = `請款編號：${payment['請款編號'] || currentPaymentProofListPaymentId}，請款人：${payment['請款人'] || ''}，支出證明 ${proofs.length} 筆`;
+  body.innerHTML = '';
+  if (!proofs.length) {
+    body.innerHTML = '<div class="text-muted">尚無支出證明</div>';
+    return;
+  }
+  proofs.forEach(proof => {
+    const item = document.createElement('div');
+    item.className = 'purchase-sub-item';
+    const proofId = proof['支出證明編號'];
+    item.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <div class="fw-bold">${escapeHtml(proofId)}</div>
+          <div class="text-muted">申請日期：${escapeHtml(proof['申請日期'] || '')}</div>
+          <div class="text-muted">實付金額：${formatMoney(proof['實付金額'] || 0)}</div>
+          <div class="small">${escapeHtml(proof['不能取得單據原因'] || '')}</div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="openExpenseProofEditor('${escapeAttr(currentPaymentProofListPaymentId)}', '${escapeAttr(proofId)}')">編輯</button>
+      </div>
+    `;
+    body.appendChild(item);
+  });
+}
+
 function renderPurchases() {
   renderDesktopPurchases();
   renderMobilePurchases();
@@ -563,6 +614,7 @@ function renderSimpleSubList(containerId, rows, idKey, amountKey, docType) {
           <div class="text-muted">${amountKey}：${formatMoney(row[amountKey] || 0)}</div>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
+          ${docType === 'expenseProof' ? `<button class="btn btn-sm btn-outline-secondary" onclick="openExpenseProofEditor('', '${escapeAttr(docId)}')">編輯</button>` : ''}
           ${docType === 'payment' ? `<button class="btn btn-sm btn-outline-secondary" onclick="openPaymentRequestEditor('${escapeAttr(docId)}')">編輯</button>` : ''}
           ${docType === 'payment' ? `<button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(docId)}')">新增支出證明</button>` : ''}
           <button class="btn btn-sm btn-outline-primary" onclick="exportPurchaseDocument('${docType}', '${encodedId}', this)">匯出 Doc</button>
@@ -695,6 +747,7 @@ function submitAdvance() {
 
 function openExpenseProofModal() {
   if (!requireSavedPurchase()) return;
+  currentEditingExpenseProofId = '';
   document.getElementById('proofPurchaseId').value = document.getElementById('purchaseId').value;
   document.getElementById('proofPaymentId').value = '';
   document.getElementById('proofHall').value = document.getElementById('purchaseHall').value;
@@ -707,11 +760,13 @@ function openExpenseProofModal() {
   document.getElementById('proofModalError').textContent = '';
   document.getElementById('proofItemBody').innerHTML = '';
   addProofItemRow();
+  document.getElementById('confirmProofBtn').textContent = '保存支出證明';
   expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
   expenseProofModalInstance.show();
 }
 
 function openExpenseProofForPayment(paymentId) {
+  currentEditingExpenseProofId = '';
   google.script.run
     .withSuccessHandler(data => {
       const payment = data.payment || {};
@@ -727,11 +782,52 @@ function openExpenseProofForPayment(paymentId) {
       document.getElementById('proofModalError').textContent = '';
       document.getElementById('proofItemBody').innerHTML = '';
       addProofItemRow();
+      document.getElementById('confirmProofBtn').textContent = '保存支出證明';
       expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
       expenseProofModalInstance.show();
     })
     .withFailureHandler(showError)
     .getPaymentRequestDetail(paymentId, currentUser);
+}
+
+function openExpenseProofEditor(paymentId, proofId) {
+  if (paymentProofListModalInstance) paymentProofListModalInstance.hide();
+  if (paymentId) {
+    google.script.run
+      .withSuccessHandler(data => {
+        const proof = (data.expenseProofs || []).find(row => String(row['支出證明編號']) === String(proofId));
+        if (!proof) return alert('找不到支出證明資料');
+        fillExpenseProofModal(proof);
+      })
+      .withFailureHandler(showError)
+      .getPaymentRequestDetail(paymentId, currentUser);
+    return;
+  }
+
+  const proof = (currentPurchaseDetail?.expenseProofs || []).find(row => String(row['支出證明編號']) === String(proofId));
+  if (!proof) return alert('找不到支出證明資料');
+  fillExpenseProofModal(proof);
+}
+
+function fillExpenseProofModal(proof) {
+  currentEditingExpenseProofId = proof['支出證明編號'] || '';
+  document.getElementById('proofPurchaseId').value = proof['請購編號'] || '';
+  document.getElementById('proofPaymentId').value = proof['請款編號'] || '';
+  document.getElementById('proofHall').value = proof['請款會堂'] || '';
+  document.getElementById('proofRequestDate').value = proof['申請日期'] || todayString();
+  document.getElementById('proofPaidAmount').value = formatMoney(proof['實付金額'] || 0);
+  document.getElementById('proofNoReceiptReason').value = proof['不能取得單據原因'] || '';
+  document.getElementById('proofRecipientName').value = proof['姓名'] || '';
+  document.getElementById('proofRecipientId').value = proof['身分證字號'] || '';
+  document.getElementById('proofRecipientAddress').value = proof['地址'] || '';
+  document.getElementById('proofModalError').textContent = '';
+  document.getElementById('proofItemBody').innerHTML = '';
+  (proof.items || []).forEach(item => addProofItemRow(item));
+  if (!document.getElementById('proofItemBody').children.length) addProofItemRow();
+  calculateProofTotal();
+  document.getElementById('confirmProofBtn').textContent = '更新支出證明';
+  expenseProofModalInstance = new bootstrap.Modal(document.getElementById('expenseProofModal'));
+  expenseProofModalInstance.show();
 }
 
 function addProofItemRow(data = {}) {
@@ -784,14 +880,19 @@ function submitExpenseProof() {
       setButtonLoading(btn, false);
       expenseProofModalInstance.hide();
       alert(res.message);
-      if (paymentId) loadPaymentRequests();
+      if (paymentId) {
+        loadPaymentRequests();
+        if (currentPaymentProofListPaymentId) openPaymentExpenseProofs(currentPaymentProofListPaymentId);
+      }
       else openPurchase(purchaseId);
     })
     .withFailureHandler(err => {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
     });
-  if (paymentId) {
+  if (currentEditingExpenseProofId) {
+    runner.updateExpenseProof({ currentUser, proofId: currentEditingExpenseProofId, proof, items });
+  } else if (paymentId) {
     runner.addPaymentExpenseProof({ currentUser, paymentId, proof, items });
   } else {
     runner.addPurchaseExpenseProof({ currentUser, purchaseId, proof, items });

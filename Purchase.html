@@ -284,6 +284,25 @@
       </div>
     </div>
 
+    <div class="modal fade" id="paymentProofListModal" tabindex="-1">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">請款單支出證明</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="paymentProofListSummary" class="text-muted small mb-2"></div>
+            <div id="paymentProofListBody" class="purchase-sub-list"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+            <button class="btn btn-primary" onclick="openExpenseProofForPayment(currentPaymentProofListPaymentId)">新增支出證明</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal fade" id="paymentModal" tabindex="-1">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
