@@ -1,4 +1,4 @@
-# Synology API
+# topchurchplus API
 
 ## 建議部署方式
 
@@ -6,7 +6,7 @@
 
 1. 在 Synology 安裝 `Container Manager`。
 2. 建立 Postgres container，或使用 NAS 上既有 Postgres。
-3. 將本資料夾 `api/` 放到 NAS，例如 `/volume1/docker/project-api`。
+3. 將本資料夾 `api/` 放到 NAS。現行部署路徑仍為 `/volume1/docker/project-api`，如需改成 `/volume1/docker/topchurchplus-api`，需同步調整 Docker 與部署腳本。
 4. 建立 `.env`：
 
 ```bash

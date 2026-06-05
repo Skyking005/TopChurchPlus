@@ -16,7 +16,7 @@ function exportPostgresSeedJsonToDrive() {
   const blob = Utilities.newBlob(
     JSON.stringify(payload, null, 2),
     'application/json',
-    `project-management-export-${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss')}.json`
+    `topchurchplus-export-${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss')}.json`
   );
 
   const file = DriveApp.createFile(blob);

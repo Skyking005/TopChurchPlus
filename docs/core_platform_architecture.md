@@ -1,6 +1,6 @@
-# TopChurchPro Core Platform
+# topchurchplus Core Platform
 
-這份文件定義 TopChurchPro 後續模組共用的底層方向。現階段採漸進式調整，不重寫既有專案、財務、牧養、資產系統。
+這份文件定義 topchurchplus 後續模組共用的底層方向。現階段採漸進式調整，不重寫既有專案、財務、牧養、資產系統。
 
 ## Core 範圍
 

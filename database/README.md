@@ -3,15 +3,15 @@
 ## 1. 建立資料庫與帳號
 
 ```sql
-CREATE USER project_app WITH PASSWORD 'change_this_password';
-CREATE DATABASE project_management OWNER project_app;
-GRANT ALL PRIVILEGES ON DATABASE project_management TO project_app;
+CREATE USER topchurchplus_app WITH PASSWORD 'change_this_password';
+CREATE DATABASE topchurchplus OWNER topchurchplus_app;
+GRANT ALL PRIVILEGES ON DATABASE topchurchplus TO topchurchplus_app;
 ```
 
-連到 `project_management` 後執行：
+連到 `topchurchplus` 後執行：
 
 ```bash
-psql -U project_app -d project_management -f database/schema.sql
+psql -U topchurchplus_app -d topchurchplus -f database/schema.sql
 ```
 
 ## 2. 匯出 Google Sheets 現有資料
@@ -30,7 +30,7 @@ exportPostgresSeedJsonToDrive()
 cd api
 cp .env.example .env
 npm install
-npm run import:json -- ./project-management-export.json
+npm run import:json -- ./topchurchplus-export.json
 ```
 
 匯入腳本會先清空相關資料表，再依 JSON 重建資料。
