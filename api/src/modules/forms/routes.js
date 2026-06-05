@@ -27,6 +27,26 @@ function registerFormsRoutes(app) {
     }
   });
 
+  app.get('/forms/:formId/responses', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'forms');
+      res.json(await getFormResponses(req.params.formId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/forms/:formId/responses', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureReadable(currentUser, 'forms');
+      res.json(await submitFormResponse(req.params.formId, req.body.response || {}, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.post('/forms', async (req, res, next) => {
     try {
       const currentUser = req.body.currentUser || {};
@@ -130,6 +150,48 @@ async function getFormDetail(formId) {
   };
 }
 
+async function getFormResponses(formId) {
+  const { rows } = await pool.query(
+    `SELECT r.*, ct.transaction_code, ct.status AS counter_status, ct.payment_method,
+            ct.received_at, ct.received_by_staff_id
+     FROM form_responses r
+     LEFT JOIN counter_transactions ct ON ct.transaction_id = r.counter_transaction_id
+     WHERE r.form_id = $1
+     ORDER BY r.submitted_at DESC`,
+    [formId]
+  );
+  if (!rows.length) return [];
+
+  const responseIds = rows.map(row => row.response_id);
+  const answers = await pool.query(
+    `SELECT a.*, q.title AS question_title, q.question_type
+     FROM form_response_answers a
+     JOIN form_questions q ON q.question_id = a.question_id
+     WHERE a.response_id = ANY($1::uuid[])
+     ORDER BY q.sort_order, q.question_id`,
+    [responseIds]
+  );
+
+  return rows.map(row => ({
+    responseId: row.response_id,
+    respondentName: row.respondent_name,
+    submittedAt: row.submitted_at,
+    paymentStatus: row.payment_status,
+    paymentAmount: Number(row.payment_amount || 0),
+    counterTransactionId: row.counter_transaction_id,
+    counterTransactionCode: row.transaction_code,
+    counterStatus: row.counter_status,
+    answers: answers.rows
+      .filter(answer => answer.response_id === row.response_id)
+      .map(answer => ({
+        questionId: answer.question_id,
+        questionTitle: answer.question_title,
+        questionType: answer.question_type,
+        value: answer.answer_json || answer.answer_text || ''
+      }))
+  }));
+}
+
 async function saveForm(formId, payload, currentUser) {
   const normalized = normalizeFormPayload(payload);
 
@@ -192,6 +254,98 @@ async function saveForm(formId, payload, currentUser) {
   });
 }
 
+async function submitFormResponse(formId, payload, currentUser) {
+  const detail = await getFormDetail(formId);
+  const form = detail.form;
+  if (form.status === 'closed' || form.status === 'archived') throw new Error('此表單已關閉，無法填寫');
+  if (form.requireLogin && (!currentUser || !currentUser.name)) throw new Error('此表單需要登入後才能填寫');
+
+  const answers = normalizeResponseAnswers(payload.answers || [], detail.questions);
+  const respondentName = normalizeText(payload.respondentName) || currentUser.name || '';
+
+  return tx(async client => {
+    let counterTransactionId = null;
+    const paymentStatus = form.hasFee ? 'pending' : 'none';
+    const paymentAmount = form.hasFee ? Number(form.feeAmount || 0) : 0;
+
+    const responseResult = await client.query(
+      `INSERT INTO form_responses (
+         form_id, respondent_staff_id, respondent_name, payment_status, payment_amount, metadata
+       ) VALUES ($1,$2,$3,$4,$5,$6::jsonb)
+       RETURNING response_id`,
+      [
+        formId,
+        currentUser && currentUser.staffId ? String(currentUser.staffId) : null,
+        respondentName,
+        paymentStatus,
+        paymentAmount,
+        JSON.stringify(payload.metadata || {})
+      ]
+    );
+    const responseId = responseResult.rows[0].response_id;
+
+    for (const answer of answers) {
+      await client.query(
+        `INSERT INTO form_response_answers (response_id, question_id, answer_text, answer_json)
+         VALUES ($1,$2,$3,$4::jsonb)`,
+        [
+          responseId,
+          answer.questionId,
+          answer.answerText,
+          answer.answerJson ? JSON.stringify(answer.answerJson) : null
+        ]
+      );
+    }
+
+    if (form.hasFee) {
+      const transactionCode = await generateCounterTransactionCode(client);
+      const transaction = await client.query(
+        `INSERT INTO counter_transactions (
+           transaction_code, business_type, source_system, source_type, source_id,
+           payer_name, payer_staff_id, amount, status, note, metadata
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+         RETURNING transaction_id`,
+        [
+          transactionCode,
+          form.counterServiceType || 'payment',
+          'forms',
+          'form_response',
+          responseId,
+          respondentName,
+          currentUser && currentUser.staffId ? String(currentUser.staffId) : null,
+          paymentAmount,
+          'pending',
+          form.paymentDescription || form.feeTitle || form.title,
+          JSON.stringify({ formId, formTitle: form.title, feeTitle: form.feeTitle })
+        ]
+      );
+      counterTransactionId = transaction.rows[0].transaction_id;
+      await client.query(
+        'UPDATE form_responses SET counter_transaction_id = $1 WHERE response_id = $2',
+        [counterTransactionId, responseId]
+      );
+    }
+
+    await recordDomainEvent({
+      eventType: 'forms.response_submitted',
+      systemKey: 'forms',
+      entityType: 'form_response',
+      entityId: responseId,
+      payload: { formId, hasFee: form.hasFee, paymentAmount },
+      currentUser
+    }, client);
+
+    return {
+      success: true,
+      responseId,
+      counterTransactionId,
+      paymentStatus,
+      paymentAmount,
+      message: form.hasFee ? '表單已送出，已建立櫃台待繳費紀錄' : '表單已送出'
+    };
+  });
+}
+
 async function replaceQuestions(client, formId, questions) {
   await client.query('DELETE FROM form_questions WHERE form_id = $1', [formId]);
   for (let i = 0; i < questions.length; i += 1) {
@@ -222,6 +376,41 @@ async function replaceQuestions(client, formId, questions) {
       }
     }
   }
+}
+
+function normalizeResponseAnswers(rawAnswers, questions) {
+  const byQuestionId = new Map();
+  rawAnswers.forEach(answer => {
+    if (answer && answer.questionId) byQuestionId.set(String(answer.questionId), answer.value);
+  });
+
+  return questions.map(question => {
+    const value = byQuestionId.get(String(question.questionId));
+    const isEmpty = Array.isArray(value) ? !value.length : !String(value || '').trim();
+    if (question.isRequired && isEmpty) throw new Error(`請填寫必填題：${question.title}`);
+    if (isEmpty) return null;
+    const isJson = Array.isArray(value) || (value && typeof value === 'object');
+    return {
+      questionId: question.questionId,
+      answerText: isJson ? null : String(value),
+      answerJson: isJson ? value : null
+    };
+  }).filter(Boolean);
+}
+
+async function generateCounterTransactionCode(client) {
+  const now = new Date();
+  const prefix = `CT${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const { rows } = await client.query(
+    `SELECT transaction_code
+     FROM counter_transactions
+     WHERE transaction_code LIKE $1
+     ORDER BY transaction_code DESC
+     LIMIT 1`,
+    [`${prefix}%`]
+  );
+  const next = rows[0] ? Number(String(rows[0].transaction_code).slice(-4)) + 1 : 1;
+  return `${prefix}${String(next).padStart(4, '0')}`;
 }
 
 function normalizeFormPayload(payload) {

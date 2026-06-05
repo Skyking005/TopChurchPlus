@@ -141,6 +141,21 @@ function deleteForm(payload) {
   );
 }
 
+function submitFormResponse(payload) {
+  return apiRequest(
+    'post',
+    `/forms/${encodeURIComponent(payload.formId)}/responses`,
+    {
+      currentUser: payload.currentUser,
+      response: payload.response
+    }
+  );
+}
+
+function getFormResponses(formId, currentUser) {
+  return apiRequest('get', `/forms/${encodeURIComponent(formId)}/responses`, null, null, currentUser);
+}
+
 function getVenueResources(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/venues/resources', null, {

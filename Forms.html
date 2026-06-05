@@ -56,6 +56,8 @@
           <button type="button" class="btn btn-outline-secondary" onclick="backToFormsList()">返回清單</button>
         </div>
         <div class="btn-group">
+          <button type="button" class="btn btn-outline-secondary" id="previewFormBtn" onclick="previewCurrentForm()">預覽填寫</button>
+          <button type="button" class="btn btn-outline-secondary" id="viewFormResponsesBtn" onclick="viewCurrentFormResponses()">查看回覆</button>
           <button type="button" class="btn btn-outline-danger" id="deleteFormBtn" onclick="archiveCurrentForm()">封存</button>
           <button type="button" class="btn btn-primary" id="saveFormBtn" onclick="submitForm()">儲存表單</button>
         </div>
@@ -137,6 +139,40 @@
           <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('paragraph')">段落題</button>
           <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('date')">日期題</button>
         </div>
+      </div>
+    </div>
+
+    <div id="formFillView" class="d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <button type="button" class="btn btn-outline-secondary" onclick="backToFormsList()">返回清單</button>
+        <button type="button" class="btn btn-primary" id="submitFormResponseBtn" onclick="submitCurrentFormResponse()">送出表單</button>
+      </div>
+      <div class="form-title-panel mb-3">
+        <h5 id="formFillTitle" class="mb-1"></h5>
+        <div id="formFillDescription" class="text-muted"></div>
+        <div id="formFillFeeNotice" class="alert alert-warning mt-3 mb-0 d-none"></div>
+      </div>
+      <div id="formFillQuestions" class="form-questions-list"></div>
+      <div id="formFillError" class="text-danger small mt-3"></div>
+    </div>
+
+    <div id="formResponsesView" class="d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <button type="button" class="btn btn-outline-secondary" onclick="backToFormsList()">返回清單</button>
+        <button type="button" class="btn btn-outline-primary" onclick="loadCurrentFormResponses()">重新整理</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>填寫者</th>
+              <th>送出時間</th>
+              <th>付款狀態</th>
+              <th>答案摘要</th>
+            </tr>
+          </thead>
+          <tbody id="formResponsesTableBody"></tbody>
+        </table>
       </div>
     </div>
   </div>

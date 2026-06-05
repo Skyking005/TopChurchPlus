@@ -1,6 +1,8 @@
 <script>
 let forms = [];
 let currentFormQuestions = [];
+let currentFormDetail = null;
+let currentFormResponsesFormId = '';
 
 const FORM_TYPES = {
   survey: '問卷調查',
@@ -30,6 +32,8 @@ function openFormsSystem() {
   document.getElementById('addFormBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('saveFormBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('deleteFormBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('previewFormBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('viewFormResponsesBtn').classList.toggle('d-none', !canEdit);
   backToFormsList(false);
   loadForms();
 }
@@ -70,7 +74,13 @@ function renderFormsTable() {
       <td>${escapeHtml(form.responseCount || 0)}</td>
       <td>${escapeHtml(form.createdBy || '')}</td>
       <td>${escapeHtml(formatFormsDateTime(form.updatedAt))}</td>
-      <td><button type="button" class="btn btn-outline-secondary btn-sm" onclick="openFormEditor('${escapeAttr(form.formId)}')">編輯</button></td>
+      <td>
+        <div class="btn-group btn-group-sm">
+          <button type="button" class="btn btn-outline-secondary" onclick="openFormEditor('${escapeAttr(form.formId)}')">編輯</button>
+          <button type="button" class="btn btn-outline-primary" onclick="openFormFill('${escapeAttr(form.formId)}')">填寫</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="openFormResponses('${escapeAttr(form.formId)}')">回覆</button>
+        </div>
+      </td>
     `;
     body.appendChild(tr);
   });
@@ -104,6 +114,7 @@ function openFormEditor(formId) {
 }
 
 function setFormEditor(data) {
+  currentFormDetail = data;
   const form = data.form || {};
   currentFormQuestions = (data.questions || []).map(question => ({
     questionType: question.questionType || 'short_text',
@@ -116,6 +127,8 @@ function setFormEditor(data) {
 
   document.getElementById('formsListView').classList.add('d-none');
   document.getElementById('formEditorView').classList.remove('d-none');
+  document.getElementById('formFillView').classList.add('d-none');
+  document.getElementById('formResponsesView').classList.add('d-none');
   document.getElementById('formId').value = form.formId || '';
   document.getElementById('formTitle').value = form.title || '';
   document.getElementById('formDescription').value = form.description || '';
@@ -145,9 +158,176 @@ function toggleFormFeeFields() {
 function backToFormsList(shouldLoad = true) {
   const list = document.getElementById('formsListView');
   const editor = document.getElementById('formEditorView');
+  const fill = document.getElementById('formFillView');
+  const responses = document.getElementById('formResponsesView');
   if (list) list.classList.remove('d-none');
   if (editor) editor.classList.add('d-none');
+  if (fill) fill.classList.add('d-none');
+  if (responses) responses.classList.add('d-none');
   if (shouldLoad) loadForms();
+}
+
+function previewCurrentForm() {
+  const formId = document.getElementById('formId').value;
+  if (!formId) return alert('請先儲存表單後再預覽');
+  openFormFill(formId);
+}
+
+function viewCurrentFormResponses() {
+  const formId = document.getElementById('formId').value;
+  if (!formId) return alert('請先儲存表單後再查看回覆');
+  openFormResponses(formId);
+}
+
+function openFormFill(formId) {
+  google.script.run
+    .withSuccessHandler(setFormFill)
+    .withFailureHandler(showError)
+    .getFormDetail(formId, currentUser);
+}
+
+function setFormFill(data) {
+  currentFormDetail = data;
+  const form = data.form || {};
+  document.getElementById('formsListView').classList.add('d-none');
+  document.getElementById('formEditorView').classList.add('d-none');
+  document.getElementById('formResponsesView').classList.add('d-none');
+  document.getElementById('formFillView').classList.remove('d-none');
+  document.getElementById('formFillTitle').textContent = form.title || '';
+  document.getElementById('formFillDescription').textContent = form.description || '';
+  const notice = document.getElementById('formFillFeeNotice');
+  if (form.hasFee) {
+    notice.classList.remove('d-none');
+    notice.textContent = `${form.feeTitle || '此表單'}：${formatMoney(form.feeAmount || 0)}，送出後會建立櫃台待繳費紀錄。`;
+  } else {
+    notice.classList.add('d-none');
+    notice.textContent = '';
+  }
+  document.getElementById('formFillError').textContent = '';
+  renderFormFillQuestions(data.questions || []);
+}
+
+function renderFormFillQuestions(questions) {
+  const container = document.getElementById('formFillQuestions');
+  container.innerHTML = '';
+  questions.forEach(question => {
+    const card = document.createElement('div');
+    card.className = 'form-question-card';
+    card.dataset.questionId = question.questionId;
+    card.dataset.questionType = question.questionType;
+    card.innerHTML = `
+      <label class="form-label fw-bold">${escapeHtml(question.title)}${question.isRequired ? ' <span class="text-danger">*</span>' : ''}</label>
+      ${question.description ? `<div class="text-muted small mb-2">${escapeHtml(question.description)}</div>` : ''}
+      ${renderFormAnswerInput(question)}
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderFormAnswerInput(question) {
+  if (question.questionType === 'paragraph') return '<textarea class="form-control form-answer-value" rows="3"></textarea>';
+  if (question.questionType === 'date') return '<input type="date" class="form-control form-answer-value">';
+  if (question.questionType === 'number') return '<input type="number" class="form-control form-answer-value">';
+  if (question.questionType === 'dropdown') {
+    return `
+      <select class="form-select form-answer-value">
+        <option value="">請選擇</option>
+        ${(question.options || []).map(option => `<option value="${escapeAttr(option)}">${escapeHtml(option)}</option>`).join('')}
+      </select>
+    `;
+  }
+  if (question.questionType === 'single_choice' || question.questionType === 'multiple_choice') {
+    const type = question.questionType === 'single_choice' ? 'radio' : 'checkbox';
+    const name = `answer_${question.questionId}`;
+    return (question.options || []).map(option => `
+      <div class="form-check">
+        <input class="form-check-input form-answer-option" type="${type}" name="${escapeAttr(name)}" value="${escapeAttr(option)}" id="${escapeAttr(name)}_${escapeAttr(option)}">
+        <label class="form-check-label" for="${escapeAttr(name)}_${escapeAttr(option)}">${escapeHtml(option)}</label>
+      </div>
+    `).join('');
+  }
+  return '<input class="form-control form-answer-value">';
+}
+
+function collectFormResponseAnswers() {
+  return [...document.querySelectorAll('#formFillQuestions .form-question-card')].map(card => {
+    const questionId = card.dataset.questionId;
+    const questionType = card.dataset.questionType;
+    let value = '';
+    if (questionType === 'multiple_choice') {
+      value = [...card.querySelectorAll('.form-answer-option:checked')].map(el => el.value);
+    } else if (questionType === 'single_choice') {
+      const checked = card.querySelector('.form-answer-option:checked');
+      value = checked ? checked.value : '';
+    } else {
+      const input = card.querySelector('.form-answer-value');
+      value = input ? input.value : '';
+    }
+    return { questionId, value };
+  });
+}
+
+function submitCurrentFormResponse() {
+  const form = currentFormDetail && currentFormDetail.form ? currentFormDetail.form : {};
+  const btn = document.getElementById('submitFormResponseBtn');
+  const errorBox = document.getElementById('formFillError');
+  errorBox.textContent = '';
+  setButtonLoading(btn, true, '送出中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      backToFormsList(true);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .submitFormResponse({
+      formId: form.formId,
+      currentUser,
+      response: {
+        respondentName: currentUser && currentUser.name ? currentUser.name : '',
+        answers: collectFormResponseAnswers()
+      }
+    });
+}
+
+function openFormResponses(formId) {
+  currentFormResponsesFormId = formId;
+  document.getElementById('formsListView').classList.add('d-none');
+  document.getElementById('formEditorView').classList.add('d-none');
+  document.getElementById('formFillView').classList.add('d-none');
+  document.getElementById('formResponsesView').classList.remove('d-none');
+  loadCurrentFormResponses();
+}
+
+function loadCurrentFormResponses() {
+  setListLoading('formResponsesTableBody', true, '回覆載入中...');
+  google.script.run
+    .withSuccessHandler(renderFormResponses)
+    .withFailureHandler(showError)
+    .getFormResponses(currentFormResponsesFormId, currentUser);
+}
+
+function renderFormResponses(rows) {
+  const body = document.getElementById('formResponsesTableBody');
+  body.innerHTML = '';
+  if (!rows || !rows.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">尚無回覆</td></tr>';
+    return;
+  }
+  rows.forEach(row => {
+    const answers = (row.answers || []).slice(0, 3).map(answer => `${answer.questionTitle}: ${formatAnswerValue(answer.value)}`).join('；');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.respondentName || '')}</td>
+      <td>${escapeHtml(formatFormsDateTime(row.submittedAt))}</td>
+      <td>${escapeHtml(formatPaymentStatus(row.paymentStatus))}${row.paymentAmount ? ` ${escapeHtml(formatMoney(row.paymentAmount))}` : ''}${row.counterTransactionCode ? `<div class="text-muted small">${escapeHtml(row.counterTransactionCode)}</div>` : ''}</td>
+      <td>${escapeHtml(answers)}</td>
+    `;
+    body.appendChild(tr);
+  });
 }
 
 function createEmptyQuestion(type) {
@@ -351,6 +531,16 @@ function formatFormType(type) {
 
 function formatFormVisibility(value) {
   return { internal: '內部同工', members: '會友', public: '公開' }[value] || value || '';
+}
+
+function formatPaymentStatus(value) {
+  return { none: '無收費', pending: '待繳費', paid: '已繳費', canceled: '已取消' }[value] || value || '';
+}
+
+function formatAnswerValue(value) {
+  if (Array.isArray(value)) return value.join('、');
+  if (value && typeof value === 'object') return JSON.stringify(value);
+  return String(value || '');
 }
 
 function formatFormsDateTime(value) {
