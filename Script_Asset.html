@@ -5,6 +5,7 @@ let totalAssetCount = 0;
 let currentAssetLocations = [];
 
 function openAssetSystem() {
+  recordFeatureUsage('asset');
   const canEditFeature = getFeatureAccess('asset') === 'edit';
   document.getElementById('mainTitle').textContent = '資產管理系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
@@ -30,18 +31,7 @@ function loadAssetSystem() {
 }
 
 function ensureInitialData(callback) {
-  if (initialData) {
-    callback();
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(data => {
-      initialData = data;
-      callback();
-    })
-    .withFailureHandler(showError)
-    .getInitialData();
+  preloadInitialData(callback);
 }
 
 function setupAssetOptions() {
@@ -77,6 +67,7 @@ function fillAssetLocationSelect() {
 }
 
 function loadAssets() {
+  setListLoading(['assetTableBody', 'mobileAssetList'], true);
   const filters = {
     keyword: document.getElementById('assetSearchKeyword').value,
     assetType: document.getElementById('assetSearchType').value,

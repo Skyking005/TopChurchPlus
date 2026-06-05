@@ -136,17 +136,36 @@ function handleLogin() {
 
 
 function loadInitialDataAfterLogin(callback) {
+  preloadInitialData(callback);
+}
+
+function preloadInitialData(callback) {
+  if (initialData) {
+    if (callback) callback(initialData);
+    return;
+  }
+  if (callback) initialDataCallbacks.push(callback);
+  if (initialDataLoading) return;
+  initialDataLoading = true;
+
   google.script.run
     .withSuccessHandler(data => {
       initialData = data;
-      if (callback) callback();
+      initialDataLoading = false;
+      const callbacks = initialDataCallbacks.slice();
+      initialDataCallbacks = [];
+      callbacks.forEach(fn => fn(initialData));
     })
     .withFailureHandler(err => {
-      currentUser = null;
-      document.getElementById('loginError').textContent = err.message || err;
+      initialDataLoading = false;
+      initialDataCallbacks = [];
+      const loginError = document.getElementById('loginError');
+      if (loginError) loginError.textContent = err.message || err;
     })
     .getInitialData();
 }
+
+window.addEventListener('load', () => preloadInitialData());
 
 function logout() {
   currentUser = null;
@@ -186,22 +205,11 @@ function resetAppToLogin() {
 }
 
 function loadInitialData() {
-  if (initialData) {
+  preloadInitialData(() => {
     setupSearchOptions();
     setupDetailOptions();
     loadProjects();
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(data => {
-      initialData = data;
-      setupSearchOptions();
-      setupDetailOptions();
-      loadProjects();
-    })
-    .withFailureHandler(showError)
-    .getInitialData();
+  });
 }
 
 function backToFeatureMenu() {
@@ -223,7 +231,12 @@ function renderFeatureMenu() {
   const allowedKeys = getAllowedFeatureKeys(currentUser);
   const features = SYSTEM_FEATURES
     .filter(feature => allowedKeys.includes(feature.key))
-    .map(feature => ({ ...feature, mode: getFeatureAccessLabel(getFeatureAccess(feature.key)) }));
+    .map(feature => ({
+      ...feature,
+      mode: getFeatureAccessLabel(getFeatureAccess(feature.key)),
+      usageCount: getFeatureUsageCount(feature.key)
+    }))
+    .sort((a, b) => b.usageCount - a.usageCount || SYSTEM_FEATURES.findIndex(item => item.key === a.key) - SYSTEM_FEATURES.findIndex(item => item.key === b.key));
   grid.innerHTML = '';
 
   if (!features.length) {
@@ -239,6 +252,7 @@ function renderFeatureMenu() {
     button.innerHTML = `
       <span class="feature-title">${escapeHtml(feature.title)}</span>
       <span class="feature-desc">${escapeHtml(feature.desc)}</span>
+      ${feature.usageCount > 0 ? `<span class="feature-hint">常用模組，近 180 天使用 ${escapeHtml(feature.usageCount)} 次</span>` : ''}
       ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
     `;
     grid.appendChild(button);
@@ -258,6 +272,18 @@ function getAllowedFeatureKeys(user) {
   const keys = Object.keys(permissions).filter(key => permissions[key] === 'read' || permissions[key] === 'edit');
   if (keys.length) return keys;
   return [...new Set(getUserRoles(user).flatMap(role => ROLE_FEATURE_ACCESS[role] || []))];
+}
+
+function getFeatureUsageCount(featureKey) {
+  return Number(currentUser?.featureUsage?.[featureKey]?.count || 0);
+}
+
+function recordFeatureUsage(featureKey, action = 'open', metadata = {}) {
+  if (!currentUser || !featureKey) return;
+  google.script.run
+    .withSuccessHandler(() => {})
+    .withFailureHandler(() => {})
+    .recordSystemUsage({ currentUser, featureKey, action, metadata });
 }
 
 function getFeatureAccess(featureKey) {
@@ -289,6 +315,7 @@ function getFeatureAccessLabel(access) {
 }
 
 function openProjectSystem() {
+  recordFeatureUsage('project');
   const canEditFeature = getFeatureAccess('project') === 'edit';
   document.getElementById('mainTitle').textContent = '專案管理系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
@@ -303,6 +330,7 @@ function openProjectSystem() {
 }
 
 function openPurchaseSystem() {
+  recordFeatureUsage('finance');
   const canEditFeature = getFeatureAccess('finance') === 'edit';
   document.getElementById('mainTitle').textContent = '財務系統';
   document.getElementById('featureSelectionView').classList.add('d-none');

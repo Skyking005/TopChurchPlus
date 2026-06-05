@@ -70,6 +70,7 @@ app.post('/login', async (req, res, next) => {
     if (!user) throw new Error('此電子信箱沒有系統使用權限');
     const roles = await getAccountRoles(user.staff_id, user.role);
     const featurePermissions = await getEffectiveFeaturePermissions({ roles, role: user.role });
+    const featureUsage = await getFeatureUsageSummary(user.staff_id);
 
     res.json({
       staffId: user.staff_id,
@@ -79,6 +80,7 @@ app.post('/login', async (req, res, next) => {
       role: user.role,
       roles,
       featurePermissions,
+      featureUsage,
       deviceType,
       isAdmin: roles.includes('管理員') || roles.includes('超級管理者'),
       isSuperAdmin: roles.includes('超級管理者')
@@ -365,8 +367,9 @@ app.get('/assets/:assetId', async (req, res, next) => {
 
 app.get('/pastoral/options', async (req, res, next) => {
   try {
-    await assertPastoralReadable(parseUser(req));
-    res.json(await getPastoralOptions());
+    const currentUser = parseUser(req);
+    await assertPastoralReadable(currentUser);
+    res.json(await getPastoralOptions(currentUser));
   } catch (err) {
     next(err);
   }
@@ -374,8 +377,9 @@ app.get('/pastoral/options', async (req, res, next) => {
 
 app.get('/pastoral/members', async (req, res, next) => {
   try {
-    await assertPastoralReadable(parseUser(req));
-    res.json(await getPastoralMembers(req.query));
+    const currentUser = parseUser(req);
+    await assertPastoralReadable(currentUser);
+    res.json(await getPastoralMembers(req.query, currentUser));
   } catch (err) {
     next(err);
   }
@@ -383,8 +387,9 @@ app.get('/pastoral/members', async (req, res, next) => {
 
 app.get('/pastoral/members/:memberId', async (req, res, next) => {
   try {
-    await assertPastoralReadable(parseUser(req));
-    const data = await getPastoralMemberDetail(req.params.memberId);
+    const currentUser = parseUser(req);
+    await assertPastoralReadable(currentUser);
+    const data = await getPastoralMemberDetail(req.params.memberId, currentUser);
     if (!data.member) throw new Error('找不到會友資料');
     res.json(data);
   } catch (err) {
@@ -523,6 +528,18 @@ app.post('/system/users', async (req, res, next) => {
   }
 });
 
+app.put('/system/users/:staffId/pastoral-churches', async (req, res, next) => {
+  try {
+    assertSuperAdmin(req.body.currentUser);
+    const staffId = req.params.staffId;
+    const churchIds = Array.isArray(req.body.churchIds) ? req.body.churchIds : [];
+    await savePastoralChurchPermissions(staffId, churchIds);
+    res.json({ success: true, message: '牧養資料權限已儲存', users: await getAccounts() });
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.put('/system/users/:staffId/roles', async (req, res, next) => {
   try {
     assertSuperAdmin(req.body.currentUser);
@@ -547,6 +564,15 @@ app.put('/system/users/:staffId/roles', async (req, res, next) => {
     });
 
     res.json({ success: true, message: '使用者權限已儲存' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post('/usage', async (req, res, next) => {
+  try {
+    await recordUsage(req.body.currentUser, req.body.featureKey, req.body.action, req.body.metadata);
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }
@@ -778,9 +804,11 @@ async function getAccounts() {
       a.name,
       a.position,
       a.role,
-      array_remove(array_agg(DISTINCT ar.role), NULL) AS roles
+      array_remove(array_agg(DISTINCT ar.role), NULL) AS roles,
+      array_remove(array_agg(DISTINCT apcp.church_id), NULL) AS pastoral_church_ids
     FROM accounts a
     LEFT JOIN account_roles ar ON ar.staff_id = a.staff_id
+    LEFT JOIN account_pastoral_church_permissions apcp ON apcp.staff_id = a.staff_id
     GROUP BY a.staff_id, a.email, a.name, a.position, a.role
     ORDER BY
       CASE WHEN a.staff_id ~ '^[0-9]+$' THEN a.staff_id::int END NULLS LAST,
@@ -792,8 +820,32 @@ async function getAccounts() {
     name: row.name,
     position: row.position,
     role: row.role,
-    roles: normalizeRoles(row.roles, row.role)
+    roles: normalizeRoles(row.roles, row.role),
+    pastoralChurchIds: (row.pastoral_church_ids || []).map(Number).filter(Number.isFinite)
   }));
+}
+
+async function savePastoralChurchPermissions(staffId, churchIds) {
+  const exists = await pool.query('SELECT staff_id FROM accounts WHERE staff_id = $1', [staffId]);
+  if (!exists.rows[0]) throw new Error('找不到使用者資料');
+
+  const normalizedChurchIds = [...new Set(churchIds.map(id => Number(id)).filter(id => Number.isInteger(id)))];
+  if (normalizedChurchIds.length) {
+    const found = await pool.query('SELECT id FROM churches WHERE id = ANY($1::int[])', [normalizedChurchIds]);
+    if (found.rows.length !== normalizedChurchIds.length) throw new Error('包含不存在的會堂資料');
+  }
+
+  await tx(async client => {
+    await client.query('DELETE FROM account_pastoral_church_permissions WHERE staff_id = $1', [staffId]);
+    for (const churchId of normalizedChurchIds) {
+      await client.query(
+        `INSERT INTO account_pastoral_church_permissions (staff_id, church_id)
+         VALUES ($1, $2)
+         ON CONFLICT (staff_id, church_id) DO NOTHING`,
+        [staffId, churchId]
+      );
+    }
+  });
 }
 
 async function getAccountRoles(staffId, fallbackRole) {
@@ -1566,13 +1618,20 @@ async function replacePurchaseRows(client, table, column, value, rows, insertFn)
   for (let i = 0; i < rows.length; i += 1) await insertFn(client, value, rows[i], i + 1);
 }
 
-async function getPastoralOptions() {
+async function getPastoralOptions(currentUser) {
+  const churchAccess = await getPastoralChurchAccess(currentUser);
+  const churchWhere = churchAccess.all ? '' : 'WHERE id = ANY($1::int[])';
+  const churchValues = churchAccess.all ? [] : [churchAccess.churchIds];
+  const groupWhere = churchAccess.all ? '' : 'WHERE g.church_id = ANY($1::int[])';
+  const groupValues = churchAccess.all ? [] : [churchAccess.churchIds];
+
   const [churches, categories, groups] = await Promise.all([
     pool.query(`
       SELECT id, name, church_type
       FROM churches
+      ${churchWhere}
       ORDER BY sort_order, id
-    `),
+    `, churchValues),
     pool.query(`
       SELECT code, name
       FROM membership_categories
@@ -1591,9 +1650,10 @@ async function getPastoralOptions() {
       LEFT JOIN pastoral_group_types gt ON gt.id = g.group_type_id
       LEFT JOIN churches c ON c.id = g.church_id
       LEFT JOIN pastoral_member_group_assignments a ON a.group_id = g.id AND a.is_current
+      ${groupWhere}
       GROUP BY g.id, g.name, g.path, g.level_no, gt.name, c.name, g.sort_order
       ORDER BY g.level_no, g.sort_order, g.name
-    `)
+    `, groupValues)
   ]);
 
   return {
@@ -1603,7 +1663,8 @@ async function getPastoralOptions() {
   };
 }
 
-async function getPastoralMembers(query) {
+async function getPastoralMembers(query, currentUser) {
+  const churchAccess = await getPastoralChurchAccess(currentUser);
   const keyword = String(query.keyword || '').trim().toLowerCase();
   const category = String(query.category || '').trim();
   const churchId = String(query.churchId || '').trim();
@@ -1613,6 +1674,14 @@ async function getPastoralMembers(query) {
   const offset = (page - 1) * pageSize;
   const where = [];
   const values = [];
+
+  if (!churchAccess.all) {
+    if (!churchAccess.churchIds.length) {
+      return { rows: [], total: 0, page, pageSize };
+    }
+    values.push(churchAccess.churchIds);
+    where.push(`pm.church_id = ANY($${values.length}::int[])`);
+  }
 
   if (keyword) {
     values.push(`%${keyword}%`);
@@ -1648,9 +1717,13 @@ async function getPastoralMembers(query) {
     LEFT JOIN churches ch ON ch.id = pm.church_id
     LEFT JOIN membership_categories mc ON mc.code = pm.membership_category_code
     LEFT JOIN pastoral_titles pt ON pt.id = pm.title_id
+    LEFT JOIN marital_statuses ms ON ms.id = pm.marital_status_id
     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = pm.id
+    LEFT JOIN pastoral_member_addresses addr ON addr.member_id = pm.id AND addr.is_primary
+    LEFT JOIN pastoral_member_faith faith ON faith.member_id = pm.id
     LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
     LEFT JOIN pastoral_groups g ON g.id = pga.group_id
+    LEFT JOIN accounts follow_account ON follow_account.staff_id = pm.followup_staff_id::text
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
   `;
 
@@ -1666,12 +1739,23 @@ async function getPastoralMembers(query) {
        pm.id,
        pm.name,
        pm.gender,
+       pm.created_date,
+       pm.birthday,
        pm.light_status,
        pm.line_user_id,
        ch.name AS church_name,
        mc.name AS category_name,
        pt.name AS title_name,
+       ms.name AS marital_status_name,
        pc.mobile_phone,
+       addr.address_line,
+       addr.city,
+       addr.district,
+       faith.is_christian,
+       faith.accepted_christ,
+       pm.baptized_date,
+       follow_account.name AS followup_name,
+       follow_account.position AS followup_position,
        g.path AS group_path
      ${fromSql}
      ORDER BY pm.id DESC
@@ -1682,7 +1766,16 @@ async function getPastoralMembers(query) {
   return { rows: rows.map(toPastoralMemberListItem), total: countResult.rows[0].total, page, pageSize };
 }
 
-async function getPastoralMemberDetail(memberId) {
+async function getPastoralMemberDetail(memberId, currentUser) {
+  const churchAccess = await getPastoralChurchAccess(currentUser);
+  if (!churchAccess.all && !churchAccess.churchIds.length) return { member: null, careRecords: [] };
+  const values = [memberId];
+  let accessWhere = '';
+  if (!churchAccess.all) {
+    values.push(churchAccess.churchIds);
+    accessWhere = ` AND pm.church_id = ANY($${values.length}::int[])`;
+  }
+
   const { rows } = await pool.query(
     `SELECT
        pm.*,
@@ -1728,8 +1821,8 @@ async function getPastoralMemberDetail(memberId) {
      LEFT JOIN pastoral_member_family_notes fam ON fam.member_id = pm.id
      LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
      LEFT JOIN pastoral_groups g ON g.id = pga.group_id
-     WHERE pm.id = $1`,
-    [memberId]
+     WHERE pm.id = $1${accessWhere}`,
+    values
   );
 
   const member = rows[0];
@@ -1897,12 +1990,19 @@ function toPastoralMemberListItem(row) {
     memberId: row.id,
     name: row.name,
     gender: formatGender(row.gender),
+    createdDate: formatDate(row.created_date),
+    birthday: formatDate(row.birthday),
     churchName: row.church_name || '',
     categoryName: row.category_name || '',
     titleName: row.title_name || '',
+    maritalStatusName: row.marital_status_name || '',
     mobilePhone: row.mobile_phone || '',
+    address: [row.city, row.district, row.address_line].filter(Boolean).join(' '),
     groupPath: row.group_path || '',
     lightStatus: formatLightStatus(row.light_status),
+    faithStatus: formatFaithStatus(row),
+    followupName: [row.followup_name, row.followup_position].filter(Boolean).join(' '),
+    communityText: row.group_path || '無社區資料',
     lineBound: Boolean(row.line_user_id)
   };
 }
@@ -2000,6 +2100,54 @@ function assertPastoralReadable(user) {
   return assertFeatureReadable(user, 'pastoral');
 }
 
+async function getPastoralChurchAccess(user) {
+  if (hasAnyRole(user, ['管理員', '超級管理者'])) {
+    return { all: true, churchIds: [] };
+  }
+  const staffId = user && user.staffId ? String(user.staffId) : '';
+  if (!staffId) return { all: false, churchIds: [] };
+  const { rows } = await pool.query(
+    'SELECT church_id FROM account_pastoral_church_permissions WHERE staff_id = $1 ORDER BY church_id',
+    [staffId]
+  );
+  return { all: false, churchIds: rows.map(row => Number(row.church_id)).filter(Number.isFinite) };
+}
+
+async function recordUsage(user, featureKey, action = 'open', metadata = {}) {
+  if (!user || !user.staffId) return;
+  if (!SYSTEM_FEATURES.includes(featureKey)) return;
+  await pool.query(
+    `INSERT INTO system_usage_logs (staff_id, feature_key, action, metadata)
+     VALUES ($1, $2, $3, $4::jsonb)`,
+    [
+      String(user.staffId),
+      featureKey,
+      String(action || 'open').slice(0, 50),
+      JSON.stringify(metadata && typeof metadata === 'object' ? metadata : {})
+    ]
+  );
+}
+
+async function getFeatureUsageSummary(staffId) {
+  if (!staffId) return {};
+  const { rows } = await pool.query(
+    `SELECT feature_key, count(*)::int AS count, max(created_at) AS last_used_at
+     FROM system_usage_logs
+     WHERE staff_id = $1
+       AND action = 'open'
+       AND created_at >= now() - interval '180 days'
+     GROUP BY feature_key`,
+    [String(staffId)]
+  );
+  return rows.reduce((acc, row) => {
+    acc[row.feature_key] = {
+      count: row.count,
+      lastUsedAt: row.last_used_at
+    };
+    return acc;
+  }, {});
+}
+
 function formatGender(value) {
   if (value === 1) return '男';
   if (value === 0) return '女';
@@ -2020,6 +2168,14 @@ function formatLightStatus(value) {
     3: '紅燈'
   };
   return map[value] || '';
+}
+
+function formatFaithStatus(row) {
+  if (row.baptized_date) return '已受洗';
+  if (row.accepted_christ === true) return '已決志';
+  if (row.is_christian === true) return '基督徒';
+  if (row.is_christian === false) return '未信主';
+  return '';
 }
 
 async function assertPurchaseEditable(purchaseId) {

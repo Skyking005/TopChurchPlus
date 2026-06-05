@@ -4,8 +4,11 @@ let pastoralMembers = [];
 let pastoralCurrentPage = 1;
 let pastoralTotalCount = 0;
 let pastoralCurrentTab = 'members';
+let pastoralOpenDetails = [];
+let pastoralActiveDetailId = null;
 
 function openPastoralSystem() {
+  recordFeatureUsage('pastoral');
   document.getElementById('mainTitle').textContent = '牧養管理系統';
   ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
@@ -17,6 +20,7 @@ function openPastoralSystem() {
 }
 
 function loadPastoralSystem() {
+  setListLoading(['pastoralMemberTableBody', 'mobilePastoralMemberList', 'pastoralGroupTableBody'], true);
   google.script.run
     .withSuccessHandler(options => {
       pastoralOptions = options || { churches: [], categories: [], groups: [] };
@@ -55,6 +59,7 @@ function switchPastoralTab(tab) {
 }
 
 function loadPastoralMembers() {
+  setListLoading(['pastoralMemberTableBody', 'mobilePastoralMemberList'], true);
   const filters = {
     keyword: document.getElementById('pastoralKeyword').value,
     churchId: document.getElementById('pastoralChurchFilter').value,
@@ -86,14 +91,19 @@ function renderPastoralMemberTable() {
   pastoralMembers.forEach(member => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></td>
+      <td><button type="button" class="btn btn-sm btn-outline-secondary rounded-circle" title="查看" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">○</button></td>
       <td>${escapeHtml(member.churchName)}</td>
-      <td>${escapeHtml(member.categoryName)}</td>
-      <td>${escapeHtml(member.titleName)}</td>
-      <td>${escapeHtml(member.groupPath)}</td>
+      <td>${escapeHtml(member.createdDate)}</td>
+      <td>${escapeHtml(member.followupName || '暫無分配')}</td>
       <td><span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></td>
+      <td>${escapeHtml(member.categoryName)}</td>
+      <td><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></td>
+      <td>${escapeHtml(member.faithStatus)}</td>
+      <td>${escapeHtml(member.maritalStatusName)}</td>
+      <td>${escapeHtml(member.birthday)}</td>
       <td>${escapeHtml(member.mobilePhone)}</td>
-      <td>${member.lineBound ? '<span class="badge text-bg-success">已綁定</span>' : '<span class="badge text-bg-secondary">未綁定</span>'}</td>
+      <td>${escapeHtml(member.address)}</td>
+      <td>${escapeHtml(member.communityText)}</td>
     `;
     body.appendChild(tr);
   });
@@ -107,9 +117,9 @@ function renderPastoralMemberCards() {
     card.className = 'project-card-mobile';
     card.innerHTML = `
       <h6><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></h6>
-      <div class="project-meta">${escapeHtml(member.churchName)} / ${escapeHtml(member.categoryName)} / ${escapeHtml(member.titleName)}</div>
-      <div class="project-meta">${escapeHtml(member.groupPath)}</div>
-      <div class="project-meta">${escapeHtml(member.mobilePhone)} <span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></div>
+      <div class="project-meta">${escapeHtml(member.churchName)} / ${escapeHtml(member.categoryName)} / ${escapeHtml(member.faithStatus)}</div>
+      <div class="project-meta">${escapeHtml(member.communityText)}</div>
+      <div class="project-meta">${escapeHtml(member.mobilePhone || '無電話')} <span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></div>
     `;
     container.appendChild(card);
   });
@@ -145,6 +155,7 @@ function handlePastoralSearchKey(event) {
 
 function renderPastoralGroups() {
   if (!pastoralOptions) return;
+  setListLoading('pastoralGroupTableBody', true);
   const body = document.getElementById('pastoralGroupTableBody');
   body.innerHTML = '';
   (pastoralOptions.groups || []).forEach(group => {
@@ -160,6 +171,7 @@ function renderPastoralGroups() {
 }
 
 function openPastoralMember(memberId) {
+  setListLoading('pastoralCareRecords', true, '會友資料載入中...');
   google.script.run
     .withSuccessHandler(renderPastoralMemberDetail)
     .withFailureHandler(showError)
@@ -168,8 +180,41 @@ function openPastoralMember(memberId) {
 
 function renderPastoralMemberDetail(data) {
   const member = data.member || {};
+  const existingIndex = pastoralOpenDetails.findIndex(item => String(item.member.memberId) === String(member.memberId));
+  if (existingIndex >= 0) pastoralOpenDetails.splice(existingIndex, 1);
+  pastoralOpenDetails.unshift(data);
+  pastoralOpenDetails = pastoralOpenDetails.slice(0, 6);
+  pastoralActiveDetailId = member.memberId;
+  renderPastoralDetailTabs();
+  renderActivePastoralDetail();
+  document.getElementById('pastoralDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderPastoralDetailTabs() {
+  const tabs = document.getElementById('pastoralDetailTabs');
+  tabs.innerHTML = '';
+  pastoralOpenDetails.forEach(item => {
+    const member = item.member || {};
+    const li = document.createElement('li');
+    li.className = 'nav-item';
+    li.innerHTML = `
+      <button type="button" class="nav-link ${String(member.memberId) === String(pastoralActiveDetailId) ? 'active' : ''}" onclick="activatePastoralDetail('${escapeAttr(member.memberId)}')">
+        ${escapeHtml(member.name)}
+        <span class="ms-2 text-muted" onclick="event.stopPropagation(); closePastoralDetail('${escapeAttr(member.memberId)}')">×</span>
+      </button>
+    `;
+    tabs.appendChild(li);
+  });
+}
+
+function renderActivePastoralDetail() {
+  const data = pastoralOpenDetails.find(item => String(item.member?.memberId) === String(pastoralActiveDetailId));
+  if (!data) {
+    closePastoralDetailPanel();
+    return;
+  }
+  const member = data.member || {};
   document.getElementById('pastoralDetailPanel').classList.remove('d-none');
-  document.getElementById('pastoralDetailTitle').textContent = `${member.name || ''} 會友資料`;
 
   renderDefinitionList('pastoralBasicInfo', [
     ['會堂', member.churchName],
@@ -210,7 +255,12 @@ function renderPastoralMemberDetail(data) {
   ]);
 
   renderPastoralCareRecords(data.careRecords || []);
-  document.getElementById('pastoralDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function activatePastoralDetail(memberId) {
+  pastoralActiveDetailId = memberId;
+  renderPastoralDetailTabs();
+  renderActivePastoralDetail();
 }
 
 function renderDefinitionList(id, rows) {
@@ -244,7 +294,18 @@ function renderPastoralCareRecords(records) {
   });
 }
 
-function closePastoralDetail() {
+function closePastoralDetail(memberId) {
+  pastoralOpenDetails = pastoralOpenDetails.filter(item => String(item.member?.memberId) !== String(memberId));
+  if (String(pastoralActiveDetailId) === String(memberId)) {
+    pastoralActiveDetailId = pastoralOpenDetails[0]?.member?.memberId || null;
+  }
+  renderPastoralDetailTabs();
+  renderActivePastoralDetail();
+}
+
+function closePastoralDetailPanel() {
+  pastoralOpenDetails = [];
+  pastoralActiveDetailId = null;
   document.getElementById('pastoralDetailPanel').classList.add('d-none');
 }
 

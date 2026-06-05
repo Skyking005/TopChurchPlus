@@ -2,6 +2,7 @@
 <script>
 let systemUsers = [];
 let featurePermissions = [];
+let systemPastoralOptions = null;
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -24,6 +25,7 @@ const SYSTEM_ROLE_OPTIONS = ['超級管理者','管理員','全職同工','技�
 
 function openSystemManagement() {
   if (!currentUser || !currentUser.isSuperAdmin) return;
+  recordFeatureUsage('system');
   document.getElementById('mainTitle').textContent = '系統管理';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
@@ -210,7 +212,8 @@ function loadSystemUsers() {
   const roleError = document.getElementById('systemRoleError');
   if (userError) userError.textContent = '';
   if (roleError) roleError.textContent = '';
-  google.script.run.withSuccessHandler(users => { systemUsers = users || []; renderSystemUsers(); renderRoleUserSelect(); renderSelectedUserRoles(); })
+  setListLoading('systemUserTableBody', true);
+  google.script.run.withSuccessHandler(users => { systemUsers = users || []; renderSystemUsers(); renderRoleUserSelect(); renderSelectedUserRoles(); renderPastoralPermissionUserSelect(); renderSelectedPastoralChurchPermissions(); })
     .withFailureHandler(err => { if (userError) userError.textContent = err.message || err; if (roleError) roleError.textContent = err.message || err; })
     .getSystemUsers(currentUser);
 }
@@ -309,9 +312,89 @@ function reloadInitialDataOnly() {
   google.script.run.withSuccessHandler(data => { initialData = data; renderSystemPositionOptions(); featurePermissions = data.featurePermissions || []; }).withFailureHandler(showError).getInitialData();
 }
 
+function loadPastoralPermissionOptions() {
+  const errorBox = document.getElementById('pastoralPermissionError');
+  if (errorBox) errorBox.textContent = '';
+  if (systemPastoralOptions) {
+    if (!systemUsers.length) loadSystemUsers();
+    renderPastoralPermissionUserSelect();
+    renderSelectedPastoralChurchPermissions();
+    return;
+  }
+  google.script.run
+    .withSuccessHandler(options => {
+      systemPastoralOptions = options || { churches: [] };
+      if (!systemUsers.length) loadSystemUsers();
+      renderPastoralPermissionUserSelect();
+      renderSelectedPastoralChurchPermissions();
+    })
+    .withFailureHandler(err => { if (errorBox) errorBox.textContent = err.message || err; })
+    .getPastoralOptions(currentUser);
+}
+
+function renderPastoralPermissionUserSelect() {
+  const select = document.getElementById('pastoralPermissionUserSelect');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = '';
+  systemUsers.forEach(user => {
+    const opt = document.createElement('option');
+    opt.value = user.staffId;
+    opt.textContent = formatAccountName(user);
+    select.appendChild(opt);
+  });
+  if (currentValue && [...select.options].some(opt => opt.value === currentValue)) select.value = currentValue;
+}
+
+function renderSelectedPastoralChurchPermissions() {
+  const select = document.getElementById('pastoralPermissionUserSelect');
+  const group = document.getElementById('pastoralChurchPermissionGroup');
+  if (!select || !group || !systemPastoralOptions) return;
+  const user = systemUsers.find(item => String(item.staffId) === String(select.value));
+  const selected = new Set((user?.pastoralChurchIds || []).map(String));
+  group.innerHTML = '';
+
+  (systemPastoralOptions.churches || []).forEach(church => {
+    const id = `pastoral_church_permission_${church.id}`;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'form-check';
+    wrapper.innerHTML = `
+      <input class="form-check-input pastoral-church-permission-checkbox" type="checkbox" id="${escapeAttr(id)}" value="${escapeAttr(church.id)}" ${selected.has(String(church.id)) ? 'checked' : ''}>
+      <label class="form-check-label" for="${escapeAttr(id)}">${escapeHtml(church.name)} ${church.churchType ? `(${escapeHtml(church.churchType)})` : ''}</label>
+    `;
+    group.appendChild(wrapper);
+  });
+}
+
+function saveSelectedPastoralChurchPermissions() {
+  const select = document.getElementById('pastoralPermissionUserSelect');
+  const btn = document.getElementById('savePastoralChurchPermissionsBtn');
+  const errorBox = document.getElementById('pastoralPermissionError');
+  if (!select || !select.value) return;
+  const churchIds = [...document.querySelectorAll('.pastoral-church-permission-checkbox:checked')].map(el => Number(el.value));
+  const staffId = select.value;
+  errorBox.textContent = '';
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      systemUsers = res.users || systemUsers;
+      alert(res.message);
+      renderPastoralPermissionUserSelect();
+      select.value = String(staffId);
+      renderSelectedPastoralChurchPermissions();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .savePastoralChurchPermissions({ currentUser, staffId, churchIds });
+}
+
 function loadFeaturePermissions() {
   const errorBox = document.getElementById('featurePermissionError');
   if (errorBox) errorBox.textContent = '';
+  setListLoading('featurePermissionBody', true);
   google.script.run
     .withSuccessHandler(items => {
       featurePermissions = items || [];

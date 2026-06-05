@@ -9,6 +9,7 @@
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#locationManagePane" onclick="loadLocationItems()">位置管理</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userManagePane" onclick="loadSystemUsers()">使用者管理</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">使用者權限設置</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#pastoralPermissionPane" onclick="loadPastoralPermissionOptions()">牧養資料權限</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#featurePermissionPane" onclick="loadFeaturePermissions()">權限管理</button></li>
   </ul>
 
@@ -62,6 +63,16 @@
         <div class="col-md-12 text-end"><button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">儲存權限</button></div>
       </div></div></div>
       <div id="systemRoleError" class="text-danger small mb-2"></div>
+    </div>
+
+    <div id="pastoralPermissionPane" class="tab-pane fade">
+      <div class="card mb-3"><div class="card-body"><div class="row g-3">
+        <div class="col-md-4"><label class="form-label">使用者</label><select id="pastoralPermissionUserSelect" class="form-select" onchange="renderSelectedPastoralChurchPermissions()"></select></div>
+        <div class="col-md-8"><label class="form-label">可檢視會堂</label><div id="pastoralChurchPermissionGroup" class="checkbox-group"></div></div>
+        <div class="col-md-12 text-end"><button id="savePastoralChurchPermissionsBtn" type="button" class="btn btn-primary" onclick="saveSelectedPastoralChurchPermissions()">儲存牧養資料權限</button></div>
+      </div></div></div>
+      <div id="pastoralPermissionError" class="text-danger small mb-2"></div>
+      <div class="text-muted small">未設定會堂時，該使用者無法檢視牧養會友資料；管理員與超級管理者預設可檢視全部。</div>
     </div>
 
     <div id="featurePermissionPane" class="tab-pane fade">

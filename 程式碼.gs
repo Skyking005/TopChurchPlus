@@ -245,6 +245,18 @@ function saveSystemUserRoles(payload) {
   );
 }
 
+function savePastoralChurchPermissions(payload) {
+  return apiRequest(
+    'put',
+    `/system/users/${encodeURIComponent(payload.staffId)}/pastoral-churches`,
+    payload
+  );
+}
+
+function recordSystemUsage(payload) {
+  return apiRequest('post', '/usage', payload);
+}
+
 function getFeaturePermissions(currentUser) {
   return apiRequest('get', '/system/feature-permissions', null, null, currentUser);
 }

@@ -1,6 +1,7 @@
 <script>
 function loadProjects() {
     lockActionButtons();
+    setListLoading(['projectTableBody', 'mobileProjectList'], true);
 
     const filters = {
       keyword: document.getElementById('searchKeyword').value,
@@ -18,6 +19,7 @@ function loadProjects() {
       })
       .withFailureHandler(err => {
         unlockActionButtons();
+        setListLoading(['projectTableBody', 'mobileProjectList'], false);
         showError(err);
       })
       .getProjects(filters);

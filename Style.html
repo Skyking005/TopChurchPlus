@@ -161,9 +161,9 @@
 
   .feature-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    max-width: 860px;
+    max-width: 1120px;
     margin: 48px auto;
   }
 
@@ -209,6 +209,21 @@
     font-weight: 700;
   }
 
+  .feature-hint {
+    display: block;
+    margin-top: 12px;
+    color: #198754;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .list-loading-cell,
+  .list-loading-box {
+    color: #667085;
+    text-align: center;
+    padding: 24px !important;
+  }
+
   .feature-empty {
     grid-column: 1 / -1;
     background: #fff;
@@ -230,6 +245,11 @@
 
     .mobile-only {
       display: block;
+    }
+
+    .feature-grid {
+      grid-template-columns: 1fr;
+      margin: 24px auto;
     }
 
     #addProjectBtn,

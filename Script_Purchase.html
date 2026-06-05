@@ -7,25 +7,17 @@ let expenseProofModalInstance = null;
 let paymentModalInstance = null;
 
 function loadPurchaseSystem() {
-  google.script.run
-    .withSuccessHandler(data => {
-      initialData = data;
-      setupPurchaseOptions();
-      loadPurchases();
-    })
-    .withFailureHandler(showError)
-    .getInitialData();
+  preloadInitialData(() => {
+    setupPurchaseOptions();
+    loadPurchases();
+  });
 }
 
 function ensurePurchaseOptionsReady(callback) {
-  google.script.run
-    .withSuccessHandler(data => {
-      initialData = data;
-      setupPurchaseOptions();
-      if (callback) callback();
-    })
-    .withFailureHandler(showError)
-    .getInitialData();
+  preloadInitialData(() => {
+    setupPurchaseOptions();
+    if (callback) callback();
+  });
 }
 
 function setupPurchaseOptions() {
@@ -139,6 +131,7 @@ function getPaymentMethods() {
 }
 
 function loadPurchases() {
+  setListLoading(['purchaseTableBody', 'mobilePurchaseList'], true);
   google.script.run
     .withSuccessHandler(rows => {
       allPurchases = rows || [];

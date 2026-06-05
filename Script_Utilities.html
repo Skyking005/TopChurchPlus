@@ -29,8 +29,30 @@ function backToOverview() {
     return escapeHtml(text);
   }
 
-  function showError(err) {
+function showError(err) {
     alert(err.message || err);
+  }
+  function setListLoading(targetIds, isLoading, message = '資料載入中...') {
+    const ids = Array.isArray(targetIds) ? targetIds : [targetIds];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (isLoading) {
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'tbody') {
+          const colCount = el.closest('table')?.querySelectorAll('thead th').length || 1;
+          el.innerHTML = `<tr><td colspan="${colCount}" class="list-loading-cell"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</td></tr>`;
+        } else {
+          el.innerHTML = `<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</div>`;
+        }
+      }
+    });
+  }
+
+  function setPageBusy(id, isBusy) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('is-loading', Boolean(isBusy));
   }
   function setButtonLoading(button, isLoading, loadingText = '處理中...') {
   if (!button) return;
