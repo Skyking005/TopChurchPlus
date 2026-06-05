@@ -1,17 +1,38 @@
 <script>
 let lineBotDashboard = null;
+let lineBotActiveTab = 'dashboard';
+let lineBotUsersState = { page: 1, pageSize: 20, total: 0, rows: [] };
+let lineBotLinksState = { page: 1, pageSize: 20, total: 0, rows: [] };
+let lineBotEventsState = { page: 1, pageSize: 20, total: 0, rows: [] };
+let lineBotModules = [];
 
 function openLineBotSystem() {
   recordFeatureUsage('linebot');
   document.getElementById('mainTitle').textContent = 'LINE BOT 管理系統';
   hideAllMainViews();
   document.getElementById('lineBotView').classList.remove('d-none');
+  switchLineBotTab('dashboard');
   loadLineBotDashboard();
+}
+
+function switchLineBotTab(tab) {
+  lineBotActiveTab = tab;
+  document.querySelectorAll('[data-linebot-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.linebotTab === tab);
+  });
+  ['dashboard', 'users', 'links', 'modules', 'events'].forEach(key => {
+    document.getElementById(`lineBot${capitalizeLineBotKey(key)}Pane`).classList.toggle('d-none', key !== tab);
+  });
+  if (tab === 'users') loadLineBotUsers(lineBotUsersState.page || 1);
+  if (tab === 'links') loadLineBotLinks(lineBotLinksState.page || 1);
+  if (tab === 'modules') loadLineBotModules();
+  if (tab === 'events') loadLineBotEvents(lineBotEventsState.page || 1);
 }
 
 function loadLineBotDashboard() {
   document.getElementById('lineBotBoundMembers').textContent = '...';
   document.getElementById('lineBotUsers').textContent = '...';
+  document.getElementById('lineBotActiveLinks').textContent = '...';
   document.getElementById('lineBotLastInteraction').textContent = '...';
   setListLoading('lineBotChurchStatsBody', true, 'LINE 綁定資料載入中...');
   google.script.run
@@ -26,9 +47,10 @@ function loadLineBotDashboard() {
 function renderLineBotDashboard() {
   document.getElementById('lineBotBoundMembers').textContent = lineBotDashboard.boundMemberCount || 0;
   document.getElementById('lineBotUsers').textContent = lineBotDashboard.lineUserCount || 0;
+  document.getElementById('lineBotActiveLinks').textContent = lineBotDashboard.activeLinkCount || 0;
   document.getElementById('lineBotLastInteraction').textContent = formatLineBotDateTime(lineBotDashboard.lastInteractionAt) || '尚無互動';
   renderLineBotChurchStats(lineBotDashboard.churchStats || []);
-  renderLineBotFeatureList(lineBotDashboard.features || []);
+  renderLineBotFeatureList(lineBotDashboard.features?.rows || lineBotDashboard.features || [], 'lineBotFeatureList', false);
 }
 
 function renderLineBotChurchStats(rows) {
@@ -51,8 +73,166 @@ function renderLineBotChurchStats(rows) {
   });
 }
 
-function renderLineBotFeatureList(features) {
-  const box = document.getElementById('lineBotFeatureList');
+function loadLineBotUsers(page = 1) {
+  lineBotUsersState.page = page;
+  setListLoading('lineBotUsersBody', true, 'LINE 綁定名單載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotUsersState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderLineBotUsers();
+    })
+    .withFailureHandler(showError)
+    .getLineBotUsers({
+      keyword: document.getElementById('lineBotUserKeyword').value,
+      binding: document.getElementById('lineBotUserBinding').value,
+      page,
+      pageSize: 20
+    }, currentUser);
+}
+
+function renderLineBotUsers() {
+  const body = document.getElementById('lineBotUsersBody');
+  body.innerHTML = '';
+  if (!lineBotUsersState.rows.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">沒有符合條件的會友綁定資料</td></tr>';
+  } else {
+    lineBotUsersState.rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(row.memberName || '')}</td>
+        <td>${escapeHtml(row.churchName || '')}</td>
+        <td>${escapeHtml(row.lineDisplayName || '')}</td>
+        <td><code>${escapeHtml(row.lineUserId || '未綁定')}</code></td>
+        <td>${escapeHtml(formatLineBotDateTime(row.lastInteractionAt) || '')}</td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+  renderLineBotPager('lineBotUsersPager', lineBotUsersState, 'loadLineBotUsers');
+}
+
+function loadLineBotLinks(page = 1) {
+  lineBotLinksState.page = page;
+  setListLoading('lineBotLinksBody', true, 'LINE 連結載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotLinksState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderLineBotLinks();
+    })
+    .withFailureHandler(showError)
+    .getLineBotLinks({
+      keyword: document.getElementById('lineBotLinkKeyword').value,
+      page,
+      pageSize: 20
+    }, currentUser);
+}
+
+function renderLineBotLinks() {
+  const body = document.getElementById('lineBotLinksBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = '';
+  document.getElementById('saveLineBotLinkBtn').classList.toggle('d-none', !canEdit);
+  if (!lineBotLinksState.rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚無 LINE 連結</td></tr>';
+  } else {
+    lineBotLinksState.rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(row.title)}</td>
+        <td><a href="${escapeAttr(row.url)}" target="_blank" rel="noopener">${escapeHtml(truncateLineBotText(row.url, 54))}</a></td>
+        <td>${escapeHtml(formatLineBotLinkType(row.linkType))}</td>
+        <td>${escapeHtml(formatLineBotVisibility(row.visibility))}</td>
+        <td>${row.isActive ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
+        <td>
+          ${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotLink('${escapeAttr(row.linkId)}')">編輯</button>` : ''}
+          ${canEdit && row.isActive ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteLineBotLinkItem('${escapeAttr(row.linkId)}')">停用</button>` : ''}
+        </td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+  renderLineBotPager('lineBotLinksPager', lineBotLinksState, 'loadLineBotLinks');
+}
+
+function submitLineBotLink() {
+  const btn = document.getElementById('saveLineBotLinkBtn');
+  const errorBox = document.getElementById('lineBotLinkError');
+  errorBox.textContent = '';
+  const linkId = document.getElementById('lineBotLinkId').value;
+  const link = {
+    linkId,
+    title: document.getElementById('lineBotLinkTitle').value.trim(),
+    url: document.getElementById('lineBotLinkUrl').value.trim(),
+    linkType: document.getElementById('lineBotLinkType').value,
+    visibility: document.getElementById('lineBotLinkVisibility').value,
+    note: document.getElementById('lineBotLinkNote').value.trim(),
+    sortOrder: Number(document.getElementById('lineBotLinkSortOrder').value || 100),
+    isActive: document.getElementById('lineBotLinkIsActive').checked
+  };
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      resetLineBotLinkForm();
+      loadLineBotLinks(1);
+      alert(res.message);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveLineBotLink({ linkId, link, currentUser });
+}
+
+function editLineBotLink(linkId) {
+  const row = lineBotLinksState.rows.find(item => String(item.linkId) === String(linkId));
+  if (!row) return;
+  document.getElementById('lineBotLinkId').value = row.linkId;
+  document.getElementById('lineBotLinkTitle').value = row.title || '';
+  document.getElementById('lineBotLinkUrl').value = row.url || '';
+  document.getElementById('lineBotLinkType').value = row.linkType || 'form';
+  document.getElementById('lineBotLinkVisibility').value = row.visibility || 'public';
+  document.getElementById('lineBotLinkNote').value = row.note || '';
+  document.getElementById('lineBotLinkSortOrder').value = row.sortOrder || 100;
+  document.getElementById('lineBotLinkIsActive').checked = row.isActive !== false;
+}
+
+function deleteLineBotLinkItem(linkId) {
+  if (!confirm('確定要停用此 LINE 連結？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadLineBotLinks(lineBotLinksState.page || 1);
+    })
+    .withFailureHandler(showError)
+    .deleteLineBotLink({ linkId, currentUser });
+}
+
+function resetLineBotLinkForm() {
+  document.getElementById('lineBotLinkId').value = '';
+  document.getElementById('lineBotLinkTitle').value = '';
+  document.getElementById('lineBotLinkUrl').value = '';
+  document.getElementById('lineBotLinkType').value = 'form';
+  document.getElementById('lineBotLinkVisibility').value = 'public';
+  document.getElementById('lineBotLinkNote').value = '';
+  document.getElementById('lineBotLinkSortOrder').value = '100';
+  document.getElementById('lineBotLinkIsActive').checked = true;
+}
+
+function loadLineBotModules() {
+  const box = document.getElementById('lineBotModulesBody');
+  box.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>BOT 模組載入中...</div>';
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotModules = data?.rows || [];
+      renderLineBotFeatureList(lineBotModules, 'lineBotModulesBody', getFeatureAccess('linebot') === 'edit');
+    })
+    .withFailureHandler(showError)
+    .getLineBotModules(currentUser);
+}
+
+function renderLineBotFeatureList(features, elementId, editable) {
+  const box = document.getElementById(elementId);
   box.innerHTML = '';
   if (!features.length) {
     box.innerHTML = '<div class="linebot-placeholder">尚未設定 BOT 功能模組。</div>';
@@ -66,10 +246,85 @@ function renderLineBotFeatureList(features) {
         <div class="fw-semibold">${escapeHtml(feature.title)}</div>
         <div class="text-muted small">${escapeHtml(feature.description)}</div>
       </div>
-      <span class="badge ${feature.enabled ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${feature.enabled ? '規劃中' : '未啟用'}</span>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge ${feature.enabled ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${feature.enabled ? '啟用' : '停用'}</span>
+        ${editable ? `<div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ${feature.enabled ? 'checked' : ''} onchange="toggleLineBotModule('${escapeAttr(feature.key)}', this.checked)"></div>` : ''}
+      </div>
     `;
     box.appendChild(item);
   });
+}
+
+function toggleLineBotModule(moduleKey, enabled) {
+  google.script.run
+    .withSuccessHandler(() => loadLineBotModules())
+    .withFailureHandler(showError)
+    .updateLineBotModule({ moduleKey, module: { enabled }, currentUser });
+}
+
+function loadLineBotEvents(page = 1) {
+  lineBotEventsState.page = page;
+  setListLoading('lineBotEventsBody', true, 'LINE 事件紀錄載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotEventsState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderLineBotEvents();
+    })
+    .withFailureHandler(showError)
+    .getLineBotEvents({
+      keyword: document.getElementById('lineBotEventKeyword').value,
+      page,
+      pageSize: 20
+    }, currentUser);
+}
+
+function renderLineBotEvents() {
+  const body = document.getElementById('lineBotEventsBody');
+  body.innerHTML = '';
+  if (!lineBotEventsState.rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚無 LINE webhook 事件紀錄</td></tr>';
+  } else {
+    lineBotEventsState.rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(formatLineBotDateTime(row.receivedAt))}</td>
+        <td>${escapeHtml(row.eventType)}</td>
+        <td>${escapeHtml(row.messageType || '')}</td>
+        <td><code>${escapeHtml(row.lineUserId || '')}</code></td>
+        <td>${escapeHtml(formatLineBotEventStatus(row.handledStatus))}</td>
+        <td>${escapeHtml(row.errorMessage || '')}</td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+  renderLineBotPager('lineBotEventsPager', lineBotEventsState, 'loadLineBotEvents');
+}
+
+function renderLineBotPager(elementId, state, fnName) {
+  const box = document.getElementById(elementId);
+  const page = Number(state.page || 1);
+  const pageSize = Number(state.pageSize || 20);
+  const total = Number(state.total || 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  box.innerHTML = `
+    <div class="text-muted small">共 ${escapeHtml(total)} 筆，第 ${escapeHtml(page)} / ${escapeHtml(totalPages)} 頁</div>
+    <div class="btn-group">
+      <button type="button" class="btn btn-sm btn-outline-secondary" ${page <= 1 ? 'disabled' : ''} onclick="${fnName}(${page - 1})">上一頁</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" ${page >= totalPages ? 'disabled' : ''} onclick="${fnName}(${page + 1})">下一頁</button>
+    </div>
+  `;
+}
+
+function handleLineBotUsersSearchKey(event) {
+  if (event.key === 'Enter') loadLineBotUsers(1);
+}
+
+function handleLineBotLinksSearchKey(event) {
+  if (event.key === 'Enter') loadLineBotLinks(1);
+}
+
+function handleLineBotEventsSearchKey(event) {
+  if (event.key === 'Enter') loadLineBotEvents(1);
 }
 
 function formatLineBotDateTime(value) {
@@ -82,5 +337,26 @@ function formatLineBotDateTime(value) {
   const hh = String(date.getHours()).padStart(2, '0');
   const min = String(date.getMinutes()).padStart(2, '0');
   return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
+}
+
+function capitalizeLineBotKey(value) {
+  return String(value || '').charAt(0).toUpperCase() + String(value || '').slice(1);
+}
+
+function formatLineBotLinkType(value) {
+  return { form: '表單', event: '活動', qt: 'QT', donation: '奉獻', custom: '自訂' }[value] || value || '';
+}
+
+function formatLineBotVisibility(value) {
+  return { public: '公開', members: '會友', staff: '同工' }[value] || value || '';
+}
+
+function formatLineBotEventStatus(value) {
+  return { received: '已接收', handled: '已處理', failed: '失敗' }[value] || value || '';
+}
+
+function truncateLineBotText(value, length) {
+  const text = String(value || '');
+  return text.length > length ? `${text.slice(0, length)}...` : text;
 }
 </script>

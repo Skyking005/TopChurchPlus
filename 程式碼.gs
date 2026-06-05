@@ -352,6 +352,71 @@ function getLineBotDashboard(currentUser) {
   return apiRequest('get', '/linebot/dashboard', null, null, currentUser);
 }
 
+function getLineBotUsers(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/users', null, {
+    keyword: filters.keyword || '',
+    binding: filters.binding || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function getLineBotLinks(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/links', null, {
+    keyword: filters.keyword || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function saveLineBotLink(payload) {
+  const linkId = payload.linkId || payload.link?.linkId || '';
+  if (linkId) {
+    return apiRequest(
+      'put',
+      `/linebot/links/${encodeURIComponent(linkId)}`,
+      { currentUser: payload.currentUser, link: payload.link }
+    );
+  }
+  return apiRequest('post', '/linebot/links', {
+    currentUser: payload.currentUser,
+    link: payload.link
+  });
+}
+
+function deleteLineBotLink(payload) {
+  return apiRequest(
+    'delete',
+    `/linebot/links/${encodeURIComponent(payload.linkId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
+function getLineBotModules(currentUser) {
+  return apiRequest('get', '/linebot/modules', null, null, currentUser);
+}
+
+function updateLineBotModule(payload) {
+  return apiRequest(
+    'put',
+    `/linebot/modules/${encodeURIComponent(payload.moduleKey)}`,
+    { currentUser: payload.currentUser, module: payload.module }
+  );
+}
+
+function getLineBotEvents(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/events', null, {
+    keyword: filters.keyword || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
 function getQtInventoryMovements(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory/movements', null, {

@@ -8,68 +8,215 @@
       <button type="button" class="btn btn-outline-primary" onclick="loadLineBotDashboard()">重新整理</button>
     </div>
 
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-md-4">
-        <div class="linebot-metric">
-          <div class="text-muted small">牧養主檔 LINE 綁定</div>
-          <div id="lineBotBoundMembers" class="linebot-metric-value">-</div>
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item"><button type="button" class="nav-link active" data-linebot-tab="dashboard" onclick="switchLineBotTab('dashboard')">總覽</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="users" onclick="switchLineBotTab('users')">會友綁定</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="links" onclick="switchLineBotTab('links')">LINE 連結</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="modules" onclick="switchLineBotTab('modules')">BOT 模組</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="events" onclick="switchLineBotTab('events')">事件紀錄</button></li>
+    </ul>
+
+    <div id="lineBotDashboardPane">
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+          <div class="linebot-metric">
+            <div class="text-muted small">牧養主檔 LINE 綁定</div>
+            <div id="lineBotBoundMembers" class="linebot-metric-value">-</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <div class="linebot-metric">
+            <div class="text-muted small">LINE 使用者資料表</div>
+            <div id="lineBotUsers" class="linebot-metric-value">-</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <div class="linebot-metric">
+            <div class="text-muted small">啟用連結</div>
+            <div id="lineBotActiveLinks" class="linebot-metric-value">-</div>
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <div class="linebot-metric">
+            <div class="text-muted small">最近互動時間</div>
+            <div id="lineBotLastInteraction" class="linebot-metric-value linebot-metric-date">-</div>
+          </div>
         </div>
       </div>
-      <div class="col-12 col-md-4">
-        <div class="linebot-metric">
-          <div class="text-muted small">LINE 使用者資料表</div>
-          <div id="lineBotUsers" class="linebot-metric-value">-</div>
+
+      <div class="row g-3">
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="linebot-module-title">會堂綁定統計</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>會堂</th>
+                    <th class="text-end">會友數</th>
+                    <th class="text-end">已綁定</th>
+                    <th class="text-end">綁定率</th>
+                  </tr>
+                </thead>
+                <tbody id="lineBotChurchStatsBody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="col-12 col-md-4">
-        <div class="linebot-metric">
-          <div class="text-muted small">最近互動時間</div>
-          <div id="lineBotLastInteraction" class="linebot-metric-value linebot-metric-date">-</div>
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="linebot-module-title">BOT 功能設定</div>
+            <div class="text-muted small mb-3">統一管理 QT 下單、表單入口、場地借用、會友服務等 BOT 模組開關。</div>
+            <div id="lineBotFeatureList" class="linebot-feature-list"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="row g-3">
-      <div class="col-12 col-xl-6">
-        <div class="linebot-module">
-          <div class="linebot-module-title">LINE EDM</div>
-          <div class="text-muted small mb-3">管理分眾名單、訊息草稿、排程與發送紀錄。</div>
-          <div class="linebot-placeholder">功能入口已建立，後續將接入 EDM 範本、發送名單與排程資料。</div>
+    <div id="lineBotUsersPane" class="d-none">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">關鍵字</label>
+          <input id="lineBotUserKeyword" class="form-control" placeholder="姓名、會堂、LINE ID 或顯示名稱" onkeydown="handleLineBotUsersSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">綁定狀態</label>
+          <select id="lineBotUserBinding" class="form-select">
+            <option value="">全部</option>
+            <option value="bound">已綁定</option>
+            <option value="unbound">未綁定</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadLineBotUsers(1)">搜尋</button>
         </div>
       </div>
-      <div class="col-12 col-xl-6">
-        <div class="linebot-module">
-          <div class="linebot-module-title">LINE 連結與會友綁定</div>
-          <div class="text-muted small mb-3">檢視會友 LINE 綁定狀態，處理重複綁定與未綁定名單。</div>
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>會堂</th>
-                  <th class="text-end">會友數</th>
-                  <th class="text-end">已綁定</th>
-                  <th class="text-end">綁定率</th>
-                </tr>
-              </thead>
-              <tbody id="lineBotChurchStatsBody"></tbody>
-            </table>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>會友</th>
+              <th>會堂</th>
+              <th>LINE 顯示名稱</th>
+              <th>LINE User ID</th>
+              <th>最近互動</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotUsersBody"></tbody>
+        </table>
+      </div>
+      <div id="lineBotUsersPager" class="d-flex justify-content-between align-items-center mt-2"></div>
+    </div>
+
+    <div id="lineBotLinksPane" class="d-none">
+      <div class="linebot-module mb-3">
+        <div class="linebot-module-title">新增 / 編輯 LINE 連結</div>
+        <input type="hidden" id="lineBotLinkId">
+        <div class="row g-2">
+          <div class="col-12 col-md-3">
+            <label class="form-label">名稱</label>
+            <input id="lineBotLinkTitle" class="form-control" placeholder="例如：活動報名">
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label">網址</label>
+            <input id="lineBotLinkUrl" class="form-control" placeholder="https://...">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">類型</label>
+            <select id="lineBotLinkType" class="form-select">
+              <option value="form">表單</option>
+              <option value="event">活動</option>
+              <option value="qt">QT</option>
+              <option value="donation">奉獻</option>
+              <option value="custom">自訂</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">可見範圍</label>
+            <select id="lineBotLinkVisibility" class="form-select">
+              <option value="public">公開</option>
+              <option value="members">會友</option>
+              <option value="staff">同工</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">備註</label>
+            <input id="lineBotLinkNote" class="form-control" placeholder="內部管理備註">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">排序</label>
+            <input id="lineBotLinkSortOrder" class="form-control" type="number" value="100">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">狀態</label>
+            <div class="form-check form-switch mt-2">
+              <input id="lineBotLinkIsActive" class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" for="lineBotLinkIsActive">啟用</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-2 d-grid align-self-end">
+            <button type="button" class="btn btn-primary" id="saveLineBotLinkBtn" onclick="submitLineBotLink()">儲存連結</button>
           </div>
         </div>
+        <div id="lineBotLinkError" class="text-danger small mt-2"></div>
       </div>
-      <div class="col-12 col-xl-6">
-        <div class="linebot-module">
-          <div class="linebot-module-title">BOT 功能設定</div>
-          <div class="text-muted small mb-3">統一管理 QT 下單、表單入口、場地借用、會友服務等 BOT 模組開關。</div>
-          <div id="lineBotFeatureList" class="linebot-feature-list"></div>
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-9">
+          <label class="form-label">關鍵字</label>
+          <input id="lineBotLinkKeyword" class="form-control" placeholder="名稱、網址或備註" onkeydown="handleLineBotLinksSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadLineBotLinks(1)">搜尋</button>
         </div>
       </div>
-      <div class="col-12 col-xl-6">
-        <div class="linebot-module">
-          <div class="linebot-module-title">Webhook 與事件紀錄</div>
-          <div class="text-muted small mb-3">集中檢視 LINE BOT webhook 狀態、錯誤事件與最近互動。</div>
-          <div id="lineBotWebhookStatus" class="linebot-placeholder">尚未接入 LINE webhook 事件紀錄。</div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>名稱</th>
+              <th>網址</th>
+              <th>類型</th>
+              <th>可見範圍</th>
+              <th>狀態</th>
+              <th>功能</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotLinksBody"></tbody>
+        </table>
+      </div>
+      <div id="lineBotLinksPager" class="d-flex justify-content-between align-items-center mt-2"></div>
+    </div>
+
+    <div id="lineBotModulesPane" class="d-none">
+      <div id="lineBotModulesBody" class="linebot-feature-list"></div>
+    </div>
+
+    <div id="lineBotEventsPane" class="d-none">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-9">
+          <label class="form-label">關鍵字</label>
+          <input id="lineBotEventKeyword" class="form-control" placeholder="LINE ID、事件類型或錯誤訊息" onkeydown="handleLineBotEventsSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadLineBotEvents(1)">搜尋</button>
         </div>
       </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>事件</th>
+              <th>訊息類型</th>
+              <th>LINE User ID</th>
+              <th>狀態</th>
+              <th>錯誤</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotEventsBody"></tbody>
+        </table>
+      </div>
+      <div id="lineBotEventsPager" class="d-flex justify-content-between align-items-center mt-2"></div>
     </div>
   </div>
 </section>
