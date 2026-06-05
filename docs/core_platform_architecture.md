@@ -8,6 +8,7 @@
 
 - API 模組化骨架：`api/src/app.js`、`api/src/middleware/*`、`api/src/modules/core/*`
 - API 共用層：`api/src/shared/*`，集中使用者解析、系統功能權限、參數讀取、日期與 CSV 格式化
+- 跨系統關聯層：`entity_links`、`domain_events` 與 `api/src/shared/cross-system.js`，支援專案、財務、資產等模組彼此建立來源與衍生關係
 - Auth 模組：`api/src/modules/auth/routes.js`，集中登入、陌生裝置驗證、登入紀錄
 - System 模組：`api/src/modules/system/routes.js`，集中 initial data、使用者管理、權限管理、參數、使用紀錄
 - Pastoral 模組：`api/src/modules/pastoral/routes.js`，集中牧養選項、會友清單、會友詳細資料與會堂資料範圍權限
@@ -75,6 +76,29 @@ app.use(createErrorHandler());
 - 資料欄位轉換逐步放到 `mapper.js`。
 - 輸入檢查逐步放到 `validators.js`。
 - 錯誤統一丟出 `Error`，由 `createErrorHandler()` 回傳 JSON。
+
+## 跨系統關聯
+
+跨模組資料不要直接互相寫死欄位，而是透過 `entity_links` 建立來源與衍生關係，並用 `domain_events` 記錄發生過的系統事件。
+
+目前已落地：
+
+- `project -> finance.purchase`：建立請購時若帶 `sourceProjectId` 或 `sourceEntity`，會建立來源專案關聯。
+- `finance.purchase -> finance.payment_request`：建立請款單時自動建立請購到請款的關聯。
+- `finance.payment_request -> asset.asset`：建立資產時若帶 `sourcePaymentId`，會建立請款到資產的關聯。
+- `finance.purchase -> asset.asset`：建立資產時若帶 `sourcePurchaseId`，會建立請購到資產的關聯。
+
+查詢方式：
+
+```http
+GET /entity-links?system=project&type=project&id=20260606
+```
+
+共用服務：
+
+```js
+const { createEntityLink, recordDomainEvent } = require('../../shared/cross-system');
+```
 
 ## 參數管理建議
 

@@ -1,4 +1,5 @@
 const { pool, tx } = require('../../db');
+const { createEntityLink, recordDomainEvent } = require('../../shared/cross-system');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { assertDesktop, parseUser } = require('../../shared/users');
 const { formatDate } = require('../../shared/format');
@@ -118,7 +119,7 @@ async function getPurchaseDetail(purchaseId) {
 }
 
 async function savePurchase(payload) {
-  const { currentUser, purchase, items = [] } = payload;
+  const { currentUser, purchase, items = [], sourceEntity = null, sourceProjectId = '' } = payload;
   assertDesktop(currentUser);
   if (!purchase['採購摘要']) throw new Error('請填寫採購摘要');
   if (!items.length) throw new Error('請至少新增一筆請購詳情');
@@ -158,6 +159,20 @@ async function savePurchase(payload) {
     );
 
     await replacePurchaseRows(client, 'purchase_items', 'purchase_id', purchaseId, items, insertPurchaseItem);
+    await linkPurchaseSource(client, {
+      currentUser,
+      purchaseId,
+      sourceEntity,
+      sourceProjectId: sourceProjectId || purchase['來源專案編號'] || purchase['專案編號'] || ''
+    });
+    await recordDomainEvent({
+      eventType: isNew ? 'finance.purchase_created' : 'finance.purchase_saved',
+      systemKey: 'finance',
+      entityType: 'purchase',
+      entityId: purchaseId,
+      payload: { totalAmount, itemCount: items.length },
+      currentUser
+    }, client);
     return { success: true, purchaseId, message: isNew ? '採購申請已建立' : '採購申請已儲存' };
   });
 }
@@ -265,8 +280,57 @@ async function savePaymentRequest(purchaseId, payload) {
       ]
     );
     await replacePurchaseRows(client, 'purchase_payment_items', 'payment_id', paymentId, items, insertPaymentItem);
+    await createEntityLink({
+      sourceSystem: 'finance',
+      sourceType: 'purchase',
+      sourceId: purchaseId,
+      targetSystem: 'finance',
+      targetType: 'payment_request',
+      targetId: paymentId,
+      linkType: 'generated',
+      metadata: { totalAmount, itemCount: items.length },
+      currentUser
+    }, client);
+    await recordDomainEvent({
+      eventType: 'finance.payment_request_created',
+      systemKey: 'finance',
+      entityType: 'payment_request',
+      entityId: paymentId,
+      payload: { purchaseId, totalAmount, itemCount: items.length },
+      currentUser
+    }, client);
     return { success: true, paymentId, message: '請款申請已建立' };
   });
+}
+
+async function linkPurchaseSource(client, { currentUser, purchaseId, sourceEntity, sourceProjectId }) {
+  if (sourceEntity && sourceEntity.system && sourceEntity.type && sourceEntity.id) {
+    await createEntityLink({
+      sourceSystem: sourceEntity.system,
+      sourceType: sourceEntity.type,
+      sourceId: sourceEntity.id,
+      targetSystem: 'finance',
+      targetType: 'purchase',
+      targetId: purchaseId,
+      linkType: sourceEntity.linkType || 'created_from',
+      metadata: sourceEntity.metadata || {},
+      currentUser
+    }, client);
+    return;
+  }
+
+  if (!sourceProjectId) return;
+  await createEntityLink({
+    sourceSystem: 'project',
+    sourceType: 'project',
+    sourceId: sourceProjectId,
+    targetSystem: 'finance',
+    targetType: 'purchase',
+    targetId: purchaseId,
+    linkType: 'created_from',
+    metadata: {},
+    currentUser
+  }, client);
 }
 
 function toPurchaseListItem(row) {

@@ -1,4 +1,5 @@
 const { pool, tx } = require('../../db');
+const { createEntityLink, recordDomainEvent } = require('../../shared/cross-system');
 const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../core/catalog');
 
 function registerAssetRoutes(app) {
@@ -26,7 +27,7 @@ function registerAssetRoutes(app) {
   app.post('/assets', async (req, res, next) => {
     try {
       await assertAssetEditable(req.body.currentUser);
-      res.json(await saveAsset(req.body.asset || {}));
+      res.json(await saveAsset(req.body.asset || {}, req.body.currentUser));
     } catch (err) {
       next(err);
     }
@@ -37,7 +38,7 @@ function registerAssetRoutes(app) {
       await assertAssetEditable(req.body.currentUser);
       const asset = req.body.asset || {};
       asset.assetId = req.params.assetId;
-      res.json(await saveAsset(asset));
+      res.json(await saveAsset(asset, req.body.currentUser));
     } catch (err) {
       next(err);
     }
@@ -205,7 +206,7 @@ async function getAsset(assetId) {
   return rows[0];
 }
 
-async function saveAsset(asset) {
+async function saveAsset(asset, currentUser = null) {
   if (!asset.assetName) throw new Error('請填寫設備名稱');
   if (!asset.assetType) throw new Error('請選擇設備類型');
   if (!asset.locationId) throw new Error('請選擇存放位置');
@@ -221,8 +222,9 @@ async function saveAsset(asset) {
     await client.query(
       `INSERT INTO assets (
         asset_id, asset_type, asset_name, brand, model, serial_no,
-        purchase_price, purchase_date, location_id, vendor, status, note, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
+        purchase_price, purchase_date, location_id, vendor, status, note,
+        source_purchase_id, source_payment_id, source_payment_item_id, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())
       ON CONFLICT (asset_id) DO UPDATE SET
         asset_type = EXCLUDED.asset_type,
         asset_name = EXCLUDED.asset_name,
@@ -235,6 +237,9 @@ async function saveAsset(asset) {
         vendor = EXCLUDED.vendor,
         status = EXCLUDED.status,
         note = EXCLUDED.note,
+        source_purchase_id = EXCLUDED.source_purchase_id,
+        source_payment_id = EXCLUDED.source_payment_id,
+        source_payment_item_id = EXCLUDED.source_payment_item_id,
         updated_at = now()`,
       [
         assetId,
@@ -248,12 +253,65 @@ async function saveAsset(asset) {
         asset.locationId,
         asset.vendor || null,
         asset.status || '使用中',
-        asset.note || null
+        asset.note || null,
+        asset.sourcePurchaseId || null,
+        asset.sourcePaymentId || null,
+        asset.sourcePaymentItemId || null
       ]
     );
 
+    await linkAssetSource(client, { asset, assetId, currentUser });
+    await recordDomainEvent({
+      eventType: isNew ? 'asset.asset_created' : 'asset.asset_saved',
+      systemKey: 'asset',
+      entityType: 'asset',
+      entityId: assetId,
+      payload: {
+        assetType: asset.assetType,
+        sourcePurchaseId: asset.sourcePurchaseId || null,
+        sourcePaymentId: asset.sourcePaymentId || null
+      },
+      currentUser
+    }, client);
     return { success: true, assetId, message: isNew ? '資產已建立' : '資產已儲存' };
   });
+}
+
+async function linkAssetSource(client, { asset, assetId, currentUser }) {
+  if (asset.sourcePaymentId) {
+    await createEntityLink({
+      sourceSystem: 'finance',
+      sourceType: 'payment_request',
+      sourceId: asset.sourcePaymentId,
+      targetSystem: 'asset',
+      targetType: 'asset',
+      targetId: assetId,
+      linkType: 'converted_to_asset',
+      metadata: { sourcePaymentItemId: asset.sourcePaymentItemId || null },
+      currentUser
+    }, client);
+
+    await client.query(
+      `INSERT INTO asset_acquisition_links (asset_id, purchase_id, payment_id, payment_item_id)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (asset_id, payment_item_id) DO NOTHING`,
+      [assetId, asset.sourcePurchaseId || null, asset.sourcePaymentId, asset.sourcePaymentItemId || null]
+    );
+  }
+
+  if (asset.sourcePurchaseId) {
+    await createEntityLink({
+      sourceSystem: 'finance',
+      sourceType: 'purchase',
+      sourceId: asset.sourcePurchaseId,
+      targetSystem: 'asset',
+      targetType: 'asset',
+      targetId: assetId,
+      linkType: 'converted_to_asset',
+      metadata: { sourcePaymentId: asset.sourcePaymentId || null },
+      currentUser
+    }, client);
+  }
 }
 
 async function generateAssetId(client, assetType) {
