@@ -135,6 +135,7 @@ VALUES
   ('projectPermissions', '專案權限', 'project', 80),
   ('chargeOptions', '收費選項', 'project', 90),
   ('purchaseStatus', '採購狀態', 'finance', 100),
+  ('purchaseTypes', '採購類型', 'finance', 105),
   ('paymentMethods', '支付方式', 'finance', 110),
   ('departments', '部門', 'system', 120),
   ('assetTypes', '資產類型', 'asset', 130),

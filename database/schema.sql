@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS purchases (
   purchase_id TEXT PRIMARY KEY,
   hall TEXT,
   department TEXT,
+  purchase_type TEXT,
+  project_id TEXT REFERENCES projects(project_id) ON DELETE SET NULL,
   applicant TEXT NOT NULL,
   request_date DATE NOT NULL DEFAULT CURRENT_DATE,
   summary TEXT NOT NULL,
@@ -227,8 +229,10 @@ CREATE TABLE IF NOT EXISTS purchase_payment_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_purchases_keyword ON purchases USING gin (
-  to_tsvector('simple', coalesce(purchase_id, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(applicant, '') || ' ' || coalesce(department, ''))
+  to_tsvector('simple', coalesce(purchase_id, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(applicant, '') || ' ' || coalesce(purchase_type, department, '') || ' ' || coalesce(project_id, ''))
 );
+CREATE INDEX IF NOT EXISTS idx_purchases_purchase_type ON purchases(purchase_type);
+CREATE INDEX IF NOT EXISTS idx_purchases_project_id ON purchases(project_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_items_purchase_id ON purchase_items(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_advances_purchase_id ON purchase_advances(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_purchase_expense_proofs_purchase_id ON purchase_expense_proofs(purchase_id);
@@ -241,6 +245,10 @@ INSERT INTO params (category, value, sort_order) VALUES
   ('chargeOptions', '否', 2),
   ('purchaseStatus', '申請中', 1),
   ('purchaseStatus', '已結案', 2),
+  ('purchaseTypes', '專案採購', 1),
+  ('purchaseTypes', '一般採購', 2),
+  ('purchaseTypes', '維修採購', 3),
+  ('purchaseTypes', '其他採購', 4),
   ('paymentMethods', '已匯款交付借款人', 1),
   ('paymentMethods', '逕行匯款給廠商', 2),
   ('paymentMethods', '以現金交付借款人', 3),

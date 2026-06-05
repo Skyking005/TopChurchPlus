@@ -5,7 +5,7 @@
             <div class="row g-2 align-items-end">
               <div class="col-md-8">
                 <label class="form-label">關鍵字</label>
-                <input id="purchaseSearchKeyword" class="form-control" placeholder="搜尋採購編號、摘要、申請人、部門">
+                <input id="purchaseSearchKeyword" class="form-control" placeholder="搜尋採購編號、摘要、申請人、採購類型、專案編號">
               </div>
               <div class="col-md-2 d-grid">
                 <button class="btn btn-primary" onclick="loadPurchases()">搜尋</button>
@@ -74,8 +74,12 @@
                 <select id="purchaseHall" class="form-select purchase-input"></select>
               </div>
               <div class="col-md-3">
-                <label class="form-label">部門</label>
-                <select id="purchaseDepartment" class="form-select purchase-input"></select>
+                <label class="form-label">採購類型</label>
+                <select id="purchaseType" class="form-select purchase-input" onchange="togglePurchaseProjectField()"></select>
+              </div>
+              <div class="col-md-3 d-none" id="purchaseProjectField">
+                <label class="form-label">專案編號</label>
+                <select id="purchaseProjectId" class="form-select purchase-input"></select>
               </div>
               <div class="col-md-3">
                 <label class="form-label">申請人</label>

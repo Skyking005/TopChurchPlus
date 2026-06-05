@@ -5,10 +5,14 @@ let currentPurchaseDetail = null;
 let advanceModalInstance = null;
 let expenseProofModalInstance = null;
 let paymentModalInstance = null;
+let purchaseProjectOptions = [];
+
+const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
 
 function loadPurchaseSystem() {
   preloadInitialData(() => {
     setupPurchaseOptions();
+    loadPurchaseProjectOptions();
     loadPurchases();
   });
 }
@@ -23,20 +27,24 @@ function ensurePurchaseOptionsReady(callback) {
 function setupPurchaseOptions() {
   const params = initialData.params || {};
   const currentHall = document.getElementById('purchaseHall') ? document.getElementById('purchaseHall').value : '';
-  const currentDepartment = document.getElementById('purchaseDepartment') ? document.getElementById('purchaseDepartment').value : '';
+  const currentType = document.getElementById('purchaseType') ? document.getElementById('purchaseType').value : '';
+  const currentProjectId = document.getElementById('purchaseProjectId') ? document.getElementById('purchaseProjectId').value : '';
   const currentApplicant = document.getElementById('purchaseApplicant') ? document.getElementById('purchaseApplicant').value : '';
   const units = normalizeOptionList(params.units);
-  const departments = normalizeOptionList(params.departments).length ? normalizeOptionList(params.departments) : getDefaultDepartments();
+  const purchaseTypes = normalizeOptionList(params.purchaseTypes).length ? normalizeOptionList(params.purchaseTypes) : PURCHASE_TYPES;
 
   fillSelectWithPlaceholder('purchaseHall', units, '請選擇會堂', '尚未建立會堂參數');
-  fillSelectWithPlaceholder('purchaseDepartment', departments, '請選擇部門', '尚未建立部門參數');
+  fillSelectWithPlaceholder('purchaseType', purchaseTypes, '請選擇採購類型', '尚未建立採購類型');
+  fillPurchaseProjectSelect();
   fillPurchaseApplicantSelect();
   fillSelect('advancePaymentMethod', getAdvancePaymentMethods(), false);
   fillSelect('paymentMethod', getPaymentMethods(), false);
   setSelectValue('purchaseHall', currentHall);
-  setSelectValue('purchaseDepartment', currentDepartment);
+  setSelectValue('purchaseType', currentType || '一般採購');
+  setSelectValue('purchaseProjectId', currentProjectId);
   setSelectValue('purchaseApplicant', currentApplicant);
-  updatePurchaseOptionsStatus(units.length, departments.length, (initialData.accounts || []).length);
+  togglePurchaseProjectField();
+  updatePurchaseOptionsStatus(units.length, purchaseTypes.length, (initialData.accounts || []).length);
 }
 
 function normalizeOptionList(values) {
@@ -75,17 +83,50 @@ function setSelectValue(id, value) {
   select.value = value;
 }
 
-function updatePurchaseOptionsStatus(unitCount, departmentCount, accountCount) {
+function updatePurchaseOptionsStatus(unitCount, purchaseTypeCount, accountCount) {
   const status = document.getElementById('purchaseOptionsStatus');
   if (!status) return;
 
-  status.textContent = `下拉資料：會堂 ${unitCount} 筆，部門 ${departmentCount} 筆，申請人 ${accountCount} 筆`;
-  status.classList.toggle('text-danger', unitCount === 0 || departmentCount === 0 || accountCount === 0);
-  status.classList.toggle('text-muted', unitCount > 0 && departmentCount > 0 && accountCount > 0);
+  status.textContent = '';
+  status.classList.toggle('text-danger', unitCount === 0 || purchaseTypeCount === 0 || accountCount === 0);
+  status.classList.toggle('text-muted', unitCount > 0 && purchaseTypeCount > 0 && accountCount > 0);
 }
 
-function getDefaultDepartments() {
-  return ['秘書部', '牧養部', '教育部', '行政部', '財務部', '資訊部', '技術部', '媒體部'];
+function loadPurchaseProjectOptions() {
+  google.script.run
+    .withSuccessHandler(rows => {
+      purchaseProjectOptions = rows || [];
+      fillPurchaseProjectSelect();
+    })
+    .withFailureHandler(() => {
+      purchaseProjectOptions = [];
+      fillPurchaseProjectSelect();
+    })
+    .getProjects({ currentUser }, currentUser);
+}
+
+function fillPurchaseProjectSelect() {
+  const select = document.getElementById('purchaseProjectId');
+  if (!select) return;
+
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">請選擇專案編號</option>';
+  purchaseProjectOptions.forEach(project => {
+    const option = document.createElement('option');
+    option.value = project.projectId || '';
+    option.textContent = [project.projectId, project.projectName].filter(Boolean).join(' ');
+    select.appendChild(option);
+  });
+  setSelectValue('purchaseProjectId', currentValue);
+}
+
+function togglePurchaseProjectField() {
+  const type = document.getElementById('purchaseType') ? document.getElementById('purchaseType').value : '';
+  const field = document.getElementById('purchaseProjectField');
+  const projectSelect = document.getElementById('purchaseProjectId');
+  const needsProject = type === '專案採購';
+  if (field) field.classList.toggle('d-none', !needsProject);
+  if (projectSelect && !needsProject) projectSelect.value = '';
 }
 
 function fillPurchaseApplicantSelect() {
@@ -244,7 +285,9 @@ function renderPurchaseDetail(data) {
   document.getElementById('purchaseId').value = p['採購編號'] || '';
   setupPurchaseOptions();
   setSelectValue('purchaseHall', p['會堂'] || '');
-  setSelectValue('purchaseDepartment', p['部門'] || '');
+  setSelectValue('purchaseType', p['採購類型'] || p['部門'] || '一般採購');
+  setSelectValue('purchaseProjectId', p['專案編號'] || '');
+  togglePurchaseProjectField();
   setSelectValue('purchaseApplicant', p['申請人'] || getCurrentUserNameWithPosition());
   document.getElementById('purchaseRequestDate').value = p['申請日期'] || todayString();
   document.getElementById('purchaseStatus').value = p['請購狀態'] || '申請中';
@@ -313,7 +356,8 @@ function collectPurchase() {
   return {
     '採購編號': document.getElementById('purchaseId').value,
     '會堂': document.getElementById('purchaseHall').value,
-    '部門': document.getElementById('purchaseDepartment').value,
+    '採購類型': document.getElementById('purchaseType').value,
+    '專案編號': document.getElementById('purchaseProjectId').value,
     '申請人': document.getElementById('purchaseApplicant').value,
     '申請日期': document.getElementById('purchaseRequestDate').value,
     '採購摘要': document.getElementById('purchaseSummary').value.trim(),
@@ -328,6 +372,7 @@ function saveCurrentPurchase() {
   const items = collectPurchaseItems();
 
   if (!purchase['採購摘要']) return alert('請填寫採購摘要');
+  if (purchase['採購類型'] === '專案採購' && !purchase['專案編號']) return alert('專案採購請選擇專案編號');
   if (!items.length) return alert('請至少新增一筆請購詳情');
 
   setButtonLoading(btn, true, '保存中...');

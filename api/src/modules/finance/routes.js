@@ -4,6 +4,8 @@ const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/p
 const { assertDesktop, parseUser } = require('../../shared/users');
 const { formatDate } = require('../../shared/format');
 
+const PURCHASE_TYPES = ['專案採購', '一般採購', '維修採購', '其他採購'];
+
 function registerFinanceRoutes(app) {
   app.get('/purchases', async (req, res, next) => {
   try {
@@ -14,11 +16,17 @@ function registerFinanceRoutes(app) {
 
     if (keyword) {
       values.push(`%${keyword}%`);
-      where.push(`(lower(purchase_id) LIKE $${values.length} OR lower(summary) LIKE $${values.length} OR lower(applicant) LIKE $${values.length} OR lower(department) LIKE $${values.length})`);
+      where.push(`(
+        lower(purchase_id) LIKE $${values.length}
+        OR lower(summary) LIKE $${values.length}
+        OR lower(applicant) LIKE $${values.length}
+        OR lower(coalesce(purchase_type, department, '')) LIKE $${values.length}
+        OR lower(coalesce(project_id, '')) LIKE $${values.length}
+      )`);
     }
 
     const { rows } = await pool.query(
-      `SELECT purchase_id, summary, status, total_amount
+      `SELECT purchase_id, summary, status, total_amount, purchase_type, project_id
        FROM purchases
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        ORDER BY purchase_id DESC`,
@@ -123,6 +131,9 @@ async function savePurchase(payload) {
   assertDesktop(currentUser);
   if (!purchase['採購摘要']) throw new Error('請填寫採購摘要');
   if (!items.length) throw new Error('請至少新增一筆請購詳情');
+  const purchaseType = normalizePurchaseType(purchase);
+  const projectId = String(purchase['專案編號'] || purchase.projectId || '').trim();
+  if (purchaseType === '專案採購' && !projectId) throw new Error('專案採購請選擇專案編號');
 
   return tx(async client => {
     let purchaseId = purchase['採購編號'];
@@ -132,11 +143,13 @@ async function savePurchase(payload) {
     const totalAmount = items.reduce((sum, row) => sum + Number(row['總價'] || 0), 0);
     await client.query(
       `INSERT INTO purchases (
-        purchase_id, hall, department, applicant, request_date, summary, reason, status, total_amount, created_by, updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
+        purchase_id, hall, department, purchase_type, project_id, applicant, request_date, summary, reason, status, total_amount, created_by, updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,now())
       ON CONFLICT (purchase_id) DO UPDATE SET
         hall = EXCLUDED.hall,
         department = EXCLUDED.department,
+        purchase_type = EXCLUDED.purchase_type,
+        project_id = EXCLUDED.project_id,
         applicant = EXCLUDED.applicant,
         request_date = EXCLUDED.request_date,
         summary = EXCLUDED.summary,
@@ -148,6 +161,8 @@ async function savePurchase(payload) {
         purchaseId,
         purchase['會堂'] || '',
         purchase['部門'] || '',
+        purchaseType,
+        purchaseType === '專案採購' ? projectId : null,
         purchase['申請人'] || currentUser.name || '',
         purchase['申請日期'] || new Date(),
         purchase['採購摘要'],
@@ -163,7 +178,7 @@ async function savePurchase(payload) {
       currentUser,
       purchaseId,
       sourceEntity,
-      sourceProjectId: sourceProjectId || purchase['來源專案編號'] || purchase['專案編號'] || ''
+      sourceProjectId: sourceProjectId || purchase['來源專案編號'] || (purchaseType === '專案採購' ? projectId : '') || ''
     });
     await recordDomainEvent({
       eventType: isNew ? 'finance.purchase_created' : 'finance.purchase_saved',
@@ -333,12 +348,20 @@ async function linkPurchaseSource(client, { currentUser, purchaseId, sourceEntit
   }, client);
 }
 
+function normalizePurchaseType(purchase) {
+  const value = String(purchase['採購類型'] || purchase.purchaseType || purchase['部門'] || '一般採購').trim();
+  if (!PURCHASE_TYPES.includes(value)) throw new Error('採購類型不正確');
+  return value;
+}
+
 function toPurchaseListItem(row) {
   return {
     purchaseId: row.purchase_id,
     summary: row.summary,
     status: row.status,
-    totalAmount: Number(row.total_amount || 0)
+    totalAmount: Number(row.total_amount || 0),
+    purchaseType: row.purchase_type || row.department || '',
+    projectId: row.project_id || ''
   };
 }
 
@@ -346,7 +369,8 @@ function toPurchaseDetail(row) {
   return {
     '採購編號': row.purchase_id,
     '會堂': row.hall,
-    '部門': row.department,
+    '採購類型': row.purchase_type || row.department || '一般採購',
+    '專案編號': row.project_id || '',
     '申請人': row.applicant,
     '申請日期': formatDate(row.request_date),
     '採購摘要': row.summary,
@@ -443,7 +467,8 @@ function createEmptyPurchase(currentUser) {
     purchase: {
       '採購編號': '',
       '會堂': '',
-      '部門': '',
+      '採購類型': '一般採購',
+      '專案編號': '',
       '申請人': currentUser.name || '',
       '申請日期': today,
       '採購摘要': '',

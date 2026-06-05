@@ -9,6 +9,7 @@ const PARAM_CATEGORIES = {
   projectPermissions: 'projectPermissions',
   chargeOptions: 'chargeOptions',
   purchaseStatus: 'purchaseStatus',
+  purchaseTypes: 'purchaseTypes',
   paymentMethods: 'paymentMethods',
   departments: 'departments',
   assetTypes: 'assetTypes',
