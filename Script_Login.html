@@ -115,6 +115,7 @@ function handleLogin() {
         document.getElementById('loginView').classList.add('d-none');
         document.getElementById('mainView').classList.remove('d-none');
         updateUserInfo(user);
+        startIdleLogoutWatcher();
 
         if (user.deviceType === 'mobile') {
           document.getElementById('addProjectBtn').classList.add('d-none');
@@ -169,7 +170,95 @@ window.addEventListener('load', () => preloadInitialData());
 
 function logout() {
   currentUser = null;
+  stopIdleLogoutWatcher();
   resetAppToLogin();
+}
+
+function startIdleLogoutWatcher() {
+  ensureIdleWarningModal();
+  resetIdleLogoutTimers();
+  ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(eventName => {
+    document.removeEventListener(eventName, handleUserActivity, true);
+    document.addEventListener(eventName, handleUserActivity, true);
+  });
+}
+
+function stopIdleLogoutWatcher() {
+  clearTimeout(idleWarningTimer);
+  clearTimeout(idleLogoutTimer);
+  idleWarningTimer = null;
+  idleLogoutTimer = null;
+  idleWarningVisible = false;
+  ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(eventName => {
+    document.removeEventListener(eventName, handleUserActivity, true);
+  });
+  if (idleWarningModal) idleWarningModal.hide();
+}
+
+function handleUserActivity() {
+  if (!currentUser) return;
+  if (idleWarningVisible && idleWarningModal) {
+    idleWarningVisible = false;
+    idleWarningModal.hide();
+  }
+  resetIdleLogoutTimers();
+}
+
+function resetIdleLogoutTimers() {
+  clearTimeout(idleWarningTimer);
+  clearTimeout(idleLogoutTimer);
+  idleWarningTimer = setTimeout(showIdleWarning, idleWarningMs);
+  idleLogoutTimer = setTimeout(autoLogoutByIdle, idleLogoutMs);
+}
+
+function ensureIdleWarningModal() {
+  if (document.getElementById('idleWarningModal')) {
+    idleWarningModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('idleWarningModal'));
+    return;
+  }
+
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = `
+    <div class="modal fade" id="idleWarningModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">系統閒置提醒</h5>
+          </div>
+          <div class="modal-body">
+            系統已閒置 3 分鐘。若持續沒有操作，將於 5 分鐘閒置時自動登出。
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" onclick="continueIdleSession()">繼續使用</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(wrapper.firstElementChild);
+  idleWarningModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('idleWarningModal'));
+}
+
+function showIdleWarning() {
+  if (!currentUser) return;
+  ensureIdleWarningModal();
+  idleWarningVisible = true;
+  idleWarningModal.show();
+}
+
+function continueIdleSession() {
+  idleWarningVisible = false;
+  if (idleWarningModal) idleWarningModal.hide();
+  resetIdleLogoutTimers();
+}
+
+function autoLogoutByIdle() {
+  if (!currentUser) return;
+  stopIdleLogoutWatcher();
+  currentUser = null;
+  resetAppToLogin();
+  const loginError = document.getElementById('loginError');
+  if (loginError) loginError.textContent = '系統已閒置 5 分鐘，已自動登出。';
 }
 
 function updateUserInfo(user) {

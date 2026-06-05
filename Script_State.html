@@ -9,6 +9,12 @@ let currentUser = null;
   let initialDataPromiseStarted = false;
   let initialDataLoading = false;
   let initialDataCallbacks = [];
+  const idleWarningMs = 3 * 60 * 1000;
+  const idleLogoutMs = 5 * 60 * 1000;
+  let idleWarningTimer = null;
+  let idleLogoutTimer = null;
+  let idleWarningModal = null;
+  let idleWarningVisible = false;
 
   function isMobileDevice() {
     return false;
