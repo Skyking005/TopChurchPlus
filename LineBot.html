@@ -11,7 +11,9 @@
     <ul class="nav nav-tabs mb-3">
       <li class="nav-item"><button type="button" class="nav-link active" data-linebot-tab="dashboard" onclick="switchLineBotTab('dashboard')">總覽</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="users" onclick="switchLineBotTab('users')">會友綁定</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="settings" onclick="switchLineBotTab('settings')">Channel 設定</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="links" onclick="switchLineBotTab('links')">LINE 連結</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="richMenus" onclick="switchLineBotTab('richMenus')">Rich Menu</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="modules" onclick="switchLineBotTab('modules')">BOT 模組</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="events" onclick="switchLineBotTab('events')">事件紀錄</button></li>
     </ul>
@@ -108,6 +110,113 @@
       <div id="lineBotUsersPager" class="d-flex justify-content-between align-items-center mt-2"></div>
     </div>
 
+    <div id="lineBotSettingsPane" class="d-none">
+      <div class="linebot-module mb-3">
+        <div class="linebot-module-title">LINE Channel 與 LIFF 設定</div>
+        <div class="text-muted small mb-3">Token、Secret 與 Client Secret 儲存後只顯示是否已設定；欄位留空時不覆蓋既有秘密值。</div>
+        <input type="hidden" id="lineBotChannelId">
+        <div class="row g-2">
+          <div class="col-12 col-md-2">
+            <label class="form-label">Channel Key</label>
+            <input id="lineBotChannelKey" class="form-control" placeholder="main">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">Channel 名稱</label>
+            <input id="lineBotChannelName" class="form-control" placeholder="卓越小幫手">
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label">類型</label>
+            <select id="lineBotChannelType" class="form-select">
+              <option value="official">官方帳號</option>
+              <option value="staff">同工帳號</option>
+              <option value="test">測試帳號</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label">Webhook URL</label>
+            <input id="lineBotWebhookUrl" class="form-control" placeholder="https://.../linebot/webhook">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Channel Access Token</label>
+            <input id="lineBotChannelAccessToken" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotChannelAccessTokenStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Channel Secret</label>
+            <input id="lineBotChannelSecret" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotChannelSecretStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">LINE Login Client ID</label>
+            <input id="lineBotLoginClientId" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotLoginClientIdStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">LINE Login Client Secret</label>
+            <input id="lineBotLoginClientSecret" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotLoginClientSecretStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">LINE Login Redirect URI</label>
+            <input id="lineBotLoginRedirectUri" class="form-control" placeholder="https://.../line-login/callback">
+          </div>
+          <div class="col-12">
+            <label class="form-label">LIFF ID</label>
+            <div class="row g-2">
+              <div class="col-12 col-md-3"><input id="lineBotLiffRollcall" class="form-control" placeholder="點名系統 LIFF ID"></div>
+              <div class="col-12 col-md-3"><input id="lineBotLiffSpiritualLife" class="form-control" placeholder="屬靈生命 LIFF ID"></div>
+              <div class="col-12 col-md-3"><input id="lineBotLiffSelfCheckIn" class="form-control" placeholder="自助簽到 LIFF ID"></div>
+              <div class="col-12 col-md-3"><input id="lineBotLiffQtOrder" class="form-control" placeholder="QT 訂購 LIFF ID"></div>
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label">預設 Rich Menu ID</label>
+            <div class="row g-2">
+              <div class="col-12 col-md-4"><input id="lineBotRichMenuUnbound" class="form-control" placeholder="未綁定選單 richmenu-..."></div>
+              <div class="col-12 col-md-4"><input id="lineBotRichMenuBound" class="form-control" placeholder="已綁定選單 richmenu-..."></div>
+              <div class="col-12 col-md-4"><input id="lineBotRichMenuAdvanced" class="form-control" placeholder="進階選單 richmenu-..."></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">行政通知 LINE Notify Token</label>
+            <input id="lineBotNotifyAdministrative" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotNotifyAdministrativeStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">上下班提醒 LINE Notify Token</label>
+            <input id="lineBotNotifyCheckInOut" class="form-control" type="password" placeholder="留空則不覆蓋">
+            <div id="lineBotNotifyCheckInOutStatus" class="text-muted small mt-1"></div>
+          </div>
+          <div class="col-12 col-md-3">
+            <div class="form-check form-switch mt-4">
+              <input id="lineBotChannelIsActive" class="form-check-input" type="checkbox" checked>
+              <label class="form-check-label" for="lineBotChannelIsActive">啟用</label>
+            </div>
+          </div>
+          <div class="col-12 col-md-3 d-grid align-self-end">
+            <button type="button" class="btn btn-primary" id="saveLineBotChannelBtn" onclick="submitLineBotChannel()">儲存設定</button>
+          </div>
+        </div>
+        <div id="lineBotChannelError" class="text-danger small mt-2"></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>Channel</th>
+              <th>類型</th>
+              <th>Webhook</th>
+              <th>Token</th>
+              <th>Secret</th>
+              <th>狀態</th>
+              <th>功能</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotChannelsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="lineBotLinksPane" class="d-none">
       <div class="linebot-module mb-3">
         <div class="linebot-module-title">新增 / 編輯 LINE 連結</div>
@@ -189,6 +298,67 @@
 
     <div id="lineBotModulesPane" class="d-none">
       <div id="lineBotModulesBody" class="linebot-feature-list"></div>
+    </div>
+
+    <div id="lineBotRichMenusPane" class="d-none">
+      <div class="linebot-module mb-3">
+        <div class="linebot-module-title">Rich Menu 對應設定</div>
+        <input type="hidden" id="lineBotRichMenuId">
+        <div class="row g-2">
+          <div class="col-12 col-md-3">
+            <label class="form-label">名稱</label>
+            <input id="lineBotRichMenuName" class="form-control" placeholder="例如：已綁定選單">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">LINE Rich Menu ID</label>
+            <input id="lineBotRichMenuLineId" class="form-control" placeholder="richmenu-...">
+          </div>
+          <div class="col-12 col-md-2">
+            <label class="form-label">對象</label>
+            <select id="lineBotRichMenuAudienceType" class="form-select">
+              <option value="unbound">未綁定</option>
+              <option value="bound">已綁定</option>
+              <option value="advanced">進階會友</option>
+              <option value="staff">同工</option>
+              <option value="custom">自訂</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-1">
+            <label class="form-label">排序</label>
+            <input id="lineBotRichMenuSortOrder" class="form-control" type="number" value="100">
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label">狀態</label>
+            <select id="lineBotRichMenuStatus" class="form-select">
+              <option value="draft">草稿</option>
+              <option value="active">啟用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-9">
+            <label class="form-label">對象備註</label>
+            <input id="lineBotRichMenuAudienceNote" class="form-control" placeholder="例如：Newcomer025 = B 或牧養職分條件">
+          </div>
+          <div class="col-12 col-md-3 d-grid align-self-end">
+            <button type="button" class="btn btn-primary" id="saveLineBotRichMenuBtn" onclick="submitLineBotRichMenu()">儲存 Rich Menu</button>
+          </div>
+        </div>
+        <div id="lineBotRichMenuError" class="text-danger small mt-2"></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>名稱</th>
+              <th>LINE Rich Menu ID</th>
+              <th>對象</th>
+              <th>狀態</th>
+              <th>功能</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotRichMenusBody"></tbody>
+        </table>
+      </div>
     </div>
 
     <div id="lineBotEventsPane" class="d-none">

@@ -25,6 +25,36 @@ function registerLineBotRoutes(app) {
     }
   });
 
+  app.get('/linebot/channels', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineBotChannels());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/channels', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineBotChannel(null, req.body.channel || {}));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/linebot/channels/:channelId', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineBotChannel(req.params.channelId, req.body.channel || {}));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/linebot/links', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -71,6 +101,36 @@ function registerLineBotRoutes(app) {
       const currentUser = parseUser(req);
       await assertFeatureReadable(currentUser, 'linebot');
       res.json(await getLineBotModules());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/linebot/rich-menus', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineBotRichMenus());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/rich-menus', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineBotRichMenu(null, req.body.richMenu || {}));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/linebot/rich-menus/:richMenuId', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineBotRichMenu(req.params.richMenuId, req.body.richMenu || {}));
     } catch (err) {
       next(err);
     }
@@ -203,6 +263,53 @@ async function getLineBotUsers(query = {}) {
   };
 }
 
+async function getLineBotChannels() {
+  const result = await pool.query(
+    `SELECT channel_id, channel_key, channel_name, channel_type, webhook_url, liff_base_url,
+       is_active, metadata, created_at, updated_at
+     FROM line_bot_channels
+     ORDER BY is_active DESC, channel_name, channel_key`
+  );
+  return { rows: result.rows.map(mapLineBotChannel) };
+}
+
+async function saveLineBotChannel(channelId, payload) {
+  const normalized = normalizeLineBotChannel(payload);
+  let metadata = normalized.metadata;
+  if (channelId) {
+    const existing = await pool.query('SELECT metadata FROM line_bot_channels WHERE channel_id = $1', [channelId]);
+    if (!existing.rowCount) throw new Error('找不到 LINE Channel 設定');
+    metadata = mergeLineBotSecretMetadata(existing.rows[0].metadata || {}, metadata);
+  }
+  const result = await pool.query(
+    `INSERT INTO line_bot_channels (
+       channel_id, channel_key, channel_name, channel_type, webhook_url, liff_base_url,
+       is_active, metadata, updated_at
+     ) VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5,$6,$7,$8::jsonb,now())
+     ON CONFLICT (channel_key) DO UPDATE SET
+       channel_name = EXCLUDED.channel_name,
+       channel_type = EXCLUDED.channel_type,
+       webhook_url = EXCLUDED.webhook_url,
+       liff_base_url = EXCLUDED.liff_base_url,
+       is_active = EXCLUDED.is_active,
+       metadata = EXCLUDED.metadata,
+       updated_at = now()
+     RETURNING channel_id, channel_key, channel_name, channel_type, webhook_url, liff_base_url,
+       is_active, metadata, created_at, updated_at`,
+    [
+      channelId || null,
+      normalized.channelKey,
+      normalized.channelName,
+      normalized.channelType,
+      normalized.webhookUrl,
+      normalized.liffBaseUrl,
+      normalized.isActive,
+      JSON.stringify(metadata)
+    ]
+  );
+  return { success: true, message: channelId ? 'LINE Channel 設定已更新' : 'LINE Channel 設定已新增', channel: mapLineBotChannel(result.rows[0]) };
+}
+
 async function getLineBotLinks(query = {}) {
   const page = Math.max(1, Number(query.page || 1));
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize || PAGE_SIZE)));
@@ -287,6 +394,53 @@ async function getLineBotModules() {
   };
 }
 
+async function getLineBotRichMenus() {
+  const result = await pool.query(
+    `SELECT rich_menu_id, menu_name, line_rich_menu_id, audience_rule, status, sort_order, created_at, updated_at
+     FROM line_bot_rich_menus
+     ORDER BY sort_order, menu_name`
+  );
+  return {
+    rows: result.rows.map(row => ({
+      richMenuId: row.rich_menu_id,
+      menuName: row.menu_name,
+      lineRichMenuId: row.line_rich_menu_id || '',
+      audienceRule: row.audience_rule || {},
+      audienceType: row.audience_rule?.type || 'bound',
+      status: row.status || 'draft',
+      sortOrder: Number(row.sort_order || 0),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }))
+  };
+}
+
+async function saveLineBotRichMenu(richMenuId, payload) {
+  const richMenu = normalizeLineBotRichMenu(payload);
+  const result = await pool.query(
+    `INSERT INTO line_bot_rich_menus (
+       rich_menu_id, menu_name, line_rich_menu_id, audience_rule, status, sort_order, updated_at
+     ) VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4::jsonb,$5,$6,now())
+     ON CONFLICT (rich_menu_id) DO UPDATE SET
+       menu_name = EXCLUDED.menu_name,
+       line_rich_menu_id = EXCLUDED.line_rich_menu_id,
+       audience_rule = EXCLUDED.audience_rule,
+       status = EXCLUDED.status,
+       sort_order = EXCLUDED.sort_order,
+       updated_at = now()
+     RETURNING rich_menu_id`,
+    [
+      richMenuId || null,
+      richMenu.menuName,
+      richMenu.lineRichMenuId,
+      JSON.stringify(richMenu.audienceRule),
+      richMenu.status,
+      richMenu.sortOrder
+    ]
+  );
+  return { success: true, message: richMenuId ? 'Rich Menu 設定已更新' : 'Rich Menu 設定已新增', richMenuId: result.rows[0].rich_menu_id };
+}
+
 async function updateLineBotModule(moduleKey, payload) {
   const enabled = payload.enabled !== false;
   const result = await pool.query(
@@ -363,6 +517,84 @@ function normalizeLineBotLink(payload) {
   };
 }
 
+function normalizeLineBotChannel(payload) {
+  const channelKey = normalizeKey(payload.channelKey || payload.channel_key || 'main');
+  const channelName = normalizeText(payload.channelName || payload.channel_name);
+  if (!channelKey) throw new Error('請填寫 Channel Key');
+  if (!channelName) throw new Error('請填寫 Channel 名稱');
+  const liffIds = payload.liffIds && typeof payload.liffIds === 'object' ? payload.liffIds : {};
+  const richMenuIds = payload.richMenuIds && typeof payload.richMenuIds === 'object' ? payload.richMenuIds : {};
+  const notifyTokens = payload.notifyTokens && typeof payload.notifyTokens === 'object' ? payload.notifyTokens : {};
+  return {
+    channelKey,
+    channelName,
+    channelType: ['official', 'staff', 'test'].includes(payload.channelType) ? payload.channelType : 'official',
+    webhookUrl: normalizeText(payload.webhookUrl),
+    liffBaseUrl: normalizeText(payload.liffBaseUrl),
+    isActive: payload.isActive !== false,
+    metadata: {
+      channelAccessToken: normalizeText(payload.channelAccessToken),
+      channelSecret: normalizeText(payload.channelSecret),
+      loginClientId: normalizeText(payload.loginClientId),
+      loginClientSecret: normalizeText(payload.loginClientSecret),
+      loginRedirectUri: normalizeText(payload.loginRedirectUri),
+      liffIds: {
+        rollcall: normalizeText(liffIds.rollcall),
+        spiritualLife: normalizeText(liffIds.spiritualLife),
+        selfCheckIn: normalizeText(liffIds.selfCheckIn),
+        qtOrder: normalizeText(liffIds.qtOrder)
+      },
+      richMenuIds: {
+        unbound: normalizeText(richMenuIds.unbound),
+        bound: normalizeText(richMenuIds.bound),
+        advanced: normalizeText(richMenuIds.advanced)
+      },
+      notifyTokens: {
+        administrative: normalizeText(notifyTokens.administrative),
+        checkInOut: normalizeText(notifyTokens.checkInOut)
+      }
+    }
+  };
+}
+
+function mergeLineBotSecretMetadata(existing, incoming) {
+  const merged = {
+    ...existing,
+    ...incoming,
+    liffIds: { ...(incoming.liffIds || {}) },
+    richMenuIds: { ...(incoming.richMenuIds || {}) },
+    notifyTokens: { ...(existing.notifyTokens || {}), ...(incoming.notifyTokens || {}) }
+  };
+  [
+    'channelAccessToken',
+    'channelSecret',
+    'loginClientId',
+    'loginClientSecret'
+  ].forEach(key => {
+    if (!incoming[key]) merged[key] = existing[key] || '';
+  });
+  ['administrative', 'checkInOut'].forEach(key => {
+    if (!incoming.notifyTokens?.[key]) merged.notifyTokens[key] = existing.notifyTokens?.[key] || '';
+  });
+  return merged;
+}
+
+function normalizeLineBotRichMenu(payload) {
+  const menuName = normalizeText(payload.menuName);
+  if (!menuName) throw new Error('請填寫 Rich Menu 名稱');
+  const audienceType = ['unbound', 'bound', 'advanced', 'staff', 'custom'].includes(payload.audienceType) ? payload.audienceType : 'bound';
+  return {
+    menuName,
+    lineRichMenuId: normalizeText(payload.lineRichMenuId),
+    audienceRule: {
+      type: audienceType,
+      note: normalizeText(payload.audienceNote)
+    },
+    status: ['draft', 'active', 'disabled'].includes(payload.status) ? payload.status : 'draft',
+    sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : 100
+  };
+}
+
 function mapLineBotLink(row) {
   return {
     linkId: row.link_id,
@@ -376,6 +608,34 @@ function mapLineBotLink(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function mapLineBotChannel(row) {
+  const metadata = row.metadata || {};
+  return {
+    channelId: row.channel_id,
+    channelKey: row.channel_key,
+    channelName: row.channel_name,
+    channelType: row.channel_type,
+    webhookUrl: row.webhook_url || '',
+    liffBaseUrl: row.liff_base_url || '',
+    isActive: Boolean(row.is_active),
+    loginRedirectUri: metadata.loginRedirectUri || '',
+    liffIds: metadata.liffIds || {},
+    richMenuIds: metadata.richMenuIds || {},
+    hasChannelAccessToken: Boolean(metadata.channelAccessToken),
+    hasChannelSecret: Boolean(metadata.channelSecret),
+    hasLoginClientId: Boolean(metadata.loginClientId),
+    hasLoginClientSecret: Boolean(metadata.loginClientSecret),
+    hasAdministrativeNotifyToken: Boolean(metadata.notifyTokens?.administrative),
+    hasCheckInOutNotifyToken: Boolean(metadata.notifyTokens?.checkInOut),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function normalizeKey(value) {
+  return normalizeText(value).toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
 function normalizeText(value) {

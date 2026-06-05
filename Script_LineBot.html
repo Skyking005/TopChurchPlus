@@ -5,6 +5,8 @@ let lineBotUsersState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotLinksState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotEventsState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotModules = [];
+let lineBotChannels = [];
+let lineBotRichMenus = [];
 
 function openLineBotSystem() {
   recordFeatureUsage('linebot');
@@ -20,11 +22,13 @@ function switchLineBotTab(tab) {
   document.querySelectorAll('[data-linebot-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.linebotTab === tab);
   });
-  ['dashboard', 'users', 'links', 'modules', 'events'].forEach(key => {
+  ['dashboard', 'users', 'settings', 'links', 'richMenus', 'modules', 'events'].forEach(key => {
     document.getElementById(`lineBot${capitalizeLineBotKey(key)}Pane`).classList.toggle('d-none', key !== tab);
   });
   if (tab === 'users') loadLineBotUsers(lineBotUsersState.page || 1);
+  if (tab === 'settings') loadLineBotChannels();
   if (tab === 'links') loadLineBotLinks(lineBotLinksState.page || 1);
+  if (tab === 'richMenus') loadLineBotRichMenus();
   if (tab === 'modules') loadLineBotModules();
   if (tab === 'events') loadLineBotEvents(lineBotEventsState.page || 1);
 }
@@ -109,6 +113,126 @@ function renderLineBotUsers() {
     });
   }
   renderLineBotPager('lineBotUsersPager', lineBotUsersState, 'loadLineBotUsers');
+}
+
+function loadLineBotChannels() {
+  setListLoading('lineBotChannelsBody', true, 'LINE Channel 設定載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotChannels = data?.rows || [];
+      renderLineBotChannels();
+    })
+    .withFailureHandler(showError)
+    .getLineBotChannels(currentUser);
+}
+
+function renderLineBotChannels() {
+  const body = document.getElementById('lineBotChannelsBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = '';
+  document.getElementById('saveLineBotChannelBtn').classList.toggle('d-none', !canEdit);
+  if (!lineBotChannels.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚未建立 LINE Channel 設定</td></tr>';
+    return;
+  }
+  lineBotChannels.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="fw-semibold">${escapeHtml(row.channelName)}</div>
+        <div class="text-muted small">${escapeHtml(row.channelKey)}</div>
+      </td>
+      <td>${escapeHtml(formatLineBotChannelType(row.channelType))}</td>
+      <td>${row.webhookUrl ? `<a href="${escapeAttr(row.webhookUrl)}" target="_blank" rel="noopener">${escapeHtml(truncateLineBotText(row.webhookUrl, 42))}</a>` : ''}</td>
+      <td>${formatLineBotSecretStatus(row.hasChannelAccessToken)}</td>
+      <td>${formatLineBotSecretStatus(row.hasChannelSecret)}</td>
+      <td>${row.isActive ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
+      <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotChannel('${escapeAttr(row.channelId)}')">編輯</button>` : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function editLineBotChannel(channelId) {
+  const row = lineBotChannels.find(item => String(item.channelId) === String(channelId));
+  if (!row) return;
+  document.getElementById('lineBotChannelId').value = row.channelId;
+  document.getElementById('lineBotChannelKey').value = row.channelKey || '';
+  document.getElementById('lineBotChannelName').value = row.channelName || '';
+  document.getElementById('lineBotChannelType').value = row.channelType || 'official';
+  document.getElementById('lineBotWebhookUrl').value = row.webhookUrl || '';
+  document.getElementById('lineBotLoginRedirectUri').value = row.loginRedirectUri || '';
+  document.getElementById('lineBotLiffRollcall').value = row.liffIds?.rollcall || '';
+  document.getElementById('lineBotLiffSpiritualLife').value = row.liffIds?.spiritualLife || '';
+  document.getElementById('lineBotLiffSelfCheckIn').value = row.liffIds?.selfCheckIn || '';
+  document.getElementById('lineBotLiffQtOrder').value = row.liffIds?.qtOrder || '';
+  document.getElementById('lineBotRichMenuUnbound').value = row.richMenuIds?.unbound || '';
+  document.getElementById('lineBotRichMenuBound').value = row.richMenuIds?.bound || '';
+  document.getElementById('lineBotRichMenuAdvanced').value = row.richMenuIds?.advanced || '';
+  document.getElementById('lineBotChannelIsActive').checked = row.isActive !== false;
+  ['lineBotChannelAccessToken', 'lineBotChannelSecret', 'lineBotLoginClientId', 'lineBotLoginClientSecret', 'lineBotNotifyAdministrative', 'lineBotNotifyCheckInOut'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  setLineBotSecretStatus('lineBotChannelAccessTokenStatus', row.hasChannelAccessToken);
+  setLineBotSecretStatus('lineBotChannelSecretStatus', row.hasChannelSecret);
+  setLineBotSecretStatus('lineBotLoginClientIdStatus', row.hasLoginClientId);
+  setLineBotSecretStatus('lineBotLoginClientSecretStatus', row.hasLoginClientSecret);
+  setLineBotSecretStatus('lineBotNotifyAdministrativeStatus', row.hasAdministrativeNotifyToken);
+  setLineBotSecretStatus('lineBotNotifyCheckInOutStatus', row.hasCheckInOutNotifyToken);
+}
+
+function submitLineBotChannel() {
+  const btn = document.getElementById('saveLineBotChannelBtn');
+  const errorBox = document.getElementById('lineBotChannelError');
+  errorBox.textContent = '';
+  const channelId = document.getElementById('lineBotChannelId').value;
+  const channel = {
+    channelId,
+    channelKey: document.getElementById('lineBotChannelKey').value.trim(),
+    channelName: document.getElementById('lineBotChannelName').value.trim(),
+    channelType: document.getElementById('lineBotChannelType').value,
+    webhookUrl: document.getElementById('lineBotWebhookUrl').value.trim(),
+    channelAccessToken: document.getElementById('lineBotChannelAccessToken').value.trim(),
+    channelSecret: document.getElementById('lineBotChannelSecret').value.trim(),
+    loginClientId: document.getElementById('lineBotLoginClientId').value.trim(),
+    loginClientSecret: document.getElementById('lineBotLoginClientSecret').value.trim(),
+    loginRedirectUri: document.getElementById('lineBotLoginRedirectUri').value.trim(),
+    liffIds: {
+      rollcall: document.getElementById('lineBotLiffRollcall').value.trim(),
+      spiritualLife: document.getElementById('lineBotLiffSpiritualLife').value.trim(),
+      selfCheckIn: document.getElementById('lineBotLiffSelfCheckIn').value.trim(),
+      qtOrder: document.getElementById('lineBotLiffQtOrder').value.trim()
+    },
+    richMenuIds: {
+      unbound: document.getElementById('lineBotRichMenuUnbound').value.trim(),
+      bound: document.getElementById('lineBotRichMenuBound').value.trim(),
+      advanced: document.getElementById('lineBotRichMenuAdvanced').value.trim()
+    },
+    notifyTokens: {
+      administrative: document.getElementById('lineBotNotifyAdministrative').value.trim(),
+      checkInOut: document.getElementById('lineBotNotifyCheckInOut').value.trim()
+    },
+    isActive: document.getElementById('lineBotChannelIsActive').checked
+  };
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      resetLineBotChannelSecrets();
+      loadLineBotChannels();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveLineBotChannel({ channelId, channel, currentUser });
+}
+
+function resetLineBotChannelSecrets() {
+  ['lineBotChannelAccessToken', 'lineBotChannelSecret', 'lineBotLoginClientId', 'lineBotLoginClientSecret', 'lineBotNotifyAdministrative', 'lineBotNotifyCheckInOut'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
 }
 
 function loadLineBotLinks(page = 1) {
@@ -231,6 +355,90 @@ function loadLineBotModules() {
     .getLineBotModules(currentUser);
 }
 
+function loadLineBotRichMenus() {
+  setListLoading('lineBotRichMenusBody', true, 'Rich Menu 設定載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotRichMenus = data?.rows || [];
+      renderLineBotRichMenus();
+    })
+    .withFailureHandler(showError)
+    .getLineBotRichMenus(currentUser);
+}
+
+function renderLineBotRichMenus() {
+  const body = document.getElementById('lineBotRichMenusBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = '';
+  document.getElementById('saveLineBotRichMenuBtn').classList.toggle('d-none', !canEdit);
+  if (!lineBotRichMenus.length) {
+    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">尚未建立 Rich Menu 設定</td></tr>';
+    return;
+  }
+  lineBotRichMenus.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.menuName)}</td>
+      <td><code>${escapeHtml(row.lineRichMenuId || '')}</code></td>
+      <td>${escapeHtml(formatLineBotAudienceType(row.audienceType))}</td>
+      <td>${escapeHtml(formatLineBotRichMenuStatus(row.status))}</td>
+      <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotRichMenu('${escapeAttr(row.richMenuId)}')">編輯</button>` : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function submitLineBotRichMenu() {
+  const btn = document.getElementById('saveLineBotRichMenuBtn');
+  const errorBox = document.getElementById('lineBotRichMenuError');
+  errorBox.textContent = '';
+  const richMenuId = document.getElementById('lineBotRichMenuId').value;
+  const richMenu = {
+    richMenuId,
+    menuName: document.getElementById('lineBotRichMenuName').value.trim(),
+    lineRichMenuId: document.getElementById('lineBotRichMenuLineId').value.trim(),
+    audienceType: document.getElementById('lineBotRichMenuAudienceType').value,
+    audienceNote: document.getElementById('lineBotRichMenuAudienceNote').value.trim(),
+    status: document.getElementById('lineBotRichMenuStatus').value,
+    sortOrder: Number(document.getElementById('lineBotRichMenuSortOrder').value || 100)
+  };
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      resetLineBotRichMenuForm();
+      loadLineBotRichMenus();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveLineBotRichMenu({ richMenuId, richMenu, currentUser });
+}
+
+function editLineBotRichMenu(richMenuId) {
+  const row = lineBotRichMenus.find(item => String(item.richMenuId) === String(richMenuId));
+  if (!row) return;
+  document.getElementById('lineBotRichMenuId').value = row.richMenuId;
+  document.getElementById('lineBotRichMenuName').value = row.menuName || '';
+  document.getElementById('lineBotRichMenuLineId').value = row.lineRichMenuId || '';
+  document.getElementById('lineBotRichMenuAudienceType').value = row.audienceType || 'bound';
+  document.getElementById('lineBotRichMenuAudienceNote').value = row.audienceRule?.note || '';
+  document.getElementById('lineBotRichMenuStatus').value = row.status || 'draft';
+  document.getElementById('lineBotRichMenuSortOrder').value = row.sortOrder || 100;
+}
+
+function resetLineBotRichMenuForm() {
+  document.getElementById('lineBotRichMenuId').value = '';
+  document.getElementById('lineBotRichMenuName').value = '';
+  document.getElementById('lineBotRichMenuLineId').value = '';
+  document.getElementById('lineBotRichMenuAudienceType').value = 'bound';
+  document.getElementById('lineBotRichMenuAudienceNote').value = '';
+  document.getElementById('lineBotRichMenuStatus').value = 'draft';
+  document.getElementById('lineBotRichMenuSortOrder').value = '100';
+}
+
 function renderLineBotFeatureList(features, elementId, editable) {
   const box = document.getElementById(elementId);
   box.innerHTML = '';
@@ -341,6 +549,26 @@ function formatLineBotDateTime(value) {
 
 function capitalizeLineBotKey(value) {
   return String(value || '').charAt(0).toUpperCase() + String(value || '').slice(1);
+}
+
+function setLineBotSecretStatus(elementId, hasValue) {
+  document.getElementById(elementId).textContent = hasValue ? '已設定；留空儲存不會覆蓋' : '尚未設定';
+}
+
+function formatLineBotSecretStatus(hasValue) {
+  return hasValue ? '<span class="badge bg-success-subtle text-success">已設定</span>' : '<span class="badge bg-secondary-subtle text-secondary">未設定</span>';
+}
+
+function formatLineBotChannelType(value) {
+  return { official: '官方帳號', staff: '同工帳號', test: '測試帳號' }[value] || value || '';
+}
+
+function formatLineBotAudienceType(value) {
+  return { unbound: '未綁定', bound: '已綁定', advanced: '進階會友', staff: '同工', custom: '自訂' }[value] || value || '';
+}
+
+function formatLineBotRichMenuStatus(value) {
+  return { draft: '草稿', active: '啟用', disabled: '停用' }[value] || value || '';
 }
 
 function formatLineBotLinkType(value) {

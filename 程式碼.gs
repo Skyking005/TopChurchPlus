@@ -362,6 +362,25 @@ function getLineBotUsers(filters, currentUser) {
   }, currentUser);
 }
 
+function getLineBotChannels(currentUser) {
+  return apiRequest('get', '/linebot/channels', null, null, currentUser);
+}
+
+function saveLineBotChannel(payload) {
+  const channelId = payload.channelId || payload.channel?.channelId || '';
+  if (channelId) {
+    return apiRequest(
+      'put',
+      `/linebot/channels/${encodeURIComponent(channelId)}`,
+      { currentUser: payload.currentUser, channel: payload.channel }
+    );
+  }
+  return apiRequest('post', '/linebot/channels', {
+    currentUser: payload.currentUser,
+    channel: payload.channel
+  });
+}
+
 function getLineBotLinks(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/linebot/links', null, {
@@ -415,6 +434,25 @@ function getLineBotEvents(filters, currentUser) {
     page: filters.page || 1,
     pageSize: filters.pageSize || 20
   }, currentUser);
+}
+
+function getLineBotRichMenus(currentUser) {
+  return apiRequest('get', '/linebot/rich-menus', null, null, currentUser);
+}
+
+function saveLineBotRichMenu(payload) {
+  const richMenuId = payload.richMenuId || payload.richMenu?.richMenuId || '';
+  if (richMenuId) {
+    return apiRequest(
+      'put',
+      `/linebot/rich-menus/${encodeURIComponent(richMenuId)}`,
+      { currentUser: payload.currentUser, richMenu: payload.richMenu }
+    );
+  }
+  return apiRequest('post', '/linebot/rich-menus', {
+    currentUser: payload.currentUser,
+    richMenu: payload.richMenu
+  });
 }
 
 function getQtInventoryMovements(filters, currentUser) {
