@@ -5,7 +5,17 @@ CREATE TABLE IF NOT EXISTS accounts (
   email TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
   position TEXT,
+  department TEXT,
   role TEXT NOT NULL DEFAULT '一般使用者',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS departments (
+  department_id BIGSERIAL PRIMARY KEY,
+  department_name TEXT NOT NULL UNIQUE,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -118,6 +128,8 @@ CREATE INDEX IF NOT EXISTS idx_project_income_project_id ON project_income(proje
 CREATE INDEX IF NOT EXISTS idx_project_budget_project_id ON project_budget(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_permissions_project_id ON project_permissions(project_id);
 CREATE INDEX IF NOT EXISTS idx_meetings_project_id ON meetings(project_id);
+CREATE INDEX IF NOT EXISTS idx_accounts_department ON accounts(department);
+CREATE INDEX IF NOT EXISTS idx_departments_active_sort ON departments(is_active, sort_order, department_name);
 
 CREATE TABLE IF NOT EXISTS purchases (
   purchase_id TEXT PRIMARY KEY,
@@ -254,15 +266,31 @@ INSERT INTO params (category, value, sort_order) VALUES
   ('paymentMethods', '以現金交付借款人', 3),
   ('paymentMethods', '現金交付墊款人', 4),
   ('paymentMethods', '匯款交付墊款人', 5),
-  ('departments', '秘書部', 1),
-  ('departments', '牧養部', 2),
-  ('departments', '教育部', 3),
-  ('departments', '行政部', 4),
-  ('departments', '財務部', 5),
+  ('departments', '牧養部', 1),
+  ('departments', '教育部', 2),
+  ('departments', '媒體部', 3),
+  ('departments', '敬拜部', 4),
+  ('departments', '技術部', 5),
   ('departments', '資訊部', 6),
-  ('departments', '技術部', 7),
-  ('departments', '媒體部', 8)
+  ('departments', '行政部', 7),
+  ('departments', '財務部', 8),
+  ('departments', '總務部', 9)
 ON CONFLICT (category, value) DO NOTHING;
+
+INSERT INTO departments (department_name, sort_order, is_active) VALUES
+  ('牧養部', 1, true),
+  ('教育部', 2, true),
+  ('媒體部', 3, true),
+  ('敬拜部', 4, true),
+  ('技術部', 5, true),
+  ('資訊部', 6, true),
+  ('行政部', 7, true),
+  ('財務部', 8, true),
+  ('總務部', 9, true)
+ON CONFLICT (department_name) DO UPDATE SET
+  sort_order = EXCLUDED.sort_order,
+  is_active = EXCLUDED.is_active,
+  updated_at = now();
 
 INSERT INTO account_roles (staff_id, role)
 SELECT staff_id, role

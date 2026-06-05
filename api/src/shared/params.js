@@ -10,12 +10,13 @@ async function getParams() {
     params[row.category].push(row.value);
   });
   params.chargeOptions = params.chargeOptions.length ? params.chargeOptions : ['是', '否'];
-  params.departments = params.departments.length ? params.departments : getDefaultDepartments();
+  params.departments = await getDepartmentValues();
   return params;
 }
 
 async function getParamValues(type) {
   const category = normalizeParamType(type);
+  if (category === 'departments') return getDepartmentValues();
   const { rows } = await pool.query(
     'SELECT value FROM params WHERE category = $1 ORDER BY sort_order, value',
     [category]
@@ -35,11 +36,23 @@ function normalizeRequiredValue(value, message) {
 }
 
 function getDefaultDepartments() {
-  return ['秘書部', '牧養部', '教育部', '行政部', '財務部', '資訊部', '技術部', '媒體部'];
+  return ['牧養部', '教育部', '媒體部', '敬拜部', '技術部', '資訊部', '行政部', '財務部', '總務部'];
+}
+
+async function getDepartmentValues() {
+  const { rows } = await pool.query(
+    `SELECT department_name
+     FROM departments
+     WHERE is_active = true
+     ORDER BY sort_order, department_name`
+  );
+  const values = rows.map(row => row.department_name).filter(Boolean);
+  return values.length ? values : getDefaultDepartments();
 }
 
 module.exports = {
   getDefaultDepartments,
+  getDepartmentValues,
   getParams,
   getParamValues,
   normalizeParamType,

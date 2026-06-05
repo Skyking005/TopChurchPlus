@@ -99,7 +99,9 @@ function setMeetingModalReadonly(isReadonly) {
 
 function renderMeetingAttendeesReadonly(names) {
   const container = document.getElementById('meetingAttendeesGroup');
+  const tools = document.getElementById('meetingAttendeeTools');
   container.innerHTML = '';
+  if (tools) tools.classList.add('d-none');
 
   if (!names.length) {
     container.textContent = '無與會者資料';
@@ -300,13 +302,15 @@ if (attendees.length === 0) {
 function renderMeetingAttendeesCheckboxes(selectedNames = []) {
   const container = document.getElementById('meetingAttendeesGroup');
   container.innerHTML = '';
-  renderMeetingDepartmentOptions();
+  const accounts = getSortedAccounts();
+  renderMeetingDepartmentOptions(accounts);
+  updateMeetingAttendeeTools(accounts);
 
   const selectedSet = new Set(
     selectedNames.map(v => String(v).trim()).filter(Boolean)
   );
 
-  getSortedAccounts().forEach(account => {
+  accounts.forEach(account => {
     const id = `meeting_attendee_${account.staffId}`;
 
     const wrapper = document.createElement('div');
@@ -329,13 +333,13 @@ function renderMeetingAttendeesCheckboxes(selectedNames = []) {
   });
 }
 
-function renderMeetingDepartmentOptions() {
+function renderMeetingDepartmentOptions(accounts = getSortedAccounts()) {
   const select = document.getElementById('meetingDepartmentSelect');
   if (!select) return;
   const currentValue = select.value;
   const departments = [
     ...(initialData?.params?.departments || []),
-    ...getSortedAccounts().map(account => account.department)
+    ...accounts.map(account => account.department)
   ]
     .map(value => String(value || '').trim())
     .filter(Boolean);
@@ -349,6 +353,20 @@ function renderMeetingDepartmentOptions() {
     select.appendChild(opt);
   });
   if (currentValue && uniqueDepartments.includes(currentValue)) select.value = currentValue;
+}
+
+function updateMeetingAttendeeTools(accounts = getSortedAccounts()) {
+  const tools = document.getElementById('meetingAttendeeTools');
+  const departmentSelect = document.getElementById('meetingDepartmentSelect');
+  if (!tools) return;
+  const hasBulkSelect = accounts.length > 3;
+  const hasDepartments = [...new Set(accounts.map(account => String(account.department || '').trim()).filter(Boolean))].length > 0;
+  tools.classList.toggle('d-none', !hasBulkSelect && !hasDepartments);
+  document.querySelectorAll('.meeting-attendee-tool').forEach(el => {
+    const isDepartmentTool = el.id === 'meetingDepartmentSelect' || el.textContent.trim() === '勾選部門';
+    el.classList.toggle('d-none', isDepartmentTool ? !hasDepartments : !hasBulkSelect);
+  });
+  if (departmentSelect && !hasDepartments) departmentSelect.value = '';
 }
 
 function formatMeetingAttendeeLabel(account) {

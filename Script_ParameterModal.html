@@ -307,6 +307,7 @@ function renderSelectedUserRoles() {
   const user = systemUsers.find(item => String(item.staffId) === String(select.value));
   const selected = new Set(user ? user.roles || [] : []);
   container.innerHTML = '';
+  renderCheckboxBulkActions(container, 'system-role-checkbox', SYSTEM_ROLE_OPTIONS.length);
   SYSTEM_ROLE_OPTIONS.forEach(role => {
     const id = `system_role_${role}`;
     const wrapper = document.createElement('div');
@@ -376,7 +377,10 @@ function renderSelectedPastoralChurchPermissions() {
   const selected = new Set((user?.pastoralChurchIds || []).map(String));
   group.innerHTML = '';
 
-  (systemPastoralOptions.churches || []).forEach(church => {
+  const churches = systemPastoralOptions.churches || [];
+  renderCheckboxBulkActions(group, 'pastoral-church-permission-checkbox', churches.length);
+
+  churches.forEach(church => {
     const id = `pastoral_church_permission_${church.id}`;
     const wrapper = document.createElement('div');
     wrapper.className = 'form-check';
@@ -385,6 +389,23 @@ function renderSelectedPastoralChurchPermissions() {
       <label class="form-check-label" for="${escapeAttr(id)}">${escapeHtml(church.name)} ${church.churchType ? `(${escapeHtml(church.churchType)})` : ''}</label>
     `;
     group.appendChild(wrapper);
+  });
+}
+
+function renderCheckboxBulkActions(container, checkboxClass, itemCount) {
+  if (!container || Number(itemCount) <= 3) return;
+  const tools = document.createElement('div');
+  tools.className = 'd-flex flex-wrap gap-2 mb-2';
+  tools.innerHTML = `
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setCheckboxGroupChecked('${escapeAttr(checkboxClass)}', true)">全選</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setCheckboxGroupChecked('${escapeAttr(checkboxClass)}', false)">清除</button>
+  `;
+  container.appendChild(tools);
+}
+
+function setCheckboxGroupChecked(checkboxClass, checked) {
+  document.querySelectorAll(`.${checkboxClass}`).forEach(el => {
+    if (!el.disabled) el.checked = Boolean(checked);
   });
 }
 

@@ -145,10 +145,13 @@ function registerSystemRoutes(app) {
       const type = normalizeParamType(req.params.type);
       const existing = await getParamValues(type);
       if (existing.includes(value)) throw new Error('參數已存在');
-      await pool.query(
-        'INSERT INTO params (category, value, sort_order) VALUES ($1, $2, $3)',
-        [type, value, existing.length + 1]
-      );
+      await tx(async client => {
+        await client.query(
+          'INSERT INTO params (category, value, sort_order) VALUES ($1, $2, $3)',
+          [type, value, existing.length + 1]
+        );
+        if (type === 'departments') await upsertDepartment(client, value, existing.length + 1);
+      });
       res.json({ success: true, message: '已新增參數' });
     } catch (err) {
       next(err);
@@ -161,11 +164,26 @@ function registerSystemRoutes(app) {
       const type = normalizeParamType(req.params.type);
       const oldValue = normalizeRequiredValue(req.body.oldValue, '原參數內容不可空白');
       const newValue = normalizeRequiredValue(req.body.newValue, '新參數內容不可空白');
-      const result = await pool.query(
-        'UPDATE params SET value = $1, updated_at = now() WHERE category = $2 AND value = $3',
-        [newValue, type, oldValue]
-      );
-      if (!result.rowCount) throw new Error('找不到要修改的參數');
+      await tx(async client => {
+        const result = await client.query(
+          'UPDATE params SET value = $1, updated_at = now() WHERE category = $2 AND value = $3',
+          [newValue, type, oldValue]
+        );
+        if (!result.rowCount) throw new Error('找不到要修改的參數');
+        if (type === 'departments') {
+          const sortResult = await client.query(
+            'SELECT sort_order FROM params WHERE category = $1 AND value = $2',
+            [type, newValue]
+          );
+          await client.query(
+            `UPDATE departments
+             SET department_name = $1, sort_order = COALESCE($2, sort_order), is_active = true, updated_at = now()
+             WHERE department_name = $3`,
+            [newValue, sortResult.rows[0]?.sort_order || 0, oldValue]
+          );
+          await upsertDepartment(client, newValue, sortResult.rows[0]?.sort_order || 0);
+        }
+      });
       res.json({ success: true, message: '已更新參數' });
     } catch (err) {
       next(err);
@@ -177,8 +195,13 @@ function registerSystemRoutes(app) {
       assertSuperAdmin(parseUser(req));
       const type = normalizeParamType(req.params.type);
       const value = decodeURIComponent(req.params.value);
-      const result = await pool.query('DELETE FROM params WHERE category = $1 AND value = $2', [type, value]);
-      if (!result.rowCount) throw new Error('找不到要刪除的參數');
+      await tx(async client => {
+        const result = await client.query('DELETE FROM params WHERE category = $1 AND value = $2', [type, value]);
+        if (!result.rowCount) throw new Error('找不到要刪除的參數');
+        if (type === 'departments') {
+          await client.query('UPDATE departments SET is_active = false, updated_at = now() WHERE department_name = $1', [value]);
+        }
+      });
       res.json({ success: true, message: '已刪除參數' });
     } catch (err) {
       next(err);
@@ -195,12 +218,13 @@ async function getParams() {
     params[row.category].push(row.value);
   });
   params.chargeOptions = params.chargeOptions.length ? params.chargeOptions : ['是', '否'];
-  params.departments = params.departments.length ? params.departments : getDefaultDepartments();
+  params.departments = await getDepartmentValues();
   return params;
 }
 
 async function getParamValues(type) {
   const category = normalizeParamType(type);
+  if (category === 'departments') return getDepartmentValues();
   const { rows } = await pool.query(
     'SELECT value FROM params WHERE category = $1 ORDER BY sort_order, value',
     [category]
@@ -348,7 +372,30 @@ function normalizeRequiredValue(value, message) {
 }
 
 function getDefaultDepartments() {
-  return ['秘書部', '牧養部', '教育部', '行政部', '財務部', '資訊部', '技術部', '媒體部'];
+  return ['牧養部', '教育部', '媒體部', '敬拜部', '技術部', '資訊部', '行政部', '財務部', '總務部'];
+}
+
+async function getDepartmentValues() {
+  const { rows } = await pool.query(
+    `SELECT department_name
+     FROM departments
+     WHERE is_active = true
+     ORDER BY sort_order, department_name`
+  );
+  const values = rows.map(row => row.department_name).filter(Boolean);
+  return values.length ? values : getDefaultDepartments();
+}
+
+async function upsertDepartment(client, departmentName, sortOrder) {
+  await client.query(
+    `INSERT INTO departments (department_name, sort_order, is_active)
+     VALUES ($1, $2, true)
+     ON CONFLICT (department_name) DO UPDATE SET
+       sort_order = EXCLUDED.sort_order,
+       is_active = true,
+       updated_at = now()`,
+    [departmentName, Number(sortOrder) || 0]
+  );
 }
 
 function parseUser(req) {
