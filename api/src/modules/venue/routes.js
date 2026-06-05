@@ -22,6 +22,16 @@ function registerVenueRoutes(app) {
     }
   });
 
+  app.put('/venues/resources/bookable', async (req, res, next) => {
+    try {
+      await assertFeatureEditable(req.body.currentUser, 'venue');
+      const resource = req.body.resource || {};
+      res.json(await saveVenueResourceBookable(resource));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/venues/reservations', async (req, res, next) => {
     try {
       await assertFeatureReadable(parseUser(req), 'venue');
@@ -35,7 +45,7 @@ function registerVenueRoutes(app) {
     try {
       await assertFeatureReadable(parseUser(req), 'venue');
       const [resources, reservations] = await Promise.all([
-        getVenueResources(req.query),
+        getVenueResources({ ...req.query, bookableOnly: '1' }),
         getVenueReservations(req.query)
       ]);
       res.json({ resources, reservations });
@@ -47,11 +57,20 @@ function registerVenueRoutes(app) {
 
 async function getVenueResources(query = {}) {
   const hall = String(query.hall || '').trim();
+  const mainLocation = String(query.mainLocation || '').trim();
+  const bookableOnly = String(query.bookableOnly || '') === '1';
   const values = [];
   const where = [];
   if (hall) {
     values.push(hall);
     where.push(`l.hall = $${values.length}`);
+  }
+  if (mainLocation) {
+    values.push(mainLocation);
+    where.push(`l.main_location = $${values.length}`);
+  }
+  if (bookableOnly) {
+    where.push('l.is_bookable');
   }
 
   const { rows } = await pool.query(
@@ -73,6 +92,30 @@ async function getVenueResources(query = {}) {
     values
   );
   return rows.map(toVenueResource);
+}
+
+async function saveVenueResourceBookable(resource) {
+  const hall = normalizeRequired(resource.hall, '請選擇會堂');
+  const mainLocation = normalizeRequired(resource.mainLocation, '請選擇主要位置');
+  const isBookable = Boolean(resource.isBookable);
+
+  const result = await pool.query(
+    `UPDATE asset_locations
+     SET is_bookable = $3,
+         updated_at = now()
+     WHERE hall = $1
+       AND main_location = $2
+     RETURNING location_id`,
+    [hall, mainLocation, isBookable]
+  );
+  if (!result.rowCount) throw new Error('找不到此場地位置');
+
+  const resources = await getVenueResources({ hall, mainLocation });
+  return {
+    success: true,
+    message: isBookable ? '場地已設為可借用' : '場地已設為不可借用',
+    resource: resources[0]
+  };
 }
 
 async function saveVenueResourceCalendar(resource) {

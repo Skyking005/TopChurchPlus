@@ -7,7 +7,17 @@
     <button id="refreshVenueBtn" type="button" class="btn btn-outline-primary btn-sm" onclick="loadVenueAvailability()">重新查詢</button>
   </div>
 
-  <div class="filter-panel mb-3">
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button type="button" class="nav-link active" data-venue-tab="availability" onclick="switchVenueTab('availability')">可借用場地清單</button>
+    </li>
+    <li class="nav-item" id="venueManagementTab">
+      <button type="button" class="nav-link" data-venue-tab="management" onclick="switchVenueTab('management')">場地管理</button>
+    </li>
+  </ul>
+
+  <div id="venueAvailabilityPanel">
+    <div class="filter-panel mb-3">
     <div class="row g-2 align-items-end">
       <div class="col-12 col-md-3">
         <label class="form-label">日期</label>
@@ -33,28 +43,55 @@
         <button type="button" class="btn btn-primary" onclick="loadVenueAvailability()">查詢使用狀況</button>
       </div>
     </div>
+    </div>
+
+    <div id="venueError" class="text-danger small mb-2"></div>
+
+    <div class="table-responsive d-none d-md-block">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>會堂</th>
+            <th>主要位置</th>
+            <th>位置數</th>
+            <th>狀態</th>
+            <th>行事曆</th>
+            <th>占用時段</th>
+            <th class="text-end">功能</th>
+          </tr>
+        </thead>
+        <tbody id="venueResourceTableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="mobileVenueResourceList" class="d-md-none mobile-card-list"></div>
   </div>
 
-  <div id="venueError" class="text-danger small mb-2"></div>
-
-  <div class="table-responsive d-none d-md-block">
-    <table class="table table-hover align-middle">
-      <thead>
-        <tr>
-          <th>會堂</th>
-          <th>主要位置</th>
-          <th>位置數</th>
-          <th>狀態</th>
-          <th>行事曆</th>
-          <th>占用時段</th>
-          <th class="text-end">功能</th>
-        </tr>
-      </thead>
-      <tbody id="venueResourceTableBody"></tbody>
-    </table>
+  <div id="venueManagementPanel" class="d-none">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h6 class="mb-1">可借用場地設定</h6>
+        <div class="text-muted small">先設定哪些主要位置可借用，預約清單只會顯示可借用場地。</div>
+      </div>
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="loadVenueResources(renderVenueManagement)">重新整理</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>會堂</th>
+            <th>主要位置</th>
+            <th>位置數</th>
+            <th>可借用</th>
+            <th>行事曆</th>
+            <th>備註</th>
+            <th class="text-end">功能</th>
+          </tr>
+        </thead>
+        <tbody id="venueManagementTableBody"></tbody>
+      </table>
+    </div>
   </div>
-
-  <div id="mobileVenueResourceList" class="d-md-none mobile-card-list"></div>
 
   <div class="modal fade" id="venueCalendarModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">

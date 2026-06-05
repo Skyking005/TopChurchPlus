@@ -374,6 +374,13 @@ function saveVenueResourceCalendar(payload) {
   });
 }
 
+function saveVenueResourceBookable(payload) {
+  return apiRequest('put', '/venues/resources/bookable', {
+    currentUser: payload.currentUser,
+    resource: payload.resource
+  });
+}
+
 function getVenueAvailability(filters, currentUser) {
   filters = filters || {};
   const startAt = filters.startAt || new Date().toISOString();

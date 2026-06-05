@@ -2,17 +2,33 @@
 let venueResources = [];
 let venueAvailability = null;
 let venueCalendarModalInstance = null;
+let venueCanEdit = false;
 
 function openVenueSystem() {
   recordFeatureUsage('venue');
   document.getElementById('mainTitle').textContent = '場地預約系統';
+  venueCanEdit = getFeatureAccess('venue') === 'edit' && currentUser.deviceType !== 'mobile';
   ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
   document.getElementById('venueView').classList.remove('d-none');
+  document.getElementById('venueManagementTab').classList.toggle('d-none', !venueCanEdit);
   setupVenueDefaults();
+  switchVenueTab('availability');
   loadVenueResources(() => loadVenueAvailability());
+}
+
+function switchVenueTab(tab) {
+  document.querySelectorAll('[data-venue-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.venueTab === tab);
+  });
+  document.getElementById('venueAvailabilityPanel').classList.toggle('d-none', tab !== 'availability');
+  document.getElementById('venueManagementPanel').classList.toggle('d-none', tab !== 'management');
+  if (tab === 'management') {
+    if (!venueCanEdit) return switchVenueTab('availability');
+    renderVenueManagement();
+  }
 }
 
 function setupVenueDefaults() {
@@ -162,6 +178,63 @@ function renderVenueResources(resources) {
   });
 }
 
+function renderVenueManagement() {
+  const body = document.getElementById('venueManagementTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!venueResources.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">目前沒有位置資料</td></tr>';
+    return;
+  }
+
+  venueResources.forEach(resource => {
+    const hall = encodeURIComponent(resource.hall || '');
+    const mainLocation = encodeURIComponent(resource.mainLocation || '');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${escapeHtml(resource.hall || '')}</td>
+      <td>${escapeHtml(resource.mainLocation || '')}</td>
+      <td>${escapeHtml(resource.locationCount || 0)}</td>
+      <td>
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" ${resource.isBookable ? 'checked' : ''} onchange="toggleVenueBookable('${hall}', '${mainLocation}', this.checked)">
+          <label class="form-check-label">${resource.isBookable ? '可借用' : '不可借用'}</label>
+        </div>
+      </td>
+      <td>${escapeHtml(resource.calendarId || '尚未設定')}</td>
+      <td>${escapeHtml(resource.note || '')}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="openVenueCalendarModal('${hall}','${mainLocation}')">行事曆</button>
+      </td>
+    `;
+    body.appendChild(row);
+  });
+}
+
+function toggleVenueBookable(encodedHall, encodedMainLocation, isBookable) {
+  const hall = decodeURIComponent(encodedHall || '');
+  const mainLocation = decodeURIComponent(encodedMainLocation || '');
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res?.resource) {
+        venueResources = venueResources.map(item =>
+          item.hall === res.resource.hall && item.mainLocation === res.resource.mainLocation ? res.resource : item
+        );
+      }
+      renderVenueManagement();
+      setupVenueFilters();
+      loadVenueAvailability();
+    })
+    .withFailureHandler(err => {
+      showError(err);
+      renderVenueManagement();
+    })
+    .saveVenueResourceBookable({
+      currentUser,
+      resource: { hall, mainLocation, isBookable }
+    });
+}
+
 function getVenueResourceView(resource) {
   const hasCalendarError = getVenueCalendarError(resource);
   const hasCalendar = Boolean(resource.calendarId);
@@ -199,7 +272,7 @@ function renderVenueEvents(events) {
 }
 
 function renderVenueActions(resource) {
-  if (getFeatureAccess('venue') !== 'edit') return '';
+  if (!venueCanEdit) return '';
   const hall = encodeURIComponent(resource.hall || '');
   const mainLocation = encodeURIComponent(resource.mainLocation || '');
   return `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openVenueCalendarModal('${hall}','${mainLocation}')">行事曆</button>`;
@@ -242,6 +315,7 @@ function submitVenueCalendar() {
           item.hall === res.resource.hall && item.mainLocation === res.resource.mainLocation ? res.resource : item
         );
         setupVenueFilters();
+        renderVenueManagement();
       }
       loadVenueAvailability();
     })
