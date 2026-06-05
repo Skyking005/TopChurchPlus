@@ -590,6 +590,18 @@ function getEffectiveFeatureAccess() {
   if (currentUser?.featurePermissions) {
     Object.assign(result, currentUser.featurePermissions);
   }
+  const roles = getUserRoles(currentUser);
+  const grantRead = featureKey => {
+    const current = result[featureKey] || 'none';
+    if ((rank[current] || 0) < rank.read) result[featureKey] = 'read';
+  };
+  if (roles.includes('超級管理者')) {
+    SYSTEM_FEATURES.forEach(feature => grantRead(feature.key));
+  } else if (roles.includes('管理員')) {
+    SYSTEM_FEATURES
+      .filter(feature => feature.key !== 'system')
+      .forEach(feature => grantRead(feature.key));
+  }
   return result;
 }
 

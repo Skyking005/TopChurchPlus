@@ -2,6 +2,28 @@ const { pool } = require('../db');
 const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../modules/core/catalog');
 const { assertDesktop, normalizeRoles } = require('./users');
 
+function applyAdminReadableAccess(access, roles) {
+  if (roles.includes('超級管理者')) {
+    SYSTEM_FEATURES.forEach(featureKey => {
+      if (!access[featureKey] || FEATURE_ACCESS_RANK[access[featureKey]] < FEATURE_ACCESS_RANK.read) {
+        access[featureKey] = 'read';
+      }
+    });
+    return access;
+  }
+
+  if (roles.includes('管理員')) {
+    SYSTEM_FEATURES
+      .filter(featureKey => featureKey !== 'system')
+      .forEach(featureKey => {
+        if (!access[featureKey] || FEATURE_ACCESS_RANK[access[featureKey]] < FEATURE_ACCESS_RANK.read) {
+          access[featureKey] = 'read';
+        }
+      });
+  }
+  return access;
+}
+
 async function getEffectiveFeaturePermissions(user) {
   const roles = normalizeRoles(user && user.roles, user && user.role);
   if (!roles.length) return {};
@@ -20,7 +42,7 @@ async function getEffectiveFeaturePermissions(user) {
       access[row.feature_key] = row.access_level;
     }
   });
-  return access;
+  return applyAdminReadableAccess(access, roles);
 }
 
 async function getFeatureAccess(user, featureKey) {

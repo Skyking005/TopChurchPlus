@@ -214,6 +214,21 @@ async function getEffectiveFeaturePermissions(user) {
       access[row.feature_key] = row.access_level;
     }
   });
+  if (roles.includes('超級管理者')) {
+    SYSTEM_FEATURES.forEach(featureKey => {
+      if (!access[featureKey] || (FEATURE_ACCESS_RANK[access[featureKey]] || 0) < FEATURE_ACCESS_RANK.read) {
+        access[featureKey] = 'read';
+      }
+    });
+  } else if (roles.includes('管理員')) {
+    SYSTEM_FEATURES
+      .filter(featureKey => featureKey !== 'system')
+      .forEach(featureKey => {
+        if (!access[featureKey] || (FEATURE_ACCESS_RANK[access[featureKey]] || 0) < FEATURE_ACCESS_RANK.read) {
+          access[featureKey] = 'read';
+        }
+      });
+  }
   return access;
 }
 
