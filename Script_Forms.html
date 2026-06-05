@@ -226,13 +226,20 @@ function copyPublicFormLink(formId, visibility, status, requireLogin) {
     alert('公開連結需將表單設定為「已發布 / 公開 / 不需要登入」。');
     return;
   }
-  const url = buildPublicFormUrl(formId);
-  copyTextToClipboard(url)
-    .then(() => alert('公開表單連結已複製'))
-    .catch(() => prompt('請複製公開表單連結', url));
+  google.script.run
+    .withSuccessHandler(url => {
+      copyTextToClipboard(url)
+        .then(() => alert('公開表單連結已複製'))
+        .catch(() => prompt('請複製公開表單連結', url));
+    })
+    .withFailureHandler(err => {
+      const url = buildPublicFormUrlFallback(formId);
+      prompt(`無法取得正式公開連結，請先使用此備用連結。\n${err.message || err}`, url);
+    })
+    .getPublicFormUrl(formId);
 }
 
-function buildPublicFormUrl(formId) {
+function buildPublicFormUrlFallback(formId) {
   const url = new URL(window.location.href);
   url.search = '';
   url.hash = '';
