@@ -20,6 +20,29 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
   }
 
+  .login-brand-square,
+  .login-brand-wordmark,
+  .topbar-brand {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    flex: 0 0 auto;
+  }
+
+  .login-brand-square {
+    width: 96px;
+    height: 96px;
+    background-image: var(--brand-logo-square);
+    border-radius: 18px;
+    box-shadow: 0 12px 28px rgba(16, 24, 40, 0.12);
+  }
+
+  .login-brand-wordmark {
+    width: 220px;
+    height: 64px;
+    background-image: var(--brand-logo-wordmark);
+  }
+
   .login-entry-card.login-entry-active {
     max-width: 760px;
   }
@@ -123,6 +146,12 @@
     align-items: center;
     gap: 10px;
     min-width: 0;
+  }
+
+  .topbar-brand {
+    width: 150px;
+    height: 42px;
+    background-image: var(--brand-logo-wordmark);
   }
 
   .topbar-title {
@@ -375,6 +404,11 @@
       align-items: flex-start;
       gap: 12px;
       flex-wrap: wrap;
+    }
+
+    .topbar-brand {
+      width: 118px;
+      height: 34px;
     }
 
     .topbar-title {
