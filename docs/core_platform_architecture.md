@@ -7,6 +7,7 @@
 已開始落地：
 
 - API 模組化骨架：`api/src/app.js`、`api/src/middleware/*`、`api/src/modules/core/*`
+- API 共用層：`api/src/shared/*`，集中使用者解析、系統功能權限、參數讀取、日期與 CSV 格式化
 - Auth 模組：`api/src/modules/auth/routes.js`，集中登入、陌生裝置驗證、登入紀錄
 - System 模組：`api/src/modules/system/routes.js`，集中 initial data、使用者管理、權限管理、參數、使用紀錄
 - Pastoral 模組：`api/src/modules/pastoral/routes.js`，集中牧養選項、會友清單、會友詳細資料與會堂資料範圍權限
