@@ -5,6 +5,8 @@ const { parseUser } = require('../../shared/users');
 
 const QUESTION_TYPES_WITH_OPTIONS = new Set(['single_choice', 'multiple_choice', 'dropdown']);
 const FORM_TYPES = new Set(['survey', 'event_registration', 'general']);
+const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_UPLOAD_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 function registerFormsRoutes(app) {
   app.get('/forms', async (req, res, next) => {
@@ -32,6 +34,19 @@ function registerFormsRoutes(app) {
       const currentUser = parseUser(req);
       await assertFeatureReadable(currentUser, 'forms');
       res.json(await getFormResponses(req.params.formId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/forms/responses/:responseId/attachments/:attachmentId', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'forms');
+      const attachment = await getResponseAttachment(req.params.responseId, req.params.attachmentId);
+      res.setHeader('Content-Type', attachment.mime_type);
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.file_name)}"`);
+      res.send(attachment.file_data);
     } catch (err) {
       next(err);
     }
@@ -171,6 +186,13 @@ async function getFormResponses(formId) {
      ORDER BY q.sort_order, q.question_id`,
     [responseIds]
   );
+  const attachments = await pool.query(
+    `SELECT attachment_id, response_id, question_id, file_name, mime_type, file_size, created_at
+     FROM form_response_attachments
+     WHERE response_id = ANY($1::uuid[])
+     ORDER BY created_at`,
+    [responseIds]
+  );
 
   return rows.map(row => ({
     responseId: row.response_id,
@@ -187,8 +209,14 @@ async function getFormResponses(formId) {
         questionId: answer.question_id,
         questionTitle: answer.question_title,
         questionType: answer.question_type,
-        value: answer.answer_json || answer.answer_text || ''
-      }))
+        value: answer.answer_json || answer.answer_text || '',
+        attachments: attachments.rows
+          .filter(file => file.response_id === row.response_id && file.question_id === answer.question_id)
+          .map(toAttachmentSummary)
+      })),
+    attachments: attachments.rows
+      .filter(file => file.response_id === row.response_id)
+      .map(toAttachmentSummary)
   }));
 }
 
@@ -295,6 +323,21 @@ async function submitFormResponse(formId, payload, currentUser) {
           answer.answerJson ? JSON.stringify(answer.answerJson) : null
         ]
       );
+      if (answer.attachment) {
+        await client.query(
+          `INSERT INTO form_response_attachments (
+             response_id, question_id, file_name, mime_type, file_size, file_data
+           ) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [
+            responseId,
+            answer.questionId,
+            answer.attachment.fileName,
+            answer.attachment.mimeType,
+            answer.attachment.fileSize,
+            answer.attachment.buffer
+          ]
+        );
+      }
     }
 
     if (form.hasFee) {
@@ -386,6 +429,22 @@ function normalizeResponseAnswers(rawAnswers, questions) {
 
   return questions.map(question => {
     const value = byQuestionId.get(String(question.questionId));
+    if (question.questionType === 'image_upload') {
+      const attachment = normalizeImageAttachment(value);
+      if (question.isRequired && !attachment) throw new Error(`請上傳必填圖片：${question.title}`);
+      if (!attachment) return null;
+      return {
+        questionId: question.questionId,
+        answerText: attachment.fileName,
+        answerJson: {
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          fileSize: attachment.fileSize
+        },
+        attachment
+      };
+    }
+
     const isEmpty = Array.isArray(value) ? !value.length : !String(value || '').trim();
     if (question.isRequired && isEmpty) throw new Error(`請填寫必填題：${question.title}`);
     if (isEmpty) return null;
@@ -461,8 +520,27 @@ function normalizeQuestion(question) {
 }
 
 function normalizeQuestionType(value) {
-  const allowed = ['short_text', 'paragraph', 'single_choice', 'multiple_choice', 'dropdown', 'date', 'number'];
+  const allowed = ['short_text', 'paragraph', 'single_choice', 'multiple_choice', 'dropdown', 'date', 'number', 'image_upload'];
   return allowed.includes(value) ? value : 'short_text';
+}
+
+function normalizeImageAttachment(value) {
+  if (!value || typeof value !== 'object') return null;
+  const fileName = normalizeText(value.fileName) || 'image';
+  const mimeType = normalizeText(value.mimeType) || '';
+  const data = normalizeText(value.data) || '';
+  if (!data) return null;
+  if (!IMAGE_UPLOAD_MIME_TYPES.has(mimeType)) throw new Error('圖片格式僅支援 JPG、PNG、WEBP、GIF');
+  const base64 = data.includes(',') ? data.split(',').pop() : data;
+  const buffer = Buffer.from(base64, 'base64');
+  if (!buffer.length) return null;
+  if (buffer.length > IMAGE_UPLOAD_MAX_BYTES) throw new Error('單張圖片不可超過 5MB');
+  return {
+    fileName,
+    mimeType,
+    fileSize: buffer.length,
+    buffer
+  };
 }
 
 function toFormListItem(row) {
@@ -521,6 +599,30 @@ function toQuestion(row, options) {
 function normalizeText(value) {
   const text = String(value || '').trim();
   return text || null;
+}
+
+async function getResponseAttachment(responseId, attachmentId) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM form_response_attachments
+     WHERE response_id = $1
+       AND attachment_id = $2`,
+    [responseId, attachmentId]
+  );
+  if (!rows[0]) throw new Error('找不到附件');
+  return rows[0];
+}
+
+function toAttachmentSummary(row) {
+  return {
+    attachmentId: row.attachment_id,
+    responseId: row.response_id,
+    questionId: row.question_id,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    fileSize: Number(row.file_size || 0),
+    createdAt: row.created_at
+  };
 }
 
 module.exports = { registerFormsRoutes };

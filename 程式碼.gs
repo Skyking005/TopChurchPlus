@@ -161,6 +161,34 @@ function getFormResponses(formId, currentUser) {
   return apiRequest('get', `/forms/${encodeURIComponent(formId)}/responses`, null, null, currentUser);
 }
 
+function getFormResponseAttachmentData(payload, currentUser) {
+  const props = PropertiesService.getScriptProperties();
+  const baseUrl = props.getProperty('API_BASE_URL');
+  const apiKey = props.getProperty('API_KEY');
+  if (!baseUrl || !apiKey) {
+    throw new Error('尚未設定 API_BASE_URL / API_KEY，請先執行 setApiConfig。');
+  }
+
+  const url = `${baseUrl}/forms/responses/${encodeURIComponent(payload.responseId)}/attachments/${encodeURIComponent(payload.attachmentId)}`;
+  const response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: {
+      'x-api-key': apiKey,
+      'x-current-user': Utilities.base64EncodeWebSafe(JSON.stringify(currentUser))
+    },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() >= 300) {
+    throw new Error(response.getContentText() || `API 錯誤：${response.getResponseCode()}`);
+  }
+  const blob = response.getBlob();
+  return {
+    fileName: blob.getName() || 'image',
+    mimeType: blob.getContentType(),
+    dataUrl: `data:${blob.getContentType()};base64,${Utilities.base64Encode(blob.getBytes())}`
+  };
+}
+
 function getEducationCourseCategories(currentUser) {
   return apiRequest('get', '/education/course-categories', null, null, currentUser);
 }

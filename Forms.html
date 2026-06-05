@@ -138,6 +138,7 @@
           <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('multiple_choice')">複選題</button>
           <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('paragraph')">段落題</button>
           <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('date')">日期題</button>
+          <button type="button" class="btn btn-outline-secondary w-100" onclick="addFormQuestion('image_upload')">圖片上傳</button>
         </div>
       </div>
     </div>
@@ -169,10 +170,25 @@
               <th>送出時間</th>
               <th>付款狀態</th>
               <th>答案摘要</th>
+              <th>附件</th>
             </tr>
           </thead>
           <tbody id="formResponsesTableBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="formAttachmentModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="formAttachmentTitle">圖片附件</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img id="formAttachmentImage" class="form-attachment-image" alt="表單圖片附件">
       </div>
     </div>
   </div>

@@ -3,6 +3,7 @@ let forms = [];
 let currentFormQuestions = [];
 let currentFormDetail = null;
 let currentFormResponsesFormId = '';
+let formAttachmentModalInstance = null;
 
 const FORM_TYPES = {
   survey: '問卷調查',
@@ -17,7 +18,8 @@ const FORM_QUESTION_TYPES = [
   { value: 'multiple_choice', label: '複選' },
   { value: 'dropdown', label: '下拉選單' },
   { value: 'date', label: '日期' },
-  { value: 'number', label: '數字' }
+  { value: 'number', label: '數字' },
+  { value: 'image_upload', label: '圖片上傳' }
 ];
 
 function openFormsSystem() {
@@ -225,6 +227,13 @@ function renderFormFillQuestions(questions) {
 }
 
 function renderFormAnswerInput(question) {
+  if (question.questionType === 'image_upload') {
+    return `
+      <input type="file" class="form-control form-answer-file" accept="image/*" onchange="previewFormImageAnswer(this)">
+      <div class="form-image-preview mt-2"></div>
+      <div class="text-muted small mt-1">支援 JPG、PNG、WEBP、GIF，單張上限 5MB。</div>
+    `;
+  }
   if (question.questionType === 'paragraph') return '<textarea class="form-control form-answer-value" rows="3"></textarea>';
   if (question.questionType === 'date') return '<input type="date" class="form-control form-answer-value">';
   if (question.questionType === 'number') return '<input type="number" class="form-control form-answer-value">';
@@ -249,12 +258,16 @@ function renderFormAnswerInput(question) {
   return '<input class="form-control form-answer-value">';
 }
 
-function collectFormResponseAnswers() {
-  return [...document.querySelectorAll('#formFillQuestions .form-question-card')].map(card => {
+async function collectFormResponseAnswers() {
+  const answers = [];
+  for (const card of [...document.querySelectorAll('#formFillQuestions .form-question-card')]) {
     const questionId = card.dataset.questionId;
     const questionType = card.dataset.questionType;
     let value = '';
-    if (questionType === 'multiple_choice') {
+    if (questionType === 'image_upload') {
+      const file = card.querySelector('.form-answer-file')?.files?.[0];
+      value = file ? await readFormImageFile(file) : null;
+    } else if (questionType === 'multiple_choice') {
       value = [...card.querySelectorAll('.form-answer-option:checked')].map(el => el.value);
     } else if (questionType === 'single_choice') {
       const checked = card.querySelector('.form-answer-option:checked');
@@ -263,16 +276,25 @@ function collectFormResponseAnswers() {
       const input = card.querySelector('.form-answer-value');
       value = input ? input.value : '';
     }
-    return { questionId, value };
-  });
+    answers.push({ questionId, value });
+  }
+  return answers;
 }
 
-function submitCurrentFormResponse() {
+async function submitCurrentFormResponse() {
   const form = currentFormDetail && currentFormDetail.form ? currentFormDetail.form : {};
   const btn = document.getElementById('submitFormResponseBtn');
   const errorBox = document.getElementById('formFillError');
   errorBox.textContent = '';
   setButtonLoading(btn, true, '送出中...');
+  let answers = [];
+  try {
+    answers = await collectFormResponseAnswers();
+  } catch (err) {
+    setButtonLoading(btn, false);
+    errorBox.textContent = err.message || err;
+    return;
+  }
   google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
@@ -288,7 +310,7 @@ function submitCurrentFormResponse() {
       currentUser,
       response: {
         respondentName: currentUser && currentUser.name ? currentUser.name : '',
-        answers: collectFormResponseAnswers()
+        answers
       }
     });
 }
@@ -314,17 +336,23 @@ function renderFormResponses(rows) {
   const body = document.getElementById('formResponsesTableBody');
   body.innerHTML = '';
   if (!rows || !rows.length) {
-    body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">尚無回覆</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">尚無回覆</td></tr>';
     return;
   }
   rows.forEach(row => {
     const answers = (row.answers || []).slice(0, 3).map(answer => `${answer.questionTitle}: ${formatAnswerValue(answer.value)}`).join('；');
+    const attachmentButtons = (row.attachments || []).map(file => `
+      <button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" onclick="viewFormAttachment('${escapeAttr(row.responseId)}', '${escapeAttr(file.attachmentId)}', '${escapeAttr(file.fileName)}')">
+        ${escapeHtml(file.fileName)}
+      </button>
+    `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(row.respondentName || '')}</td>
       <td>${escapeHtml(formatFormsDateTime(row.submittedAt))}</td>
       <td>${escapeHtml(formatPaymentStatus(row.paymentStatus))}${row.paymentAmount ? ` ${escapeHtml(formatMoney(row.paymentAmount))}` : ''}${row.counterTransactionCode ? `<div class="text-muted small">${escapeHtml(row.counterTransactionCode)}</div>` : ''}</td>
       <td>${escapeHtml(answers)}</td>
+      <td>${attachmentButtons || '<span class="text-muted">無</span>'}</td>
     `;
     body.appendChild(tr);
   });
@@ -404,6 +432,7 @@ function renderQuestionPreview(question, index) {
   if (question.questionType === 'paragraph') return '<textarea class="form-control" rows="3" disabled placeholder="長答文字"></textarea>';
   if (question.questionType === 'date') return '<input type="date" class="form-control" disabled>';
   if (question.questionType === 'number') return '<input type="number" class="form-control" disabled placeholder="數字">';
+  if (question.questionType === 'image_upload') return '<input type="file" class="form-control" disabled><div class="text-muted small mt-1">填寫者可上傳一張圖片</div>';
   return '<input class="form-control" disabled placeholder="簡短回答">';
 }
 
@@ -538,9 +567,62 @@ function formatPaymentStatus(value) {
 }
 
 function formatAnswerValue(value) {
+  if (value && typeof value === 'object' && value.fileName) return value.fileName;
   if (Array.isArray(value)) return value.join('、');
   if (value && typeof value === 'object') return JSON.stringify(value);
   return String(value || '');
+}
+
+function previewFormImageAnswer(input) {
+  const preview = input.closest('.form-question-card')?.querySelector('.form-image-preview');
+  if (!preview) return;
+  preview.innerHTML = '';
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    input.value = '';
+    preview.innerHTML = '<div class="text-danger small">請選擇圖片檔案</div>';
+    return;
+  }
+  const img = document.createElement('img');
+  img.className = 'form-image-thumb';
+  img.alt = file.name;
+  img.src = URL.createObjectURL(file);
+  preview.appendChild(img);
+}
+
+function readFormImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('圖片格式僅支援 JPG、PNG、WEBP、GIF'));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      reject(new Error('單張圖片不可超過 5MB'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve({
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      data: reader.result
+    });
+    reader.onerror = () => reject(new Error('圖片讀取失敗'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function viewFormAttachment(responseId, attachmentId, fileName) {
+  google.script.run
+    .withSuccessHandler(file => {
+      document.getElementById('formAttachmentTitle').textContent = file.fileName || fileName || '圖片附件';
+      document.getElementById('formAttachmentImage').src = file.dataUrl;
+      formAttachmentModalInstance = new bootstrap.Modal(document.getElementById('formAttachmentModal'));
+      formAttachmentModalInstance.show();
+    })
+    .withFailureHandler(showError)
+    .getFormResponseAttachmentData({ responseId, attachmentId }, currentUser);
 }
 
 function formatFormsDateTime(value) {
