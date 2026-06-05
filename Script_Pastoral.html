@@ -6,7 +6,7 @@ let pastoralTotalCount = 0;
 let pastoralCurrentTab = 'members';
 let pastoralOpenDetails = [];
 let pastoralActiveDetailId = null;
-let pastoralMemberModalInstance = null;
+let pastoralInlineEditMode = false;
 
 function openPastoralSystem() {
   recordFeatureUsage('pastoral');
@@ -192,6 +192,7 @@ function openPastoralMember(memberId) {
 
 function renderPastoralMemberDetail(data) {
   const member = data.member || {};
+  pastoralInlineEditMode = false;
   const existingIndex = pastoralOpenDetails.findIndex(item => String(item.member.memberId) === String(member.memberId));
   if (existingIndex >= 0) pastoralOpenDetails.splice(existingIndex, 1);
   pastoralOpenDetails.unshift(data);
@@ -228,6 +229,7 @@ function renderActivePastoralDetail() {
   const member = data.member || {};
   document.getElementById('pastoralDetailPanel').classList.remove('d-none');
   updatePastoralDetailActionButtons();
+  renderPastoralDetailMode();
 
   renderDefinitionList('pastoralBasicInfo', [
     ['會堂', member.churchName],
@@ -273,9 +275,19 @@ function renderActivePastoralDetail() {
 function updatePastoralDetailActionButtons() {
   const canEditPastoral = currentUser && getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile' && pastoralActiveDetailId;
   const editBtn = document.getElementById('editPastoralMemberBtn');
+  const cancelBtn = document.getElementById('cancelPastoralEditBtn');
   const deleteBtn = document.getElementById('deletePastoralMemberBtn');
-  if (editBtn) editBtn.classList.toggle('d-none', !canEditPastoral);
-  if (deleteBtn) deleteBtn.classList.toggle('d-none', !canEditPastoral);
+  if (editBtn) editBtn.classList.toggle('d-none', !canEditPastoral || pastoralInlineEditMode);
+  if (cancelBtn) cancelBtn.classList.toggle('d-none', !canEditPastoral || !pastoralInlineEditMode);
+  if (deleteBtn) deleteBtn.classList.toggle('d-none', !canEditPastoral || pastoralInlineEditMode);
+}
+
+function renderPastoralDetailMode() {
+  const readView = document.getElementById('pastoralDetailReadView');
+  const editView = document.getElementById('pastoralDetailEditView');
+  if (readView) readView.classList.toggle('d-none', pastoralInlineEditMode);
+  if (editView) editView.classList.toggle('d-none', !pastoralInlineEditMode);
+  updatePastoralDetailActionButtons();
 }
 
 function openPastoralMemberEditor(data = null) {
@@ -284,17 +296,41 @@ function openPastoralMemberEditor(data = null) {
     return;
   }
   const member = data?.member || {};
-  document.getElementById('pastoralMemberModalTitle').textContent = member.memberId ? '編輯會友' : '新增會友';
+  document.getElementById('pastoralMemberEditorTitle').textContent = member.memberId ? '編輯會友' : '新增會友';
   document.getElementById('pastoralMemberModalError').textContent = '';
   setPastoralFieldValues(member);
-  pastoralMemberModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('pastoralMemberModal'));
-  pastoralMemberModalInstance.show();
+  if (!member.memberId) {
+    pastoralActiveDetailId = null;
+    pastoralInlineEditMode = true;
+    document.getElementById('pastoralDetailPanel').classList.remove('d-none');
+    renderPastoralDetailTabs();
+  } else {
+    pastoralInlineEditMode = true;
+  }
+  renderPastoralDetailMode();
+  document.getElementById('pastoralDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function editActivePastoralMember() {
   const data = pastoralOpenDetails.find(item => String(item.member?.memberId) === String(pastoralActiveDetailId));
   if (!data) return;
   openPastoralMemberEditor(data);
+}
+
+function cancelPastoralInlineEdit() {
+  pastoralInlineEditMode = false;
+  document.getElementById('pastoralMemberModalError').textContent = '';
+  if (!pastoralActiveDetailId && pastoralOpenDetails.length === 0) {
+    closePastoralDetailPanel();
+    return;
+  }
+  if (!pastoralActiveDetailId && pastoralOpenDetails.length > 0) {
+    pastoralActiveDetailId = pastoralOpenDetails[0]?.member?.memberId || null;
+    renderPastoralDetailTabs();
+    renderActivePastoralDetail();
+    return;
+  }
+  renderPastoralDetailMode();
 }
 
 function setPastoralFieldValues(member) {
@@ -415,7 +451,7 @@ function submitPastoralMember() {
   google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
-      if (pastoralMemberModalInstance) pastoralMemberModalInstance.hide();
+      pastoralInlineEditMode = false;
       alert(res.message);
       pastoralCurrentPage = 1;
       loadPastoralMembers();
@@ -464,6 +500,7 @@ function booleanTextToValue(text) {
 }
 
 function activatePastoralDetail(memberId) {
+  pastoralInlineEditMode = false;
   pastoralActiveDetailId = memberId;
   renderPastoralDetailTabs();
   renderActivePastoralDetail();
@@ -512,6 +549,7 @@ function closePastoralDetail(memberId) {
 function closePastoralDetailPanel() {
   pastoralOpenDetails = [];
   pastoralActiveDetailId = null;
+  pastoralInlineEditMode = false;
   document.getElementById('pastoralDetailPanel').classList.add('d-none');
   updatePastoralDetailActionButtons();
 }
