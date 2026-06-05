@@ -48,6 +48,16 @@ function registerFormsRoutes(app) {
     }
   });
 
+  app.get('/forms/:formId/statistics', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'forms');
+      res.json(await getFormStatistics(req.params.formId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/forms/responses/:responseId/attachments/:attachmentId', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -236,6 +246,82 @@ async function getFormResponses(formId) {
       .filter(file => file.response_id === row.response_id)
       .map(toAttachmentSummary)
   }));
+}
+
+async function getFormStatistics(formId) {
+  const detail = await getFormDetail(formId);
+  const responseCountResult = await pool.query(
+    'SELECT count(*)::int AS response_count FROM form_responses WHERE form_id = $1',
+    [formId]
+  );
+  const answersResult = await pool.query(
+    `SELECT a.question_id, a.answer_text, a.answer_json,
+            q.question_type, q.title AS question_title
+     FROM form_response_answers a
+     JOIN form_questions q ON q.question_id = a.question_id
+     JOIN form_responses r ON r.response_id = a.response_id
+     WHERE r.form_id = $1
+     ORDER BY q.sort_order, q.question_id`,
+    [formId]
+  );
+
+  const answersByQuestion = new Map();
+  answersResult.rows.forEach(row => {
+    const questionId = String(row.question_id);
+    if (!answersByQuestion.has(questionId)) answersByQuestion.set(questionId, []);
+    answersByQuestion.get(questionId).push(row);
+  });
+
+  return {
+    form: detail.form,
+    responseCount: Number(responseCountResult.rows[0]?.response_count || 0),
+    questions: detail.questions.map(question => {
+      const rows = answersByQuestion.get(String(question.questionId)) || [];
+      const answerCount = rows.length;
+      const optionCounts = new Map();
+      if (QUESTION_TYPES_WITH_OPTIONS.has(question.questionType)) {
+        (question.options || []).forEach(option => optionCounts.set(String(option), 0));
+      }
+
+      rows.forEach(row => {
+        const values = extractStatisticValues(row);
+        values.forEach(value => {
+          const key = value || '(空白)';
+          optionCounts.set(key, (optionCounts.get(key) || 0) + 1);
+        });
+      });
+
+      const totalValueCount = [...optionCounts.values()].reduce((sum, count) => sum + count, 0);
+      return {
+        questionId: question.questionId,
+        questionTitle: question.title,
+        questionType: question.questionType,
+        answerCount,
+        values: [...optionCounts.entries()]
+          .map(([label, count]) => ({
+            label,
+            count,
+            ratio: totalValueCount ? Number((count / totalValueCount).toFixed(4)) : 0
+          }))
+          .sort((a, b) => b.count - a.count || String(a.label).localeCompare(String(b.label), 'zh-Hant'))
+      };
+    })
+  };
+}
+
+function extractStatisticValues(row) {
+  if (row.question_type === 'image_upload') {
+    return [row.answer_text || '已上傳圖片'];
+  }
+  const json = row.answer_json;
+  if (Array.isArray(json)) return json.map(value => String(value || '').trim()).filter(Boolean);
+  if (json && typeof json === 'object') {
+    if (json.fileName) return [String(json.fileName)];
+    if (json.value) return [String(json.value)];
+    return [JSON.stringify(json)];
+  }
+  const text = String(row.answer_text || '').trim();
+  return text ? [text] : [];
 }
 
 async function saveForm(formId, payload, currentUser) {

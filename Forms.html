@@ -59,6 +59,7 @@
           <button type="button" class="btn btn-outline-secondary" id="previewFormBtn" onclick="previewCurrentForm()">預覽填寫</button>
           <button type="button" class="btn btn-outline-secondary" id="copyPublicFormLinkBtn" onclick="copyCurrentFormPublicLink()">公開連結</button>
           <button type="button" class="btn btn-outline-secondary" id="viewFormResponsesBtn" onclick="viewCurrentFormResponses()">查看回覆</button>
+          <button type="button" class="btn btn-outline-secondary" id="viewFormStatisticsBtn" onclick="viewCurrentFormStatistics()">回覆統計</button>
           <button type="button" class="btn btn-outline-danger" id="deleteFormBtn" onclick="archiveCurrentForm()">封存</button>
           <button type="button" class="btn btn-primary" id="saveFormBtn" onclick="submitForm()">儲存表單</button>
         </div>
@@ -165,7 +166,10 @@
     <div id="formResponsesView" class="d-none">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <button type="button" class="btn btn-outline-secondary" onclick="backToFormsList()">返回清單</button>
-        <button type="button" class="btn btn-outline-primary" onclick="loadCurrentFormResponses()">重新整理</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary" onclick="loadCurrentFormStatistics()">產出統計表</button>
+          <button type="button" class="btn btn-outline-primary" onclick="loadCurrentFormResponses()">重新整理</button>
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -180,6 +184,25 @@
           </thead>
           <tbody id="formResponsesTableBody"></tbody>
         </table>
+      </div>
+      <div class="card mt-3">
+        <div class="card-header section-header">
+          <span>問題答覆統計表</span>
+          <span id="formStatisticsSummary" class="text-muted small"></span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>題目</th>
+                <th>答覆 / 選項</th>
+                <th class="text-end">次數</th>
+                <th class="text-end">比例</th>
+              </tr>
+            </thead>
+            <tbody id="formStatisticsTableBody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

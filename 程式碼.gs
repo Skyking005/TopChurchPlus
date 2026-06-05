@@ -182,6 +182,10 @@ function getFormResponses(formId, currentUser) {
   return apiRequest('get', `/forms/${encodeURIComponent(formId)}/responses`, null, null, currentUser);
 }
 
+function getFormStatistics(formId, currentUser) {
+  return apiRequest('get', `/forms/${encodeURIComponent(formId)}/statistics`, null, null, currentUser);
+}
+
 function getFormResponseAttachmentData(payload, currentUser) {
   const props = PropertiesService.getScriptProperties();
   const baseUrl = props.getProperty('API_BASE_URL');

@@ -38,6 +38,7 @@ function openFormsSystem() {
   document.getElementById('previewFormBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('copyPublicFormLinkBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('viewFormResponsesBtn').classList.toggle('d-none', !canEdit);
+  document.getElementById('viewFormStatisticsBtn').classList.toggle('d-none', !canEdit);
   backToFormsList(false);
   loadForms();
 }
@@ -267,6 +268,13 @@ function viewCurrentFormResponses() {
   openFormResponses(formId);
 }
 
+function viewCurrentFormStatistics() {
+  const formId = document.getElementById('formId').value;
+  if (!formId) return alert('請先儲存表單後再產出統計');
+  openFormResponses(formId);
+  loadCurrentFormStatistics();
+}
+
 function openFormFill(formId) {
   google.script.run
     .withSuccessHandler(setFormFill)
@@ -436,6 +444,7 @@ function openFormResponses(formId) {
   document.getElementById('formFillView').classList.add('d-none');
   document.getElementById('formResponsesView').classList.remove('d-none');
   loadCurrentFormResponses();
+  loadCurrentFormStatistics();
 }
 
 function loadCurrentFormResponses() {
@@ -470,6 +479,61 @@ function renderFormResponses(rows) {
     `;
     body.appendChild(tr);
   });
+}
+
+function loadCurrentFormStatistics() {
+  if (!currentFormResponsesFormId) return;
+  const body = document.getElementById('formStatisticsTableBody');
+  const summary = document.getElementById('formStatisticsSummary');
+  if (summary) summary.textContent = '';
+  if (body) setListLoading('formStatisticsTableBody', true, '統計產生中...');
+  google.script.run
+    .withSuccessHandler(renderFormStatistics)
+    .withFailureHandler(showError)
+    .getFormStatistics(currentFormResponsesFormId, currentUser);
+}
+
+function renderFormStatistics(data) {
+  const body = document.getElementById('formStatisticsTableBody');
+  const summary = document.getElementById('formStatisticsSummary');
+  body.innerHTML = '';
+  const questions = data && Array.isArray(data.questions) ? data.questions : [];
+  if (summary) {
+    summary.textContent = `回覆 ${escapeHtml(data?.responseCount || 0)} 筆，題目 ${escapeHtml(questions.length)} 題`;
+  }
+  if (!questions.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">沒有可統計的題目</td></tr>';
+    return;
+  }
+
+  questions.forEach(question => {
+    const values = Array.isArray(question.values) && question.values.length
+      ? question.values
+      : [{ label: '尚無答覆', count: 0, ratio: 0 }];
+    values.forEach((item, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${index === 0 ? `
+          <div class="fw-semibold">${escapeHtml(question.questionTitle || '')}</div>
+          <div class="text-muted small">${escapeHtml(formatFormQuestionType(question.questionType))}，答覆 ${escapeHtml(question.answerCount || 0)} 筆</div>
+        ` : ''}</td>
+        <td>${escapeHtml(item.label || '')}</td>
+        <td class="text-end">${escapeHtml(item.count || 0)}</td>
+        <td class="text-end">${escapeHtml(formatPercent(item.ratio || 0))}</td>
+      `;
+      body.appendChild(tr);
+    });
+  });
+}
+
+function formatFormQuestionType(type) {
+  const option = FORM_QUESTION_TYPES.find(item => item.value === type);
+  return option ? option.label : (type || '');
+}
+
+function formatPercent(value) {
+  const number = Number(value || 0);
+  return `${Math.round(number * 1000) / 10}%`;
 }
 
 function createEmptyQuestion(type) {

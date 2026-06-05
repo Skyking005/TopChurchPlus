@@ -13,9 +13,6 @@
               <div class="col-md-2 d-grid">
                 <button id="addPurchaseBtn" class="btn btn-success" onclick="openNewPurchase()">新增採購申請</button>
               </div>
-              <div class="col-md-2 d-grid">
-                <button id="addIndependentPaymentBtn" class="btn btn-outline-success" onclick="openIndependentPaymentModal()">獨立請款</button>
-              </div>
             </div>
           </div>
         </div>
@@ -53,7 +50,10 @@
         <div class="card mt-4">
           <div class="card-header section-header">
             <span>請款申請清單</span>
-            <button class="btn btn-sm btn-outline-primary" onclick="loadPaymentRequests()">重新整理</button>
+            <div class="d-flex gap-2">
+              <button id="addIndependentPaymentBtn" class="btn btn-sm btn-outline-success" onclick="openIndependentPaymentModal()">獨立請款</button>
+              <button class="btn btn-sm btn-outline-primary" onclick="loadPaymentRequests()">重新整理</button>
+            </div>
           </div>
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
