@@ -3,7 +3,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div>
         <h5 class="mb-1">表單系統</h5>
-        <div class="text-muted small">建立表單、題目與選項</div>
+        <div class="text-muted small">建立問卷、活動報名表與收費表單</div>
       </div>
       <button type="button" class="btn btn-primary" id="addFormBtn" onclick="newForm()">新增表單</button>
     </div>
@@ -34,9 +34,12 @@
           <thead>
             <tr>
               <th>表單</th>
+              <th>用途</th>
               <th>狀態</th>
+              <th>收費</th>
               <th>可見範圍</th>
               <th>題數</th>
+              <th>回覆</th>
               <th>建立者</th>
               <th>更新時間</th>
               <th>功能</th>
@@ -65,7 +68,15 @@
             <input id="formTitle" class="form-control form-title-input" placeholder="未命名表單">
             <textarea id="formDescription" class="form-control mt-2" rows="2" placeholder="表單說明"></textarea>
             <div class="row g-2 mt-2">
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
+                <label class="form-label">表單用途</label>
+                <select id="formType" class="form-select form-builder-input">
+                  <option value="survey">問卷調查</option>
+                  <option value="event_registration">活動報名</option>
+                  <option value="general">一般表單</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
                 <label class="form-label">狀態</label>
                 <select id="formStatus" class="form-select form-builder-input">
                   <option value="draft">草稿</option>
@@ -73,7 +84,7 @@
                   <option value="closed">已關閉</option>
                 </select>
               </div>
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
                 <label class="form-label">可見範圍</label>
                 <select id="formVisibility" class="form-select form-builder-input">
                   <option value="internal">內部同工</option>
@@ -81,7 +92,7 @@
                   <option value="public">公開</option>
                 </select>
               </div>
-              <div class="col-12 col-md-4">
+              <div class="col-12 col-md-3">
                 <label class="form-label">回覆設定</label>
                 <div class="form-check">
                   <input id="formRequireLogin" class="form-check-input form-builder-input" type="checkbox" checked>
@@ -91,6 +102,26 @@
                   <input id="formAllowMultipleResponses" class="form-check-input form-builder-input" type="checkbox" checked>
                   <label class="form-check-label" for="formAllowMultipleResponses">允許重複填寫</label>
                 </div>
+              </div>
+            </div>
+            <div class="row g-2 mt-2 align-items-end">
+              <div class="col-12 col-md-3">
+                <div class="form-check form-switch mt-4">
+                  <input id="formHasFee" class="form-check-input form-builder-input" type="checkbox" onchange="toggleFormFeeFields()">
+                  <label class="form-check-label" for="formHasFee">此表單需要收費</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-3 form-fee-field d-none">
+                <label class="form-label">收費項目</label>
+                <input id="formFeeTitle" class="form-control form-builder-input" placeholder="例如：活動報名費">
+              </div>
+              <div class="col-12 col-md-2 form-fee-field d-none">
+                <label class="form-label">金額</label>
+                <input id="formFeeAmount" type="number" min="0" class="form-control form-builder-input text-end">
+              </div>
+              <div class="col-12 col-md-4 form-fee-field d-none">
+                <label class="form-label">櫃台繳費備註</label>
+                <input id="formPaymentDescription" class="form-control form-builder-input" placeholder="櫃台收款時顯示的說明">
               </div>
             </div>
           </div>

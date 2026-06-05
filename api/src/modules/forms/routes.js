@@ -4,6 +4,7 @@ const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/p
 const { parseUser } = require('../../shared/users');
 
 const QUESTION_TYPES_WITH_OPTIONS = new Set(['single_choice', 'multiple_choice', 'dropdown']);
+const FORM_TYPES = new Set(['survey', 'event_registration', 'general']);
 
 function registerFormsRoutes(app) {
   app.get('/forms', async (req, res, next) => {
@@ -85,10 +86,12 @@ async function getForms(query) {
 
   const { rows } = await pool.query(
     `SELECT f.*, a.name AS created_by_name, a.position AS created_by_position,
-            count(q.question_id)::int AS question_count
+            count(DISTINCT q.question_id)::int AS question_count,
+            count(DISTINCT r.response_id)::int AS response_count
      FROM forms f
      LEFT JOIN accounts a ON a.staff_id = f.created_by_staff_id
      LEFT JOIN form_questions q ON q.form_id = f.form_id
+     LEFT JOIN form_responses r ON r.form_id = f.form_id
      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
      GROUP BY f.form_id, a.name, a.position
      ORDER BY f.updated_at DESC, f.created_at DESC`,
@@ -134,17 +137,24 @@ async function saveForm(formId, payload, currentUser) {
     const isNew = !formId;
     const result = await client.query(
       `INSERT INTO forms (
-         form_id, form_code, title, description, status, visibility,
-         allow_multiple_responses, require_login, created_by_staff_id, updated_by_staff_id, updated_at
-       ) VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5,$6,$7,$8,$9,$9,now())
+         form_id, form_code, title, description, form_type, status, visibility,
+         allow_multiple_responses, require_login, has_fee, fee_title, fee_amount,
+         payment_description, counter_service_type, created_by_staff_id, updated_by_staff_id, updated_at
+       ) VALUES (COALESCE($1::uuid, gen_random_uuid()), $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15,now())
        ON CONFLICT (form_id) DO UPDATE SET
          form_code = EXCLUDED.form_code,
          title = EXCLUDED.title,
          description = EXCLUDED.description,
+         form_type = EXCLUDED.form_type,
          status = EXCLUDED.status,
          visibility = EXCLUDED.visibility,
          allow_multiple_responses = EXCLUDED.allow_multiple_responses,
          require_login = EXCLUDED.require_login,
+         has_fee = EXCLUDED.has_fee,
+         fee_title = EXCLUDED.fee_title,
+         fee_amount = EXCLUDED.fee_amount,
+         payment_description = EXCLUDED.payment_description,
+         counter_service_type = EXCLUDED.counter_service_type,
          updated_by_staff_id = EXCLUDED.updated_by_staff_id,
          updated_at = now()
        RETURNING form_id`,
@@ -153,10 +163,16 @@ async function saveForm(formId, payload, currentUser) {
         normalized.formCode,
         normalized.title,
         normalized.description,
+        normalized.formType,
         normalized.status,
         normalized.visibility,
         normalized.allowMultipleResponses,
         normalized.requireLogin,
+        normalized.hasFee,
+        normalized.feeTitle,
+        normalized.feeAmount,
+        normalized.paymentDescription,
+        normalized.counterServiceType,
         currentUser.staffId ? String(currentUser.staffId) : null
       ]
     );
@@ -213,15 +229,24 @@ function normalizeFormPayload(payload) {
   if (!title) throw new Error('請填寫表單標題');
   const questions = Array.isArray(payload.questions) ? payload.questions.map(normalizeQuestion).filter(Boolean) : [];
   if (!questions.length) throw new Error('請至少新增一題');
+  const hasFee = Boolean(payload.hasFee);
+  const feeAmount = hasFee ? Number(payload.feeAmount || 0) : 0;
+  if (hasFee && feeAmount <= 0) throw new Error('收費表單請填寫大於 0 的金額');
 
   return {
     formCode: normalizeText(payload.formCode),
     title,
     description: normalizeText(payload.description),
+    formType: FORM_TYPES.has(payload.formType) ? payload.formType : 'survey',
     status: ['draft', 'published', 'closed'].includes(payload.status) ? payload.status : 'draft',
     visibility: ['internal', 'public', 'members'].includes(payload.visibility) ? payload.visibility : 'internal',
     allowMultipleResponses: payload.allowMultipleResponses !== false,
     requireLogin: payload.requireLogin !== false,
+    hasFee,
+    feeTitle: normalizeText(payload.feeTitle),
+    feeAmount,
+    paymentDescription: normalizeText(payload.paymentDescription),
+    counterServiceType: 'payment',
     questions
   };
 }
@@ -257,9 +282,16 @@ function toFormListItem(row) {
     formCode: row.form_code,
     title: row.title,
     description: row.description,
+    formType: row.form_type || 'survey',
     status: row.status,
     visibility: row.visibility,
+    hasFee: Boolean(row.has_fee),
+    feeTitle: row.fee_title,
+    feeAmount: Number(row.fee_amount || 0),
+    paymentDescription: row.payment_description,
+    counterServiceType: row.counter_service_type || 'payment',
     questionCount: row.question_count || 0,
+    responseCount: row.response_count || 0,
     createdBy: [row.created_by_name, row.created_by_position].filter(Boolean).join(' '),
     updatedAt: row.updated_at
   };
@@ -271,10 +303,16 @@ function toFormDetail(row) {
     formCode: row.form_code,
     title: row.title,
     description: row.description,
+    formType: row.form_type || 'survey',
     status: row.status,
     visibility: row.visibility,
     allowMultipleResponses: row.allow_multiple_responses,
-    requireLogin: row.require_login
+    requireLogin: row.require_login,
+    hasFee: Boolean(row.has_fee),
+    feeTitle: row.fee_title,
+    feeAmount: Number(row.fee_amount || 0),
+    paymentDescription: row.payment_description,
+    counterServiceType: row.counter_service_type || 'payment'
   };
 }
 

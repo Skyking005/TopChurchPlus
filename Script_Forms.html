@@ -2,6 +2,12 @@
 let forms = [];
 let currentFormQuestions = [];
 
+const FORM_TYPES = {
+  survey: '問卷調查',
+  event_registration: '活動報名',
+  general: '一般表單'
+};
+
 const FORM_QUESTION_TYPES = [
   { value: 'short_text', label: '簡答' },
   { value: 'paragraph', label: '段落' },
@@ -16,7 +22,7 @@ function openFormsSystem() {
   recordFeatureUsage('forms');
   const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '表單系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -46,7 +52,7 @@ function renderFormsTable() {
   const body = document.getElementById('formsTableBody');
   body.innerHTML = '';
   if (!forms.length) {
-    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無表單</td></tr>';
+    body.innerHTML = '<tr><td colspan="10" class="text-muted text-center py-4">尚無表單</td></tr>';
     return;
   }
   forms.forEach(form => {
@@ -56,9 +62,12 @@ function renderFormsTable() {
         <button type="button" class="project-link" onclick="openFormEditor('${escapeAttr(form.formId)}')">${escapeHtml(form.title)}</button>
         <div class="text-muted small">${escapeHtml(form.description || '')}</div>
       </td>
+      <td>${escapeHtml(formatFormType(form.formType))}</td>
       <td>${escapeHtml(formatFormStatus(form.status))}</td>
+      <td>${form.hasFee ? `<span class="badge bg-warning text-dark">${escapeHtml(formatMoney(form.feeAmount || 0))}</span>` : '<span class="text-muted">無</span>'}</td>
       <td>${escapeHtml(formatFormVisibility(form.visibility))}</td>
       <td>${escapeHtml(form.questionCount)}</td>
+      <td>${escapeHtml(form.responseCount || 0)}</td>
       <td>${escapeHtml(form.createdBy || '')}</td>
       <td>${escapeHtml(formatFormsDateTime(form.updatedAt))}</td>
       <td><button type="button" class="btn btn-outline-secondary btn-sm" onclick="openFormEditor('${escapeAttr(form.formId)}')">編輯</button></td>
@@ -73,10 +82,15 @@ function newForm() {
       formId: '',
       title: '',
       description: '',
+      formType: 'survey',
       status: 'draft',
       visibility: 'internal',
       requireLogin: true,
-      allowMultipleResponses: true
+      allowMultipleResponses: true,
+      hasFee: false,
+      feeTitle: '',
+      feeAmount: 0,
+      paymentDescription: ''
     },
     questions: [createEmptyQuestion('short_text')]
   });
@@ -105,11 +119,27 @@ function setFormEditor(data) {
   document.getElementById('formId').value = form.formId || '';
   document.getElementById('formTitle').value = form.title || '';
   document.getElementById('formDescription').value = form.description || '';
+  document.getElementById('formType').value = form.formType || 'survey';
   document.getElementById('formStatus').value = form.status || 'draft';
   document.getElementById('formVisibility').value = form.visibility || 'internal';
   document.getElementById('formRequireLogin').checked = form.requireLogin !== false;
   document.getElementById('formAllowMultipleResponses').checked = form.allowMultipleResponses !== false;
+  document.getElementById('formHasFee').checked = Boolean(form.hasFee);
+  document.getElementById('formFeeTitle').value = form.feeTitle || '';
+  document.getElementById('formFeeAmount').value = form.feeAmount || '';
+  document.getElementById('formPaymentDescription').value = form.paymentDescription || '';
+  toggleFormFeeFields();
   renderFormQuestions();
+}
+
+function toggleFormFeeFields() {
+  const enabled = document.getElementById('formHasFee').checked;
+  document.querySelectorAll('.form-fee-field').forEach(el => el.classList.toggle('d-none', !enabled));
+  if (!enabled) {
+    document.getElementById('formFeeTitle').value = '';
+    document.getElementById('formFeeAmount').value = '';
+    document.getElementById('formPaymentDescription').value = '';
+  }
 }
 
 function backToFormsList(shouldLoad = true) {
@@ -260,14 +290,23 @@ function submitForm() {
     formId: document.getElementById('formId').value,
     title: document.getElementById('formTitle').value.trim(),
     description: document.getElementById('formDescription').value.trim(),
+    formType: document.getElementById('formType').value,
     status: document.getElementById('formStatus').value,
     visibility: document.getElementById('formVisibility').value,
     requireLogin: document.getElementById('formRequireLogin').checked,
     allowMultipleResponses: document.getElementById('formAllowMultipleResponses').checked,
+    hasFee: document.getElementById('formHasFee').checked,
+    feeTitle: document.getElementById('formFeeTitle').value.trim(),
+    feeAmount: Number(document.getElementById('formFeeAmount').value || 0),
+    paymentDescription: document.getElementById('formPaymentDescription').value.trim(),
     questions: currentFormQuestions
   };
   if (!form.title) {
     errorBox.textContent = '請填寫表單標題';
+    return;
+  }
+  if (form.hasFee && form.feeAmount <= 0) {
+    errorBox.textContent = '收費表單請填寫大於 0 的金額';
     return;
   }
 
@@ -304,6 +343,10 @@ function handleFormsSearchKey(event) {
 
 function formatFormStatus(status) {
   return { draft: '草稿', published: '已發布', closed: '已關閉', archived: '已封存' }[status] || status || '';
+}
+
+function formatFormType(type) {
+  return FORM_TYPES[type] || type || '';
 }
 
 function formatFormVisibility(value) {

@@ -43,6 +43,12 @@ const SYSTEM_FEATURES = [
     action: 'openComingSoonSystem'
   },
   {
+    key: 'qt',
+    title: 'QT管理系統',
+    desc: 'QT訂閱、領取、異動與櫃台相關作業',
+    action: 'openComingSoonSystem'
+  },
+  {
     key: 'pastoral',
     title: '牧養管理系統',
     desc: '牧養關懷、名單與跟進紀錄',
@@ -81,14 +87,14 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qt', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
   '媒體同工': ['media', 'worship'],
-  '義工': ['counter', 'serving']
+  '義工': ['counter', 'qt', 'serving']
 };
 
 function handleLogin() {

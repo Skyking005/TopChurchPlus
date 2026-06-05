@@ -17,6 +17,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('超級管理者', 'venue', 'edit'),
     ('超級管理者', 'forms', 'edit'),
     ('超級管理者', 'counter', 'edit'),
+    ('超級管理者', 'qt', 'edit'),
     ('超級管理者', 'pastoral', 'edit'),
     ('超級管理者', 'education', 'edit'),
     ('超級管理者', 'media', 'edit'),
@@ -30,6 +31,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('管理員', 'venue', 'edit'),
     ('管理員', 'forms', 'edit'),
     ('管理員', 'counter', 'edit'),
+    ('管理員', 'qt', 'edit'),
     ('管理員', 'pastoral', 'edit'),
     ('管理員', 'education', 'edit'),
     ('管理員', 'media', 'edit'),
@@ -41,6 +43,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('全職同工', 'venue', 'edit'),
     ('全職同工', 'forms', 'edit'),
     ('全職同工', 'counter', 'edit'),
+    ('全職同工', 'qt', 'edit'),
     ('全職同工', 'worship', 'edit'),
     ('全職同工', 'attendance', 'edit'),
     ('全職同工', 'serving', 'edit'),
@@ -50,6 +53,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('媒體同工', 'media', 'edit'),
     ('媒體同工', 'worship', 'edit'),
     ('義工', 'counter', 'edit'),
+    ('義工', 'qt', 'edit'),
     ('義工', 'serving', 'edit')
 )
 INSERT INTO role_feature_permissions (role, feature_key, access_level)
