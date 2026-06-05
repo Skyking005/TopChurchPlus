@@ -7,6 +7,7 @@
 已開始落地：
 
 - API 模組化骨架：`api/src/app.js`、`api/src/middleware/*`、`api/src/modules/core/*`
+- Auth 模組：`api/src/modules/auth/routes.js`，集中登入、陌生裝置驗證、登入紀錄
 - 結構化參數表：`param_categories`、`param_items`
 - 共用檔案管理表：`files`、`file_links`
 - 稽核紀錄表：`audit_logs`
@@ -40,6 +41,29 @@ api/src/modules/core/
 ```
 
 現階段 `api/src/index.js` 仍保留大部分既有路由。後續每次開新功能時，優先將該模組新路由放到自己的 `routes.js`，再逐步搬離 `index.js`。
+
+已採用的入口組裝模式：
+
+```js
+const app = createApp();
+
+app.use(createApiKeyMiddleware({ publicPaths: ['/health'] }));
+registerCoreRoutes(app);
+registerAuthRoutes(app);
+
+// 既有模組路由暫時保留於 index.js
+
+app.use(createErrorHandler());
+```
+
+路由模組規則：
+
+- `routes.js` 只註冊 HTTP endpoint 與處理 request/response。
+- 商業邏輯逐步放到 `service.js`。
+- SQL 存取逐步放到 `repository.js`。
+- 資料欄位轉換逐步放到 `mapper.js`。
+- 輸入檢查逐步放到 `validators.js`。
+- 錯誤統一丟出 `Error`，由 `createErrorHandler()` 回傳 JSON。
 
 ## 參數管理建議
 
