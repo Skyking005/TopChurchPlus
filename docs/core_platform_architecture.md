@@ -10,6 +10,7 @@
 - Auth 模組：`api/src/modules/auth/routes.js`，集中登入、陌生裝置驗證、登入紀錄
 - System 模組：`api/src/modules/system/routes.js`，集中 initial data、使用者管理、權限管理、參數、使用紀錄
 - Pastoral 模組：`api/src/modules/pastoral/routes.js`，集中牧養選項、會友清單、會友詳細資料與會堂資料範圍權限
+- Asset 模組：`api/src/modules/asset/routes.js`，集中資產清單、資產詳細/儲存、位置清單與位置管理
 - 結構化參數表：`param_categories`、`param_items`
 - 共用檔案管理表：`files`、`file_links`
 - 稽核紀錄表：`audit_logs`
@@ -54,6 +55,7 @@ registerCoreRoutes(app);
 registerAuthRoutes(app);
 registerSystemRoutes(app);
 registerPastoralRoutes(app);
+registerAssetRoutes(app);
 
 // 既有模組路由暫時保留於 index.js
 
