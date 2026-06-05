@@ -1,15 +1,45 @@
 <script>
 let counterTransactions = [];
 let counterPinCodes = [];
+let counterQrcodeEvents = [];
+let counterQrcodeScanner = null;
+let counterQrcodeLastPayload = '';
+let counterQrcodeLastScanAt = 0;
 
 function openCounterWorkbench() {
   recordFeatureUsage('counter');
-  document.getElementById('mainTitle').textContent = '志工櫃台';
+  document.getElementById('mainTitle').textContent = '櫃台工作台';
   hideAllMainViews();
   document.getElementById('counterWorkbenchView').classList.remove('d-none');
   toggleCounterPinManagement();
+  switchCounterTab('payments');
+  refreshCounterWorkbench();
+}
+
+function refreshCounterWorkbench() {
   loadCounterTransactions();
+  loadCounterQrcodeEvents();
   if (canManageCounterPins()) loadCounterPins();
+}
+
+function switchCounterTab(tab) {
+  document.querySelectorAll('[data-counter-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.counterTab === tab);
+  });
+  const map = {
+    payments: 'counterPaymentsPanel',
+    qt: 'counterQtPanel',
+    qrcode: 'counterQrcodePanel',
+    pins: 'counterPinManagementPanel'
+  };
+  Object.values(map).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  const panel = document.getElementById(map[tab] || map.payments);
+  if (panel) panel.classList.remove('d-none');
+  if (tab !== 'qrcode') stopCounterQrcodeScanner();
+  if (tab === 'qrcode') loadCounterQrcodeEvents();
 }
 
 function loadCounterTransactions() {
@@ -27,7 +57,7 @@ function renderCounterTransactions() {
   const body = document.getElementById('counterTransactionTableBody');
   body.innerHTML = '';
   if (!counterTransactions.length) {
-    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">目前沒有待繳費資料</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">目前沒有待處理繳費</td></tr>';
     return;
   }
 
@@ -40,18 +70,150 @@ function renderCounterTransactions() {
       <td class="text-end">${formatMoney(row.amount || 0)}</td>
       <td>${escapeHtml(formatCounterStatus(row.status))}</td>
       <td class="text-end">
-        <button type="button" class="btn btn-sm btn-success" onclick="markCounterTransactionPaid('${escapeAttr(row.transactionId)}')">已收款</button>
+        <button type="button" class="btn btn-sm btn-success" onclick="markCounterTransactionPaid('${escapeAttr(row.transactionId)}')">完成收款</button>
       </td>
     `;
     body.appendChild(tr);
   });
 }
 
+function loadCounterQrcodeEvents() {
+  google.script.run
+    .withSuccessHandler(rows => {
+      counterQrcodeEvents = rows || [];
+      renderCounterQrcodeEvents();
+    })
+    .withFailureHandler(showError)
+    .getActiveQrcodeEvents(currentUser);
+}
+
+function renderCounterQrcodeEvents() {
+  const select = document.getElementById('counterQrcodeEventSelect');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = '';
+  if (!counterQrcodeEvents.length) {
+    select.innerHTML = '<option value="">目前沒有開放中的報到活動</option>';
+    updateCounterQrcodeSelectedEvent();
+    return;
+  }
+  counterQrcodeEvents.forEach(event => {
+    const option = document.createElement('option');
+    option.value = event.eventId;
+    option.textContent = `${event.eventName} ${event.churchName ? `｜${event.churchName}` : ''}`;
+    select.appendChild(option);
+  });
+  if (current && counterQrcodeEvents.some(event => event.eventId === current)) select.value = current;
+  updateCounterQrcodeSelectedEvent();
+}
+
+function updateCounterQrcodeSelectedEvent() {
+  const eventId = document.getElementById('counterQrcodeEventSelect')?.value || '';
+  const event = counterQrcodeEvents.find(item => String(item.eventId) === String(eventId));
+  const meta = document.getElementById('counterQrcodeEventMeta');
+  if (!event) {
+    meta.textContent = '請先於內部 QRCode 報到系統建立並開放活動。';
+    return;
+  }
+  meta.textContent = `活動日期：${formatDateOnly(event.eventDate) || '未設定'}｜已報到：${event.checkinCount || 0}`;
+}
+
+function startCounterQrcodeScanner() {
+  const eventId = document.getElementById('counterQrcodeEventSelect')?.value;
+  if (!eventId) {
+    showCounterQrcodeResult('warning', '請先選擇報到活動');
+    return;
+  }
+  if (!window.Html5Qrcode) {
+    showCounterQrcodeResult('danger', 'QRCode 掃描套件尚未載入，請重新整理後再試');
+    return;
+  }
+  if (counterQrcodeScanner) return;
+  counterQrcodeScanner = new Html5Qrcode('counterQrcodeScanner');
+  counterQrcodeScanner.start(
+    { facingMode: 'environment' },
+    { fps: 8, qrbox: { width: 240, height: 240 } },
+    decodedText => handleCounterQrcodeScan(decodedText),
+    () => {}
+  ).catch(err => {
+    counterQrcodeScanner = null;
+    showCounterQrcodeResult('danger', err.message || err);
+  });
+}
+
+function stopCounterQrcodeScanner() {
+  if (!counterQrcodeScanner) return;
+  counterQrcodeScanner.stop()
+    .then(() => {
+      counterQrcodeScanner.clear();
+      counterQrcodeScanner = null;
+    })
+    .catch(() => {
+      counterQrcodeScanner = null;
+    });
+}
+
+function handleCounterQrcodeScan(payload) {
+  const now = Date.now();
+  if (payload === counterQrcodeLastPayload && now - counterQrcodeLastScanAt < 2500) return;
+  counterQrcodeLastPayload = payload;
+  counterQrcodeLastScanAt = now;
+  submitCounterQrcodeCheckin(payload);
+}
+
+function submitCounterQrcodeManual() {
+  const input = document.getElementById('counterQrcodeManualPayload');
+  const payload = input.value.trim();
+  if (!payload) {
+    showCounterQrcodeResult('warning', '請輸入 QRCode 內容');
+    return;
+  }
+  submitCounterQrcodeCheckin(payload);
+  input.value = '';
+}
+
+function submitCounterQrcodeCheckin(payload) {
+  const eventId = document.getElementById('counterQrcodeEventSelect')?.value;
+  if (!eventId) {
+    showCounterQrcodeResult('warning', '請先選擇報到活動');
+    return;
+  }
+  showCounterQrcodeResult('info', '報到處理中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      const checkin = res.checkin || {};
+      showCounterQrcodeResult(res.duplicate ? 'warning' : 'success', res.message, checkin);
+      loadCounterQrcodeEvents();
+    })
+    .withFailureHandler(err => {
+      showCounterQrcodeResult('danger', err.message || err);
+    })
+    .checkInQrcodeEvent({ eventId, qrPayload: payload, currentUser });
+}
+
+function showCounterQrcodeResult(type, message, checkin = null) {
+  const box = document.getElementById('counterQrcodeResult');
+  const className = {
+    success: 'alert-success',
+    warning: 'alert-warning',
+    danger: 'alert-danger',
+    info: 'alert-info'
+  }[type] || 'alert-secondary';
+  box.innerHTML = `
+    <div class="alert ${className} mb-0">
+      <div class="fw-bold">${escapeHtml(message || '')}</div>
+      ${checkin ? `
+        <div class="mt-2">${escapeHtml(checkin.memberName || '')}</div>
+        <div class="small">${escapeHtml(checkin.churchName || '')}${checkin.categoryName ? `｜${escapeHtml(checkin.categoryName)}` : ''}</div>
+        <div class="small">${escapeHtml(formatFormsDateTime(checkin.checkedAt))}</div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function toggleCounterPinManagement() {
   const canManage = canManageCounterPins();
-  const panel = document.getElementById('counterPinManagementPanel');
   const tab = document.getElementById('counterPinManagementTab');
-  if (panel) panel.classList.toggle('d-none', !canManage);
   if (tab) tab.classList.toggle('d-none', !canManage);
 }
 
@@ -98,7 +260,7 @@ function renderCounterPins() {
 function createCounterPin() {
   google.script.run
     .withSuccessHandler(res => {
-      alert(`已新增 PIN Code：${res.pinCode}`);
+      alert(`已建立 PIN Code：${res.pinCode}`);
       loadCounterPins();
     })
     .withFailureHandler(showError)
@@ -117,7 +279,7 @@ function deactivateCounterPin(pinId) {
 }
 
 function resetCounterPins() {
-  if (!confirm('確定要停用本週所有 PIN Code 並產生一組新的 PIN？')) return;
+  if (!confirm('確定要停用本週所有 PIN Code 並建立新 PIN？')) return;
   google.script.run
     .withSuccessHandler(res => {
       alert(`${res.message}：${res.pinCode.pinCode}`);

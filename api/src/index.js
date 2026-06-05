@@ -13,6 +13,7 @@ const { registerFinanceRoutes } = require('./modules/finance/routes');
 const { registerFormsRoutes } = require('./modules/forms/routes');
 const { registerLineBotRoutes } = require('./modules/linebot/routes');
 const { registerProjectRoutes } = require('./modules/project/routes');
+const { registerQrcodeRoutes } = require('./modules/qrcode/routes');
 const { registerQtRoutes } = require('./modules/qt/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
@@ -31,6 +32,7 @@ registerFormsRoutes(app);
 registerEducationRoutes(app);
 registerLineBotRoutes(app);
 registerProjectRoutes(app);
+registerQrcodeRoutes(app);
 registerQtRoutes(app);
 registerVenueRoutes(app);
 

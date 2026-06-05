@@ -1,0 +1,129 @@
+<section id="qrcodeView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">QRCode報到系統</h5>
+        <div class="text-muted small">建立活動報到櫃台，並檢視會友 QRCode 報到狀況。</div>
+      </div>
+      <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary" onclick="loadQrcodeEvents()">重新整理</button>
+        <button type="button" class="btn btn-primary" id="qrcodeAddEventBtn" onclick="openQrcodeEventEditor()">新增報到活動</button>
+      </div>
+    </div>
+
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-md-5">
+        <label class="form-label">關鍵字</label>
+        <input id="qrcodeKeyword" class="form-control" placeholder="活動名稱 / 代碼" onkeydown="handleQrcodeSearchKey(event)">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">狀態</label>
+        <select id="qrcodeStatusFilter" class="form-select" onchange="loadQrcodeEvents()">
+          <option value="">全部</option>
+          <option value="open">開放中</option>
+          <option value="draft">草稿</option>
+          <option value="closed">已結束</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>活動代碼</th>
+            <th>活動名稱</th>
+            <th>會堂</th>
+            <th>日期</th>
+            <th>狀態</th>
+            <th class="text-end">報到人數</th>
+            <th class="text-end">功能</th>
+          </tr>
+        </thead>
+        <tbody id="qrcodeEventTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="qrcodeDetailPanel" class="section-card mt-3 d-none">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h6 class="mb-1" id="qrcodeDetailTitle">報到名單</h6>
+        <div class="text-muted small" id="qrcodeDetailSummary"></div>
+      </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeQrcodeDetail()">收合</button>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>報到時間</th>
+            <th>姓名</th>
+            <th>會堂</th>
+            <th>分類</th>
+            <th>電話</th>
+            <th>報到人員</th>
+          </tr>
+        </thead>
+        <tbody id="qrcodeCheckinTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="modal fade" id="qrcodeEventModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">QRCode報到活動</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="qrcodeEventId">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label">活動代碼</label>
+            <input id="qrcodeEventCode" class="form-control" placeholder="留空由系統產生">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">活動名稱</label>
+            <input id="qrcodeEventName" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">會堂</label>
+            <select id="qrcodeEventChurch" class="form-select"></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">活動日期</label>
+            <input id="qrcodeEventDate" type="date" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">狀態</label>
+            <select id="qrcodeEventStatus" class="form-select">
+              <option value="open">開放中</option>
+              <option value="draft">草稿</option>
+              <option value="closed">已結束</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">報到開始時間</label>
+            <input id="qrcodeCheckinStartsAt" type="datetime-local" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">報到結束時間</label>
+            <input id="qrcodeCheckinEndsAt" type="datetime-local" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">備註</label>
+            <textarea id="qrcodeEventNote" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+        <div id="qrcodeEventError" class="text-danger small mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="qrcodeSaveEventBtn" onclick="saveQrcodeEvent()">儲存</button>
+      </div>
+    </div>
+  </div>
+</div>

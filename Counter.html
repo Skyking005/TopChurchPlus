@@ -2,48 +2,90 @@
   <div class="section-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div>
-        <h5 class="mb-1">志工櫃台工作台</h5>
-        <div class="text-muted small">報名繳費、QT 領取與櫃台服務</div>
+        <h5 class="mb-1">櫃台工作台</h5>
+        <div class="text-muted small">處理繳費、QT 領取與 QRCode 活動報到。</div>
       </div>
-      <button type="button" class="btn btn-outline-primary" onclick="loadCounterTransactions()">重新整理</button>
+      <button type="button" class="btn btn-outline-primary" onclick="refreshCounterWorkbench()">重新整理</button>
     </div>
 
-    <ul class="nav nav-tabs mb-3">
+    <ul class="nav nav-tabs mb-3" id="counterWorkbenchTabs">
       <li class="nav-item">
-        <button type="button" class="nav-link active">待繳費</button>
+        <button type="button" class="nav-link active" data-counter-tab="payments" onclick="switchCounterTab('payments')">繳費工作區</button>
       </li>
       <li class="nav-item">
-        <button type="button" class="nav-link disabled">QT 領取</button>
+        <button type="button" class="nav-link" data-counter-tab="qt" onclick="switchCounterTab('qt')">QT 領取</button>
       </li>
-      <li class="nav-item" id="counterPinManagementTab">
-        <button type="button" class="nav-link disabled">PIN 管理</button>
+      <li class="nav-item">
+        <button type="button" class="nav-link" data-counter-tab="qrcode" onclick="switchCounterTab('qrcode')">QRCode 報到</button>
+      </li>
+      <li class="nav-item d-none" id="counterPinManagementTab">
+        <button type="button" class="nav-link" data-counter-tab="pins" onclick="switchCounterTab('pins')">PIN 管理</button>
       </li>
     </ul>
 
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th>交易編號</th>
-            <th>來源</th>
-            <th>繳費人</th>
-            <th class="text-end">金額</th>
-            <th>狀態</th>
-            <th class="text-end">功能</th>
-          </tr>
-        </thead>
-        <tbody id="counterTransactionTableBody"></tbody>
-      </table>
+    <div id="counterPaymentsPanel" class="counter-panel">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>交易編號</th>
+              <th>來源</th>
+              <th>繳費人</th>
+              <th class="text-end">金額</th>
+              <th>狀態</th>
+              <th class="text-end">操作</th>
+            </tr>
+          </thead>
+          <tbody id="counterTransactionTableBody"></tbody>
+        </table>
+      </div>
     </div>
 
-    <div id="counterPinManagementPanel" class="mt-4 d-none">
+    <div id="counterQtPanel" class="counter-panel d-none">
+      <div class="counter-empty">
+        <h6 class="mb-1">QT 領取工作區</h6>
+        <div class="text-muted">QT 訂閱、領取與庫存作業目前先於 QT 管理系統操作，後續可在此放入櫃台專用流程。</div>
+      </div>
+    </div>
+
+    <div id="counterQrcodePanel" class="counter-panel d-none">
+      <div class="row g-3">
+        <div class="col-lg-4">
+          <label class="form-label">報到活動</label>
+          <select id="counterQrcodeEventSelect" class="form-select" onchange="updateCounterQrcodeSelectedEvent()"></select>
+          <div class="text-muted small mt-2" id="counterQrcodeEventMeta"></div>
+          <div class="d-grid gap-2 mt-3">
+            <button type="button" class="btn btn-primary" onclick="startCounterQrcodeScanner()">開啟鏡頭掃描</button>
+            <button type="button" class="btn btn-outline-secondary" onclick="stopCounterQrcodeScanner()">停止鏡頭</button>
+          </div>
+          <div class="mt-3">
+            <label class="form-label">手動輸入 QRCode 內容</label>
+            <div class="input-group">
+              <input id="counterQrcodeManualPayload" class="form-control" placeholder="會友ID / LINE ID / QR payload">
+              <button type="button" class="btn btn-outline-primary" onclick="submitCounterQrcodeManual()">報到</button>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div id="counterQrcodeScanner" class="qrcode-scanner-box"></div>
+          <div class="text-muted small mt-2">第一次使用時，瀏覽器會要求允許攝影機權限。</div>
+        </div>
+        <div class="col-lg-3">
+          <div id="counterQrcodeResult" class="qrcode-result-box">
+            <div class="text-muted">掃描結果會顯示在這裡。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="counterPinManagementPanel" class="counter-panel d-none">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <div>
-          <h6 class="mb-1">本週志工櫃台 PIN Code</h6>
-          <div class="text-muted small">可同時開啟多組 PIN，停用後立即無法登入。</div>
+          <h6 class="mb-1">本週櫃台 PIN Code</h6>
+          <div class="text-muted small">可建立多組啟用中的 PIN，讓不同櫃台電腦進入志工工作台。</div>
         </div>
         <div class="btn-group">
-          <button type="button" class="btn btn-outline-primary btn-sm" onclick="createCounterPin()">新增一組 PIN</button>
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="createCounterPin()">新增 PIN</button>
           <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetCounterPins()">重設本週 PIN</button>
         </div>
       </div>
@@ -55,7 +97,7 @@
               <th>有效期限</th>
               <th>使用次數</th>
               <th>狀態</th>
-              <th class="text-end">功能</th>
+              <th class="text-end">操作</th>
             </tr>
           </thead>
           <tbody id="counterPinTableBody"></tbody>

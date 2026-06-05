@@ -1,0 +1,187 @@
+<script>
+let qrcodeEvents = [];
+let qrcodeOptions = { churches: [] };
+let qrcodeEventModalInstance = null;
+let qrcodeCanEdit = false;
+
+function openQrcodeSystem() {
+  recordFeatureUsage('qrcode');
+  document.getElementById('mainTitle').textContent = 'QRCode報到系統';
+  qrcodeCanEdit = getFeatureAccess('qrcode') === 'edit' && currentUser.deviceType !== 'mobile';
+  hideAllMainViews();
+  document.getElementById('qrcodeView').classList.remove('d-none');
+  document.getElementById('qrcodeAddEventBtn').classList.toggle('d-none', !qrcodeCanEdit);
+  loadQrcodeOptions(() => {
+    setupQrcodeChurchOptions();
+    loadQrcodeEvents();
+  });
+}
+
+function loadQrcodeOptions(done) {
+  google.script.run
+    .withSuccessHandler(options => {
+      qrcodeOptions = options || { churches: [] };
+      if (typeof done === 'function') done();
+    })
+    .withFailureHandler(showError)
+    .getQrcodeOptions(currentUser);
+}
+
+function setupQrcodeChurchOptions() {
+  const select = document.getElementById('qrcodeEventChurch');
+  if (!select) return;
+  const churches = qrcodeOptions.churches || [];
+  select.innerHTML = '<option value="">不指定</option>';
+  churches.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.churchId;
+    option.textContent = item.churchName || '';
+    select.appendChild(option);
+  });
+}
+
+function loadQrcodeEvents() {
+  setListLoading('qrcodeEventTableBody', true, 'QRCode 報到活動載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      qrcodeEvents = rows || [];
+      renderQrcodeEvents();
+    })
+    .withFailureHandler(showError)
+    .getQrcodeEvents({
+      keyword: document.getElementById('qrcodeKeyword').value,
+      status: document.getElementById('qrcodeStatusFilter').value
+    }, currentUser);
+}
+
+function renderQrcodeEvents() {
+  const body = document.getElementById('qrcodeEventTableBody');
+  body.innerHTML = '';
+  if (!qrcodeEvents.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">目前沒有 QRCode 報到活動</td></tr>';
+    return;
+  }
+  qrcodeEvents.forEach(event => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(event.eventCode || '')}</td>
+      <td>${escapeHtml(event.eventName || '')}</td>
+      <td>${escapeHtml(event.churchName || '')}</td>
+      <td>${escapeHtml(formatDateOnly(event.eventDate))}</td>
+      <td>${renderQrcodeStatus(event.status)}</td>
+      <td class="text-end">${escapeHtml(event.checkinCount || 0)}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadQrcodeEventDetail('${escapeAttr(event.eventId)}')">名單</button>
+        ${qrcodeCanEdit ? `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="openQrcodeEventEditor('${escapeAttr(event.eventId)}')">編輯</button>` : ''}
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function openQrcodeEventEditor(eventId = '') {
+  const event = qrcodeEvents.find(item => String(item.eventId) === String(eventId)) || {};
+  document.getElementById('qrcodeEventId').value = event.eventId || '';
+  document.getElementById('qrcodeEventCode').value = event.eventCode || '';
+  document.getElementById('qrcodeEventName').value = event.eventName || '';
+  document.getElementById('qrcodeEventChurch').value = event.churchId || '';
+  document.getElementById('qrcodeEventDate').value = formatDateOnly(event.eventDate);
+  document.getElementById('qrcodeEventStatus').value = event.status || 'open';
+  document.getElementById('qrcodeCheckinStartsAt').value = toDateTimeLocalValue(event.checkinStartsAt);
+  document.getElementById('qrcodeCheckinEndsAt').value = toDateTimeLocalValue(event.checkinEndsAt);
+  document.getElementById('qrcodeEventNote').value = event.note || '';
+  document.getElementById('qrcodeEventError').textContent = '';
+  qrcodeEventModalInstance = new bootstrap.Modal(document.getElementById('qrcodeEventModal'));
+  qrcodeEventModalInstance.show();
+}
+
+function saveQrcodeEvent() {
+  const errorBox = document.getElementById('qrcodeEventError');
+  const btn = document.getElementById('qrcodeSaveEventBtn');
+  errorBox.textContent = '';
+  const event = {
+    eventId: document.getElementById('qrcodeEventId').value,
+    eventCode: document.getElementById('qrcodeEventCode').value.trim(),
+    eventName: document.getElementById('qrcodeEventName').value.trim(),
+    churchId: document.getElementById('qrcodeEventChurch').value,
+    eventDate: document.getElementById('qrcodeEventDate').value,
+    checkinStartsAt: document.getElementById('qrcodeCheckinStartsAt').value,
+    checkinEndsAt: document.getElementById('qrcodeCheckinEndsAt').value,
+    status: document.getElementById('qrcodeEventStatus').value,
+    note: document.getElementById('qrcodeEventNote').value.trim()
+  };
+  if (!event.eventName) {
+    errorBox.textContent = '請填寫活動名稱';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (qrcodeEventModalInstance) qrcodeEventModalInstance.hide();
+      alert(res.message);
+      loadQrcodeEvents();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveQrcodeEvent({ event, currentUser });
+}
+
+function loadQrcodeEventDetail(eventId) {
+  setListLoading('qrcodeCheckinTableBody', true, '報到名單載入中...');
+  document.getElementById('qrcodeDetailPanel').classList.remove('d-none');
+  google.script.run
+    .withSuccessHandler(detail => renderQrcodeEventDetail(detail))
+    .withFailureHandler(showError)
+    .getQrcodeEventDetail(eventId, currentUser);
+}
+
+function renderQrcodeEventDetail(detail) {
+  const event = detail.event || {};
+  const checkins = detail.checkins || [];
+  document.getElementById('qrcodeDetailTitle').textContent = `${event.eventName || ''} 報到名單`;
+  document.getElementById('qrcodeDetailSummary').textContent = `報到人數：${checkins.length}`;
+  const body = document.getElementById('qrcodeCheckinTableBody');
+  body.innerHTML = '';
+  if (!checkins.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚無報到資料</td></tr>';
+    return;
+  }
+  checkins.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(formatFormsDateTime(row.checkedAt))}</td>
+      <td>${escapeHtml(row.memberName || '')}</td>
+      <td>${escapeHtml(row.churchName || '')}</td>
+      <td>${escapeHtml(row.categoryName || '')}</td>
+      <td>${escapeHtml(row.mobilePhone || '')}</td>
+      <td>${escapeHtml(row.checkedInByName || '')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function closeQrcodeDetail() {
+  document.getElementById('qrcodeDetailPanel').classList.add('d-none');
+}
+
+function handleQrcodeSearchKey(event) {
+  if (event.key === 'Enter') loadQrcodeEvents();
+}
+
+function renderQrcodeStatus(status) {
+  const map = {
+    open: '<span class="badge bg-success">開放中</span>',
+    draft: '<span class="badge bg-secondary">草稿</span>',
+    closed: '<span class="badge bg-dark">已結束</span>'
+  };
+  return map[status] || escapeHtml(status || '');
+}
+
+function formatDateOnly(value) {
+  if (!value) return '';
+  return String(value).slice(0, 10);
+}
+</script>

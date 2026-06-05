@@ -43,6 +43,12 @@ const SYSTEM_FEATURES = [
     action: 'openCounterWorkbench'
   },
   {
+    key: 'qrcode',
+    title: 'QRCode報到系統',
+    desc: '活動 QRCode 報到、櫃台掃碼與出席名單',
+    action: 'openQrcodeSystem'
+  },
+  {
     key: 'qt',
     title: 'QT管理系統',
     desc: 'QT訂閱、領取、異動與櫃台相關作業',
@@ -93,9 +99,9 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
@@ -444,7 +450,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -477,7 +483,7 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -503,6 +509,7 @@ function backToFeatureMenu() {
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
   document.getElementById('lineBotView').classList.add('d-none');
+  document.getElementById('qrcodeView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
@@ -624,6 +631,7 @@ function openProjectSystem() {
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
   document.getElementById('lineBotView').classList.add('d-none');
+  document.getElementById('qrcodeView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -645,6 +653,7 @@ function openPurchaseSystem() {
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
   document.getElementById('lineBotView').classList.add('d-none');
+  document.getElementById('qrcodeView').classList.add('d-none');
   document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');

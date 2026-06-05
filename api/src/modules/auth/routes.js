@@ -156,7 +156,7 @@ function registerAuthRoutes(app) {
         position: '',
         role: '義工',
         roles: ['義工'],
-        featurePermissions: { counter: 'edit', qt: 'edit' },
+        featurePermissions: { counter: 'edit', qrcode: 'edit', qt: 'edit' },
         featureUsage: {},
         deviceType: 'desktop',
         workspaceMode: 'counter',

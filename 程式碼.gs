@@ -286,6 +286,52 @@ function resetCurrentWeekCounterPinCodes(payload) {
   return apiRequest('post', '/counter/pin-codes/reset-current-week', { currentUser: payload.currentUser });
 }
 
+function getQrcodeEvents(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qrcode/events', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function getQrcodeOptions(currentUser) {
+  return apiRequest('get', '/qrcode/options', null, null, currentUser);
+}
+
+function getActiveQrcodeEvents(currentUser) {
+  return apiRequest('get', '/qrcode/events/active', null, null, currentUser);
+}
+
+function getQrcodeEventDetail(eventId, currentUser) {
+  return apiRequest('get', `/qrcode/events/${encodeURIComponent(eventId)}`, null, null, currentUser);
+}
+
+function saveQrcodeEvent(payload) {
+  const eventId = payload.eventId || payload.event?.eventId || '';
+  if (eventId) {
+    return apiRequest(
+      'put',
+      `/qrcode/events/${encodeURIComponent(eventId)}`,
+      { currentUser: payload.currentUser, event: payload.event }
+    );
+  }
+  return apiRequest('post', '/qrcode/events', {
+    currentUser: payload.currentUser,
+    event: payload.event
+  });
+}
+
+function checkInQrcodeEvent(payload) {
+  return apiRequest(
+    'post',
+    `/qrcode/events/${encodeURIComponent(payload.eventId)}/checkins`,
+    {
+      currentUser: payload.currentUser,
+      qrPayload: payload.qrPayload
+    }
+  );
+}
+
 function getVenueResources(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/venues/resources', null, {

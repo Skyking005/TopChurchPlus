@@ -24,6 +24,7 @@ const SYSTEM_FEATURES = [
   'venue',
   'forms',
   'counter',
+  'qrcode',
   'qt',
   'linebot',
   'pastoral',
