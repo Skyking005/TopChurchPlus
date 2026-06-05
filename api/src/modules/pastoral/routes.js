@@ -4,6 +4,9 @@ const { formatDate, formatDateTime } = require('../../shared/format');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { hasAnyRole, parseUser } = require('../../shared/users');
 
+const PASTORAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const PASTORAL_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
 function registerPastoralRoutes(app) {
   app.get('/pastoral/options', async (req, res, next) => {
     try {
@@ -338,10 +341,13 @@ async function getPastoralMemberDetail(memberId, currentUser) {
     [memberId]
   );
 
+  const files = await getPastoralMemberFiles(memberId);
+
   return {
     member: toPastoralMemberDetail(member),
     careRecords: careRecords.rows.map(toPastoralCareRecord),
-    educationEnrollments: educationEnrollments.rows.map(toPastoralEducationEnrollment)
+    educationEnrollments: educationEnrollments.rows.map(toPastoralEducationEnrollment),
+    files
   };
 }
 
@@ -416,6 +422,7 @@ async function savePastoralMember(memberId, payload, currentUser) {
     await upsertPastoralFaith(client, id, normalized.faith);
     await upsertPastoralFamily(client, id, normalized.family);
     await replaceCurrentPastoralGroup(client, id, normalized.groupId);
+    await savePastoralMemberImages(client, id, normalized.files, currentUser);
 
     await recordDomainEvent({
       eventType: isNew ? 'pastoral.member_created' : 'pastoral.member_updated',
@@ -487,6 +494,7 @@ function normalizePastoralMemberPayload(payload) {
     address: payload.address || {},
     faith: payload.faith || {},
     family: payload.family || {},
+    files: payload.files || {},
     groupId: toNullableInteger(payload.groupId || base.groupId)
   };
 }
@@ -642,6 +650,66 @@ async function retireCurrentPastoralGroup(client, memberId) {
   );
 }
 
+async function getPastoralMemberFiles(memberId) {
+  const { rows } = await pool.query(
+    `SELECT id, member_id, file_type, file_name, storage_path, mime_type, file_size, file_data, uploaded_at
+     FROM pastoral_member_files
+     WHERE member_id = $1
+       AND file_type IN ('member_photo', 'newcomer_form_image')
+     ORDER BY
+       CASE file_type WHEN 'member_photo' THEN 1 ELSE 2 END,
+       uploaded_at DESC`,
+    [memberId]
+  );
+  return rows.map(toPastoralMemberFile);
+}
+
+async function savePastoralMemberImages(client, memberId, files, currentUser) {
+  const entries = [
+    ['member_photo', files.memberPhoto],
+    ['newcomer_form_image', files.newcomerFormImage]
+  ];
+
+  for (const [fileType, value] of entries) {
+    const image = normalizePastoralImage(value);
+    if (!image) continue;
+    await client.query(
+      `INSERT INTO pastoral_member_files (
+         member_id, file_type, file_name, storage_path, mime_type, file_size, file_data, uploaded_by_staff_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        memberId,
+        fileType,
+        image.fileName,
+        `pastoral/members/${memberId}/${fileType}/${Date.now()}_${image.fileName}`,
+        image.mimeType,
+        image.fileSize,
+        image.buffer,
+        currentUser && currentUser.staffId ? String(currentUser.staffId) : null
+      ]
+    );
+  }
+}
+
+function normalizePastoralImage(value) {
+  if (!value || typeof value !== 'object') return null;
+  const fileName = normalizeText(value.fileName) || 'member-image';
+  const mimeType = normalizeText(value.mimeType);
+  const data = normalizeText(value.data);
+  if (!data) return null;
+  if (!PASTORAL_IMAGE_MIME_TYPES.has(mimeType)) throw new Error('會友圖片僅支援 JPG、PNG、WEBP、GIF');
+  const base64 = data.includes(',') ? data.split(',').pop() : data;
+  const buffer = Buffer.from(base64, 'base64');
+  if (!buffer.length) return null;
+  if (buffer.length > PASTORAL_IMAGE_MAX_BYTES) throw new Error('會友圖片不可超過 5MB');
+  return {
+    fileName,
+    mimeType,
+    fileSize: buffer.length,
+    buffer
+  };
+}
+
 async function generatePastoralMemberId(client) {
   const { rows } = await client.query('SELECT COALESCE(max(id), 0)::int + 1 AS next_id FROM pastoral_members');
   return rows[0].next_id;
@@ -794,6 +862,22 @@ function toPastoralEducationEnrollment(row) {
     endDate: formatDate(row.end_date),
     isCompleted: Boolean(row.is_completed),
     note: row.note || ''
+  };
+}
+
+function toPastoralMemberFile(row) {
+  const dataUrl = row.file_data
+    ? `data:${row.mime_type || 'application/octet-stream'};base64,${row.file_data.toString('base64')}`
+    : '';
+  return {
+    fileId: row.id,
+    memberId: row.member_id,
+    fileType: row.file_type,
+    fileName: row.file_name,
+    mimeType: row.mime_type || '',
+    fileSize: Number(row.file_size || 0),
+    uploadedAt: row.uploaded_at,
+    dataUrl
   };
 }
 

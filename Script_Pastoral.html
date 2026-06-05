@@ -7,6 +7,7 @@ let pastoralCurrentTab = 'members';
 let pastoralOpenDetails = [];
 let pastoralActiveDetailId = null;
 let pastoralInlineEditMode = false;
+let pastoralActiveFiles = [];
 
 function openPastoralSystem() {
   recordFeatureUsage('pastoral');
@@ -239,7 +240,6 @@ function renderActivePastoralDetail() {
     ['生日', member.birthday],
     ['職業', [member.professionName, member.professionNote].filter(Boolean).join(' / ')],
     ['婚姻', [member.maritalStatusName, member.maritalNote].filter(Boolean).join(' / ')],
-    ['牧區', member.groupPath],
     ['來源', member.sourceText]
   ]);
 
@@ -269,6 +269,13 @@ function renderActivePastoralDetail() {
     ['子女', member.childrenText]
   ]);
 
+  renderDefinitionList('pastoralGroupInfo', [
+    ['會堂', member.churchName],
+    ['牧區', member.groupPath],
+    ['跟進同工', member.followupName],
+    ['建檔日期', member.createdDate]
+  ]);
+  renderPastoralMemberFiles(data.files || []);
   renderPastoralEducationStatus(data.educationEnrollments || []);
   renderPastoralCareRecords(data.careRecords || []);
 }
@@ -370,11 +377,18 @@ function setPastoralFieldValues(member) {
   setFieldValue('pastoralEditMotherText', member.motherText || '');
   setFieldValue('pastoralEditChildrenText', member.childrenText || '');
   setFieldValue('pastoralEditNote', member.note || '');
+  clearFileInput('pastoralEditMemberPhoto');
+  clearFileInput('pastoralEditNewcomerFormImage');
 }
 
 function setFieldValue(id, value) {
   const el = document.getElementById(id);
   if (el) el.value = value == null ? '' : value;
+}
+
+function clearFileInput(id) {
+  const el = document.getElementById(id);
+  if (el) el.value = '';
 }
 
 function getFieldValue(id) {
@@ -449,6 +463,16 @@ function submitPastoralMember() {
   };
 
   setButtonLoading(btn, true, '儲存中...');
+  readPastoralMemberImages(files => {
+    payload.member.files = files;
+    savePastoralMemberPayload(payload, btn, errorBox);
+  }, err => {
+    setButtonLoading(btn, false);
+    errorBox.textContent = err.message || err;
+  });
+}
+
+function savePastoralMemberPayload(payload, btn, errorBox) {
   google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
@@ -463,6 +487,58 @@ function submitPastoralMember() {
       errorBox.textContent = err.message || err;
     })
     .savePastoralMember(payload);
+}
+
+function readPastoralMemberImages(onSuccess, onError) {
+  const inputs = [
+    ['memberPhoto', 'pastoralEditMemberPhoto'],
+    ['newcomerFormImage', 'pastoralEditNewcomerFormImage']
+  ];
+  const result = {};
+  let index = 0;
+
+  const readNext = () => {
+    if (index >= inputs.length) {
+      onSuccess(result);
+      return;
+    }
+    const [key, id] = inputs[index++];
+    readPastoralImageInput(id, file => {
+      if (file) result[key] = file;
+      readNext();
+    }, onError);
+  };
+
+  readNext();
+}
+
+function readPastoralImageInput(id, onSuccess, onError) {
+  const input = document.getElementById(id);
+  const file = input && input.files && input.files[0] ? input.files[0] : null;
+  if (!file) {
+    onSuccess(null);
+    return;
+  }
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!allowedTypes.includes(file.type)) {
+    onError(new Error('圖片格式僅支援 JPG、PNG、WEBP、GIF'));
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    onError(new Error('圖片單檔上限為 5MB'));
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = String(reader.result || '');
+    onSuccess({
+      fileName: file.name,
+      mimeType: file.type,
+      data: dataUrl.split(',')[1] || ''
+    });
+  };
+  reader.onerror = () => onError(new Error('圖片讀取失敗，請重新選擇檔案'));
+  reader.readAsDataURL(file);
 }
 
 function deleteActivePastoralMember() {
@@ -518,6 +594,83 @@ function renderDefinitionList(id, rows) {
     dl.appendChild(dt);
     dl.appendChild(dd);
   });
+}
+
+function renderPastoralMemberFiles(files) {
+  const container = document.getElementById('pastoralMemberFiles');
+  if (!container) return;
+  pastoralActiveFiles = files || [];
+  container.innerHTML = '';
+
+  const fileGroups = [
+    { type: 'member_photo', title: '會友照片', emptyText: '尚未上傳會友照片' },
+    { type: 'newcomer_form_image', title: '新人資料圖片', emptyText: '尚未上傳新人資料圖片' }
+  ];
+
+  fileGroups.forEach(group => {
+    const file = getLatestPastoralFile(group.type);
+    const card = document.createElement('div');
+    card.className = 'pastoral-file-card';
+    const title = document.createElement('h6');
+    title.textContent = group.title;
+    card.appendChild(title);
+
+    if (!file || !file.dataUrl) {
+      const empty = document.createElement('div');
+      empty.className = 'pastoral-file-empty';
+      empty.textContent = group.emptyText;
+      card.appendChild(empty);
+      container.appendChild(card);
+      return;
+    }
+
+    const image = document.createElement('img');
+    image.className = 'pastoral-file-preview';
+    image.alt = file.fileName || group.title;
+    image.src = file.dataUrl;
+    card.appendChild(image);
+
+    const actions = document.createElement('div');
+    actions.className = 'd-flex justify-content-between align-items-center gap-2 mt-2';
+    const meta = document.createElement('div');
+    meta.className = 'text-muted small text-truncate';
+    meta.textContent = file.fileName || group.title;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-outline-primary btn-sm';
+    button.textContent = '開啟';
+    button.onclick = () => openPastoralFile(file.fileId);
+    actions.appendChild(meta);
+    actions.appendChild(button);
+    card.appendChild(actions);
+    container.appendChild(card);
+  });
+}
+
+function getLatestPastoralFile(type) {
+  return pastoralActiveFiles.find(file => file.fileType === type);
+}
+
+function openPastoralFile(fileId) {
+  const file = pastoralActiveFiles.find(item => String(item.fileId) === String(fileId));
+  if (!file || !file.dataUrl) return;
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${escapeHtml(file.fileName || '會友圖檔')}</title>
+        <style>
+          body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f5f7fb; }
+          img { max-width: 96vw; max-height: 96vh; object-fit: contain; box-shadow: 0 12px 32px rgba(15, 23, 42, .18); background: #fff; }
+        </style>
+      </head>
+      <body><img src="${file.dataUrl}" alt="${escapeHtml(file.fileName || '會友圖檔')}"></body>
+    </html>
+  `);
+  win.document.close();
 }
 
 function renderPastoralCareRecords(records) {

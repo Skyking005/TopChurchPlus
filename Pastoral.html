@@ -100,6 +100,18 @@
     <ul id="pastoralDetailTabs" class="nav nav-tabs mb-3"></ul>
 
     <div id="pastoralDetailReadView" class="row g-3">
+      <div class="col-12">
+        <div class="pastoral-detail-block">
+          <h6>牧養歸屬</h6>
+          <dl id="pastoralGroupInfo" class="detail-dl pastoral-group-dl"></dl>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="pastoral-detail-block">
+          <h6>會友圖檔</h6>
+          <div id="pastoralMemberFiles" class="pastoral-member-files"></div>
+        </div>
+      </div>
       <div class="col-12 col-lg-4">
         <div class="pastoral-detail-block">
           <h6>基本資料</h6>
@@ -199,12 +211,24 @@
               <select id="pastoralEditFollowupStaffId" class="form-select pastoral-edit-input"></select>
             </div>
             <div class="col-12 col-md-3">
-              <label class="form-label">牧區</label>
-              <select id="pastoralEditGroupId" class="form-select pastoral-edit-input"></select>
-            </div>
-            <div class="col-12 col-md-3">
               <label class="form-label">建檔日期</label>
               <input id="pastoralEditCreatedDate" type="date" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">牧區</label>
+              <select id="pastoralEditGroupId" class="form-select pastoral-edit-input"></select>
+              <div class="form-text">牧區路徑較長時會完整顯示，方便辨識會堂、牧區、大家、小家與實習小家。</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">會友照片</label>
+              <input id="pastoralEditMemberPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control pastoral-edit-input">
+              <div class="form-text">支援 JPG、PNG、WEBP、GIF，單檔上限 5MB。</div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">新人資料圖片</label>
+              <input id="pastoralEditNewcomerFormImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control pastoral-edit-input">
+              <div class="form-text">可上傳紙本新人單拍照或掃描圖片。</div>
             </div>
 
             <div class="col-12 col-md-3">
