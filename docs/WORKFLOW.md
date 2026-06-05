@@ -49,7 +49,7 @@ $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 3. 修改前確認相關中文區塊可讀。
 4. 小範圍修改。
 5. 執行最小驗證。
-6. 需要時執行 `.\tools\deploy-all.ps1`。
+6. 需要時執行 `.\tools\deploy-all.cmd`。
 7. Commit 訊息寫清楚本次完成內容、驗證結果與部署資訊。
 8. Push 到 GitHub。
 
