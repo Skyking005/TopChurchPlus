@@ -1,27 +1,38 @@
     <section id="loginView" class="login-wrapper">
-      <div class="login-card">
+      <div class="login-card login-entry-card login-entry-active">
         <div id="loginEntryPanel">
-          <h3 class="mb-3">卓越行道會系統入口</h3>
-          <p class="text-muted">請選擇要進入的工作環境</p>
+          <div class="text-center mb-4">
+            <h3 class="mb-2">卓越行道會系統入口</h3>
+            <p class="text-muted mb-0">請選擇要進入的工作環境</p>
+          </div>
 
-          <div class="d-grid gap-2">
-            <button class="btn btn-primary btn-lg" onclick="showInternalLogin()">內部系統</button>
-            <button class="btn btn-outline-primary btn-lg" onclick="showCounterPinLogin()">志工櫃台</button>
+          <div class="login-entry-grid">
+            <button type="button" class="login-entry-option" onclick="showInternalLogin()">
+              <span class="login-entry-icon">內</span>
+              <span class="login-entry-title">內部系統</span>
+              <span class="login-entry-desc">同工登入行政、專案、財務、牧養與各管理系統。</span>
+            </button>
+
+            <button type="button" class="login-entry-option" onclick="showCounterPinLogin()">
+              <span class="login-entry-icon">櫃</span>
+              <span class="login-entry-title">志工櫃台</span>
+              <span class="login-entry-desc">使用本週 PIN Code 進入櫃台工作台，處理報名繳費、QT 領取與現場服務。</span>
+            </button>
           </div>
         </div>
 
         <div id="internalLoginPanel" class="d-none">
           <button class="btn btn-link px-0 mb-2" onclick="backToLoginEntry()">返回入口選擇</button>
           <h3 class="mb-3">卓越行道會行政系統</h3>
-          <p class="text-muted">請輸入電子信箱登入系統</p>
+          <p class="text-muted">請輸入 Email 登入內部系統</p>
 
           <input id="loginEmail" type="email" class="form-control mb-3" placeholder="example@gmail.com">
 
           <button class="btn btn-primary w-100" onclick="handleLogin()">登入</button>
 
           <div id="loginVerificationBox" class="login-verification-box d-none">
-            <div class="small text-muted mb-2">已寄送登入驗證碼，請至信箱收取並輸入。</div>
-            <input id="loginVerificationCode" type="text" inputmode="numeric" class="form-control mb-2" placeholder="6 位數驗證碼">
+            <div class="small text-muted mb-2">偵測到陌生裝置或 IP，請輸入驗證碼完成登入。</div>
+            <input id="loginVerificationCode" type="text" inputmode="numeric" class="form-control mb-2" placeholder="6 碼驗證碼">
             <button class="btn btn-outline-primary w-100" onclick="handleLoginVerification()">驗證並登入</button>
           </div>
         </div>

@@ -164,6 +164,7 @@ function handleLogin() {
 }
 
 function showInternalLogin() {
+  document.querySelector('.login-entry-card')?.classList.remove('login-entry-active');
   document.getElementById('loginEntryPanel').classList.add('d-none');
   document.getElementById('counterPinLoginPanel').classList.add('d-none');
   document.getElementById('internalLoginPanel').classList.remove('d-none');
@@ -172,6 +173,7 @@ function showInternalLogin() {
 }
 
 function showCounterPinLogin() {
+  document.querySelector('.login-entry-card')?.classList.remove('login-entry-active');
   document.getElementById('loginEntryPanel').classList.add('d-none');
   document.getElementById('internalLoginPanel').classList.add('d-none');
   document.getElementById('counterPinLoginPanel').classList.remove('d-none');
@@ -181,6 +183,7 @@ function showCounterPinLogin() {
 }
 
 function backToLoginEntry() {
+  document.querySelector('.login-entry-card')?.classList.add('login-entry-active');
   document.getElementById('loginEntryPanel').classList.remove('d-none');
   document.getElementById('internalLoginPanel').classList.add('d-none');
   document.getElementById('counterPinLoginPanel').classList.add('d-none');

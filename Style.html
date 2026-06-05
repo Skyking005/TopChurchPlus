@@ -20,6 +20,61 @@
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
   }
 
+  .login-entry-card.login-entry-active {
+    max-width: 760px;
+  }
+
+  .login-entry-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .login-entry-option {
+    min-height: 210px;
+    border: 1px solid #d9e2ef;
+    border-radius: 14px;
+    background: #fff;
+    padding: 24px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .login-entry-option:hover,
+  .login-entry-option:focus {
+    border-color: #2f6fdd;
+    box-shadow: 0 14px 28px rgba(47, 111, 221, 0.14);
+    transform: translateY(-2px);
+    outline: none;
+  }
+
+  .login-entry-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #eef4ff;
+    color: #245fc7;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.1rem;
+  }
+
+  .login-entry-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #172033;
+  }
+
+  .login-entry-desc {
+    color: #5e6b7e;
+    line-height: 1.6;
+  }
+
   .login-verification-box {
     margin-top: 16px;
     padding-top: 16px;
@@ -30,6 +85,25 @@
     letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 700;
+  }
+
+  @media (max-width: 767.98px) {
+    .login-wrapper {
+      align-items: flex-start;
+      padding: 24px 12px;
+    }
+
+    .login-card {
+      padding: 24px;
+    }
+
+    .login-entry-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .login-entry-option {
+      min-height: 170px;
+    }
   }
 
   .topbar {
