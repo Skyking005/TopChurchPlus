@@ -40,7 +40,7 @@ const SYSTEM_FEATURES = [
     key: 'counter',
     title: '櫃台系統',
     desc: '櫃台值勤、接待與服務紀錄',
-    action: 'openComingSoonSystem'
+    action: 'openCounterWorkbench'
   },
   {
     key: 'qt',
@@ -151,6 +151,57 @@ function handleLogin() {
     .login(email, deviceType, getLoginDeviceInfo());
 }
 
+function showInternalLogin() {
+  document.getElementById('loginEntryPanel').classList.add('d-none');
+  document.getElementById('counterPinLoginPanel').classList.add('d-none');
+  document.getElementById('internalLoginPanel').classList.remove('d-none');
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('loginEmail').focus();
+}
+
+function showCounterPinLogin() {
+  document.getElementById('loginEntryPanel').classList.add('d-none');
+  document.getElementById('internalLoginPanel').classList.add('d-none');
+  document.getElementById('counterPinLoginPanel').classList.remove('d-none');
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('counterPinCode').value = '';
+  document.getElementById('counterPinCode').focus();
+}
+
+function backToLoginEntry() {
+  document.getElementById('loginEntryPanel').classList.remove('d-none');
+  document.getElementById('internalLoginPanel').classList.add('d-none');
+  document.getElementById('counterPinLoginPanel').classList.add('d-none');
+  document.getElementById('loginVerificationBox').classList.add('d-none');
+  document.getElementById('loginError').textContent = '';
+  pendingLoginVerification = null;
+}
+
+function handleCounterPinLogin() {
+  const btn = event.target;
+  const errorBox = document.getElementById('loginError');
+  const pinCode = document.getElementById('counterPinCode').value.trim().toUpperCase();
+  errorBox.textContent = '';
+  errorBox.classList.add('text-danger');
+  errorBox.classList.remove('text-muted');
+  if (!/^[A-Z0-9]{6}$/.test(pinCode)) {
+    errorBox.textContent = '請輸入 6 碼英數字 PIN Code';
+    return;
+  }
+
+  setButtonLoading(btn, true, '驗證中...');
+  google.script.run
+    .withSuccessHandler(user => {
+      setButtonLoading(btn, false);
+      completeCounterLogin(user);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .loginCounterPin(pinCode, getLoginDeviceInfo());
+}
+
 function handleLoginVerification() {
   const btn = event.target;
   const errorBox = document.getElementById('loginError');
@@ -207,6 +258,18 @@ function completeLogin(user) {
     }
 
     backToFeatureMenu();
+  });
+}
+
+function completeCounterLogin(user) {
+  currentUser = user;
+  loadInitialDataAfterLogin(() => {
+    document.getElementById('loginView').classList.add('d-none');
+    document.getElementById('mainView').classList.remove('d-none');
+    document.getElementById('loginError').textContent = '';
+    updateUserInfo(user);
+    startIdleLogoutWatcher();
+    openCounterWorkbench();
   });
 }
 
@@ -375,13 +438,14 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
 
   const loginView = document.getElementById('loginView');
   if (loginView) loginView.classList.remove('d-none');
+  backToLoginEntry();
 
   const userInfo = document.getElementById('userInfo');
   if (userInfo) userInfo.textContent = '';
@@ -406,6 +470,13 @@ function resetAppToLogin() {
   if (addProjectBtn) addProjectBtn.classList.remove('d-none');
 }
 
+function hideAllMainViews() {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+}
+
 function loadInitialData() {
   preloadInitialData(() => {
     setupSearchOptions();
@@ -423,6 +494,7 @@ function backToFeatureMenu() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
@@ -528,6 +600,7 @@ function openProjectSystem() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
   document.getElementById('overviewView').classList.remove('d-none');
@@ -545,6 +618,7 @@ function openPurchaseSystem() {
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
+  document.getElementById('counterWorkbenchView').classList.add('d-none');
   document.getElementById('detailView').classList.add('d-none');
   document.getElementById('systemView').classList.add('d-none');
   document.getElementById('purchaseView').classList.remove('d-none');

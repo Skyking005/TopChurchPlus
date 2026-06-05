@@ -107,6 +107,65 @@ function registerAuthRoutes(app) {
       next(err);
     }
   });
+
+  app.post('/counter/pin-login', async (req, res, next) => {
+    try {
+      const pinCode = String(req.body.pinCode || '').trim().toUpperCase();
+      const context = buildLoginContext(req);
+      if (!/^[A-Z0-9]{6}$/.test(pinCode)) throw new Error('PIN Code 格式錯誤');
+
+      const week = getTaipeiSundayWeekRange();
+      const { rows } = await pool.query(
+        `SELECT *
+         FROM counter_pin_codes
+         WHERE pin_code = $1
+           AND is_active
+           AND valid_from <= now()
+           AND valid_until > now()
+         LIMIT 1`,
+        [pinCode]
+      );
+      const pin = rows[0];
+      if (!pin) {
+        await recordLoginEvent({
+          email: 'counter-pin',
+          eventType: 'failed',
+          context,
+          metadata: { loginMode: 'counter_pin', reason: 'invalid_pin', weekStart: week.validFrom.toISOString() }
+        });
+        throw new Error('PIN Code 錯誤或已過期');
+      }
+
+      await pool.query(
+        `UPDATE counter_pin_codes
+         SET last_used_at = now(), usage_count = usage_count + 1, updated_at = now()
+         WHERE pin_id = $1`,
+        [pin.pin_id]
+      );
+      await recordLoginEvent({
+        email: 'counter-pin',
+        eventType: 'success',
+        context,
+        metadata: { loginMode: 'counter_pin', pinId: pin.pin_id, weekStart: pin.valid_from }
+      });
+
+      res.json({
+        staffId: null,
+        email: '',
+        name: '志工櫃台',
+        position: '',
+        role: '義工',
+        roles: ['義工'],
+        featurePermissions: { counter: 'edit', qt: 'edit' },
+        featureUsage: {},
+        deviceType: 'desktop',
+        workspaceMode: 'counter',
+        pinValidUntil: pin.valid_until
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
 }
 
 async function buildLoginUser(user, email, deviceType) {
@@ -323,6 +382,21 @@ function normalizeIp(value) {
   const cleaned = text.replace(/^::ffff:/, '');
   if (cleaned === '::1') return '127.0.0.1';
   return net.isIP(cleaned) ? cleaned : null;
+}
+
+function getTaipeiSundayWeekRange(now = new Date()) {
+  const taipeiNow = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const y = taipeiNow.getUTCFullYear();
+  const m = taipeiNow.getUTCMonth();
+  const d = taipeiNow.getUTCDate();
+  const start = new Date(Date.UTC(y, m, d));
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 7);
+  return {
+    validFrom: new Date(start.getTime() - 8 * 60 * 60 * 1000),
+    validUntil: new Date(end.getTime() - 8 * 60 * 60 * 1000)
+  };
 }
 
 module.exports = { registerAuthRoutes };

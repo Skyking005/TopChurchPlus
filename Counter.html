@@ -1,0 +1,36 @@
+<section id="counterWorkbenchView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">志工櫃台工作台</h5>
+        <div class="text-muted small">報名繳費、QT 領取與櫃台服務</div>
+      </div>
+      <button type="button" class="btn btn-outline-primary" onclick="loadCounterTransactions()">重新整理</button>
+    </div>
+
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item">
+        <button type="button" class="nav-link active">待繳費</button>
+      </li>
+      <li class="nav-item">
+        <button type="button" class="nav-link disabled">QT 領取</button>
+      </li>
+    </ul>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>交易編號</th>
+            <th>來源</th>
+            <th>繳費人</th>
+            <th class="text-end">金額</th>
+            <th>狀態</th>
+            <th class="text-end">功能</th>
+          </tr>
+        </thead>
+        <tbody id="counterTransactionTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>

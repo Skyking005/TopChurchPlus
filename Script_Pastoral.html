@@ -12,7 +12,7 @@ function openPastoralSystem() {
   recordFeatureUsage('pastoral');
   const canEditPastoral = getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '牧養管理系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'formsView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'formsView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

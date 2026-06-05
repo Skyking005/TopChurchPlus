@@ -36,6 +36,11 @@ function verifyLogin(payload) {
   return apiRequest('post', '/login/verify', payload);
 }
 
+function loginCounterPin(pinCode, deviceInfo) {
+  const payload = Object.assign({ pinCode }, deviceInfo || {});
+  return apiRequest('post', '/counter/pin-login', payload);
+}
+
 function sendLoginVerificationEmail(email, code, expiresAt) {
   const expiresText = expiresAt
     ? Utilities.formatDate(new Date(expiresAt), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')
@@ -154,6 +159,25 @@ function submitFormResponse(payload) {
 
 function getFormResponses(formId, currentUser) {
   return apiRequest('get', `/forms/${encodeURIComponent(formId)}/responses`, null, null, currentUser);
+}
+
+function getCounterTransactions(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/counter/transactions', null, {
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function markCounterTransactionPaid(payload) {
+  return apiRequest(
+    'patch',
+    `/counter/transactions/${encodeURIComponent(payload.transactionId)}/paid`,
+    { currentUser: payload.currentUser }
+  );
+}
+
+function getCurrentCounterPinCode(currentUser) {
+  return apiRequest('get', '/counter/pin-code/current', null, null, currentUser);
 }
 
 function getVenueResources(filters, currentUser) {

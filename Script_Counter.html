@@ -1,0 +1,67 @@
+<script>
+let counterTransactions = [];
+
+function openCounterWorkbench() {
+  recordFeatureUsage('counter');
+  document.getElementById('mainTitle').textContent = '志工櫃台';
+  hideAllMainViews();
+  document.getElementById('counterWorkbenchView').classList.remove('d-none');
+  loadCounterTransactions();
+}
+
+function loadCounterTransactions() {
+  setListLoading('counterTransactionTableBody', true, '櫃台資料載入中...');
+  google.script.run
+    .withSuccessHandler(rows => {
+      counterTransactions = rows || [];
+      renderCounterTransactions();
+    })
+    .withFailureHandler(showError)
+    .getCounterTransactions({ status: 'pending' }, currentUser);
+}
+
+function renderCounterTransactions() {
+  const body = document.getElementById('counterTransactionTableBody');
+  body.innerHTML = '';
+  if (!counterTransactions.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">目前沒有待繳費資料</td></tr>';
+    return;
+  }
+
+  counterTransactions.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.transactionCode || '')}</td>
+      <td>${escapeHtml(formatCounterSource(row))}</td>
+      <td>${escapeHtml(row.payerName || '')}</td>
+      <td class="text-end">${formatMoney(row.amount || 0)}</td>
+      <td>${escapeHtml(formatCounterStatus(row.status))}</td>
+      <td class="text-end">
+        <button type="button" class="btn btn-sm btn-success" onclick="markCounterTransactionPaid('${escapeAttr(row.transactionId)}')">已收款</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function markCounterTransactionPaid(transactionId) {
+  if (!confirm('確認已完成收款？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadCounterTransactions();
+    })
+    .withFailureHandler(showError)
+    .markCounterTransactionPaid({ transactionId, currentUser });
+}
+
+function formatCounterSource(row) {
+  if (row.sourceSystem === 'forms') return '表單報名';
+  if (row.businessType === 'qt') return 'QT 業務';
+  return row.sourceSystem || row.businessType || '櫃台';
+}
+
+function formatCounterStatus(status) {
+  return { pending: '待繳費', paid: '已繳費', canceled: '已取消' }[status] || status || '';
+}
+</script>
