@@ -45,6 +45,7 @@ function openFormsSystem() {
 
 function openPublicFormFill(formId) {
   isPublicFormMode = true;
+  publicFormEditContext = null;
   currentUser = null;
   document.getElementById('loginView')?.classList.add('d-none');
   document.getElementById('mainView')?.classList.remove('d-none');
@@ -63,6 +64,7 @@ function openPublicFormFill(formId) {
   document.getElementById('formFillQuestions').innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>表單載入中...</div>';
   document.getElementById('formFillError').textContent = '';
   document.getElementById('submitFormResponseBtn').classList.remove('d-none');
+  document.getElementById('submitFormResponseBtn').textContent = '送出表單';
   google.script.run
     .withSuccessHandler(setFormFill)
     .withFailureHandler(err => {
@@ -71,6 +73,37 @@ function openPublicFormFill(formId) {
       document.getElementById('formFillError').textContent = err.message || err;
     })
     .getPublicFormDetail(formId);
+}
+
+function openPublicFormEdit(formId, responseId, token) {
+  isPublicFormMode = true;
+  publicFormEditContext = { formId, responseId, token };
+  currentUser = null;
+  document.getElementById('loginView')?.classList.add('d-none');
+  document.getElementById('mainView')?.classList.remove('d-none');
+  document.querySelector('.topbar')?.classList.add('d-none');
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('formsView').classList.remove('d-none');
+  document.getElementById('formsListView').classList.add('d-none');
+  document.getElementById('formEditorView').classList.add('d-none');
+  document.getElementById('formResponsesView').classList.add('d-none');
+  document.getElementById('formFillView').classList.remove('d-none');
+  document.getElementById('formFillTitle').textContent = '回覆載入中...';
+  document.getElementById('formFillQuestions').innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>回覆載入中...</div>';
+  document.getElementById('formFillError').textContent = '';
+  document.getElementById('submitFormResponseBtn').classList.remove('d-none');
+  document.getElementById('submitFormResponseBtn').textContent = '更新表單';
+  google.script.run
+    .withSuccessHandler(setFormFill)
+    .withFailureHandler(err => {
+      document.getElementById('formFillQuestions').innerHTML = '';
+      document.getElementById('formFillTitle').textContent = '無法開啟回覆';
+      document.getElementById('formFillError').textContent = err.message || err;
+    })
+    .getPublicFormResponseForEdit({ formId, responseId, token });
 }
 
 function loadForms() {
@@ -300,9 +333,14 @@ function setFormFill(data) {
   document.getElementById('formFillDescription').textContent = form.description || '';
   const respondentBlock = document.getElementById('formRespondentNameBlock');
   const respondentInput = document.getElementById('formRespondentName');
+  const respondentEmailBlock = document.getElementById('formRespondentEmailBlock');
+  const respondentEmailInput = document.getElementById('formRespondentEmail');
   const showRespondent = isPublicFormMode || !currentUser;
   respondentBlock.classList.toggle('d-none', !showRespondent);
-  respondentInput.value = showRespondent ? '' : (currentUser?.name || '');
+  respondentEmailBlock.classList.toggle('d-none', !isPublicFormMode);
+  const response = data.response || {};
+  respondentInput.value = showRespondent ? (response.respondentName || '') : (currentUser?.name || '');
+  respondentEmailInput.value = isPublicFormMode ? (response.respondentEmail || '') : '';
   const notice = document.getElementById('formFillFeeNotice');
   if (form.hasFee) {
     notice.classList.remove('d-none');
@@ -313,6 +351,7 @@ function setFormFill(data) {
   }
   document.getElementById('formFillError').textContent = '';
   renderFormFillQuestions(data.questions || []);
+  if (response.answers) fillFormResponseAnswers(response.answers);
 }
 
 function renderFormFillQuestions(questions) {
@@ -329,6 +368,32 @@ function renderFormFillQuestions(questions) {
       ${renderFormAnswerInput(question)}
     `;
     container.appendChild(card);
+  });
+}
+
+function fillFormResponseAnswers(answers) {
+  const byQuestionId = new Map((answers || []).map(answer => [String(answer.questionId), answer.value]));
+  document.querySelectorAll('#formFillQuestions .form-question-card').forEach(card => {
+    const questionId = String(card.dataset.questionId || '');
+    const questionType = card.dataset.questionType;
+    const value = byQuestionId.get(questionId);
+    if (value === undefined || value === null) return;
+    if (questionType === 'image_upload') {
+      const preview = card.querySelector('.form-image-preview');
+      if (preview) preview.innerHTML = '<div class="text-muted small">已上傳圖片；若需更換，請重新選擇圖片。</div>';
+      return;
+    }
+    if (questionType === 'multiple_choice') {
+      const selected = new Set(Array.isArray(value) ? value.map(String) : []);
+      card.querySelectorAll('.form-answer-option').forEach(el => { el.checked = selected.has(el.value); });
+      return;
+    }
+    if (questionType === 'single_choice') {
+      card.querySelectorAll('.form-answer-option').forEach(el => { el.checked = String(value) === el.value; });
+      return;
+    }
+    const input = card.querySelector('.form-answer-value');
+    if (input) input.value = String(value || '');
   });
 }
 
@@ -403,6 +468,12 @@ async function submitCurrentFormResponse() {
   }
   const respondentName = document.getElementById('formRespondentName')?.value.trim()
     || (currentUser && currentUser.name ? currentUser.name : '');
+  const respondentEmail = document.getElementById('formRespondentEmail')?.value.trim() || '';
+  if (isPublicFormMode && !isValidEmail(respondentEmail)) {
+    setButtonLoading(btn, false);
+    errorBox.textContent = '請填寫有效的 Email';
+    return;
+  }
   const runner = google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
@@ -421,10 +492,18 @@ async function submitCurrentFormResponse() {
     formId: form.formId,
     response: {
       respondentName,
+      respondentEmail,
       answers
     }
   };
-  if (isPublicFormMode) {
+  if (isPublicFormMode && publicFormEditContext?.responseId) {
+    runner.updatePublicFormResponse({
+      formId: form.formId,
+      responseId: publicFormEditContext.responseId,
+      token: publicFormEditContext.token,
+      response: payload.response
+    });
+  } else if (isPublicFormMode) {
     runner.submitPublicFormResponse(payload);
   } else {
     payload.currentUser = currentUser;
@@ -438,10 +517,15 @@ function renderPublicFormSuccess(res) {
     <div class="alert alert-success mb-0">
       <h5 class="mb-2">表單已送出</h5>
       <div>${escapeHtml(res.message || '感謝您的填寫。')}</div>
+      ${res.respondentEmail ? `<div class="mt-2">系統已寄送表單回覆與修改連結至：${escapeHtml(res.respondentEmail)}</div>` : ''}
       ${res.paymentAmount ? `<div class="mt-2">待繳金額：${escapeHtml(formatMoney(res.paymentAmount))}</div>` : ''}
     </div>
   `;
   document.getElementById('formFillError').textContent = '';
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
 }
 
 function openFormResponses(formId) {

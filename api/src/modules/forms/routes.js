@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 const { pool, tx } = require('../../db');
 const { recordDomainEvent } = require('../../shared/cross-system');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
@@ -85,6 +87,22 @@ function registerFormsRoutes(app) {
     try {
       const detail = await getPublicFormDetail(req.params.formId);
       res.json(await submitFormResponse(detail.form.formId, req.body.response || {}, null));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/public/forms/:formId/responses/:responseId', async (req, res, next) => {
+    try {
+      res.json(await getPublicFormResponseForEdit(req.params.formId, req.params.responseId, req.query.token));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/public/forms/:formId/responses/:responseId', async (req, res, next) => {
+    try {
+      res.json(await updatePublicFormResponse(req.params.formId, req.params.responseId, req.body.token, req.body.response || {}));
     } catch (err) {
       next(err);
     }
@@ -394,6 +412,13 @@ async function submitFormResponse(formId, payload, currentUser) {
 
   const answers = normalizeResponseAnswers(payload.answers || [], detail.questions);
   const respondentName = normalizeText(payload.respondentName) || (currentUser && currentUser.name ? currentUser.name : '');
+  const respondentEmail = normalizeEmail(payload.respondentEmail);
+  if (!currentUser && !respondentEmail) throw new Error('請填寫有效的 Email');
+  const editToken = currentUser ? null : crypto.randomBytes(24).toString('hex');
+  const metadata = Object.assign({}, payload.metadata || {}, {
+    respondentEmail,
+    editToken
+  });
 
   return tx(async client => {
     let counterTransactionId = null;
@@ -411,7 +436,7 @@ async function submitFormResponse(formId, payload, currentUser) {
         respondentName,
         paymentStatus,
         paymentAmount,
-        JSON.stringify(payload.metadata || {})
+        JSON.stringify(metadata)
       ]
     );
     const responseId = responseResult.rows[0].response_id;
@@ -488,9 +513,113 @@ async function submitFormResponse(formId, payload, currentUser) {
       counterTransactionId,
       paymentStatus,
       paymentAmount,
+      respondentEmail,
+      editToken,
+      formTitle: form.title,
       message: form.hasFee ? '表單已送出，已建立櫃台待繳費紀錄' : '表單已送出'
     };
   });
+}
+
+async function getPublicFormResponseForEdit(formId, responseId, token) {
+  const detail = await getPublicFormDetail(formId);
+  const response = await getEditablePublicResponse(formId, responseId, token);
+  const answersResult = await pool.query(
+    `SELECT a.question_id, q.question_type, a.answer_text, a.answer_json
+     FROM form_response_answers a
+     JOIN form_questions q ON q.question_id = a.question_id
+     WHERE a.response_id = $1`,
+    [responseId]
+  );
+  return {
+    form: detail.form,
+    questions: detail.questions,
+    response: {
+      responseId: response.response_id,
+      respondentName: response.respondent_name || '',
+      respondentEmail: response.metadata?.respondentEmail || '',
+      answers: answersResult.rows.map(row => ({
+        questionId: row.question_id,
+        value: normalizeAnswerValue(row)
+      }))
+    }
+  };
+}
+
+async function updatePublicFormResponse(formId, responseId, token, payload) {
+  const detail = await getPublicFormDetail(formId);
+  const existing = await getEditablePublicResponse(formId, responseId, token);
+  const answers = normalizeResponseAnswers(payload.answers || [], detail.questions, { allowMissingImageUpload: true });
+  const respondentName = normalizeText(payload.respondentName) || existing.respondent_name || '';
+  const respondentEmail = normalizeEmail(payload.respondentEmail);
+  if (!respondentEmail) throw new Error('請填寫有效的 Email');
+  const metadata = Object.assign({}, existing.metadata || {}, { respondentEmail });
+
+  await tx(async client => {
+    await client.query(
+      `UPDATE form_responses
+       SET respondent_name = $1, metadata = $2::jsonb, submitted_at = now()
+       WHERE response_id = $3 AND form_id = $4`,
+      [respondentName, JSON.stringify(metadata), responseId, formId]
+    );
+    await client.query('DELETE FROM form_response_attachments WHERE response_id = $1', [responseId]);
+    await client.query('DELETE FROM form_response_answers WHERE response_id = $1', [responseId]);
+    for (const answer of answers) {
+      await client.query(
+        `INSERT INTO form_response_answers (response_id, question_id, answer_text, answer_json)
+         VALUES ($1,$2,$3,$4::jsonb)`,
+        [
+          responseId,
+          answer.questionId,
+          answer.answerText,
+          answer.answerJson ? JSON.stringify(answer.answerJson) : null
+        ]
+      );
+      if (answer.attachment) {
+        await client.query(
+          `INSERT INTO form_response_attachments (
+             response_id, question_id, file_name, mime_type, file_size, file_data
+           ) VALUES ($1,$2,$3,$4,$5,$6)`,
+          [
+            responseId,
+            answer.questionId,
+            answer.attachment.fileName,
+            answer.attachment.mimeType,
+            answer.attachment.fileSize,
+            answer.attachment.buffer
+          ]
+        );
+      }
+    }
+  });
+
+  return {
+    success: true,
+    responseId,
+    paymentStatus: existing.payment_status,
+    paymentAmount: Number(existing.payment_amount || 0),
+    respondentEmail,
+    editToken: existing.metadata.editToken,
+    formTitle: detail.form.title,
+    message: '表單回覆已更新'
+  };
+}
+
+async function getEditablePublicResponse(formId, responseId, token) {
+  const { rows } = await pool.query(
+    `SELECT *
+     FROM form_responses
+     WHERE form_id = $1
+       AND response_id = $2`,
+    [formId, responseId]
+  );
+  const response = rows[0];
+  if (!response) throw new Error('找不到表單回覆');
+  const metadata = response.metadata || {};
+  if (!metadata.editToken || metadata.editToken !== String(token || '').trim()) {
+    throw new Error('表單修改連結無效');
+  }
+  return response;
 }
 
 async function replaceQuestions(client, formId, questions) {
@@ -525,7 +654,7 @@ async function replaceQuestions(client, formId, questions) {
   }
 }
 
-function normalizeResponseAnswers(rawAnswers, questions) {
+function normalizeResponseAnswers(rawAnswers, questions, options = {}) {
   const byQuestionId = new Map();
   rawAnswers.forEach(answer => {
     if (answer && answer.questionId) byQuestionId.set(String(answer.questionId), answer.value);
@@ -535,7 +664,7 @@ function normalizeResponseAnswers(rawAnswers, questions) {
     const value = byQuestionId.get(String(question.questionId));
     if (question.questionType === 'image_upload') {
       const attachment = normalizeImageAttachment(value);
-      if (question.isRequired && !attachment) throw new Error(`請上傳必填圖片：${question.title}`);
+      if (question.isRequired && !attachment && !options.allowMissingImageUpload) throw new Error(`請上傳必填圖片：${question.title}`);
       if (!attachment) return null;
       return {
         questionId: question.questionId,
@@ -559,6 +688,17 @@ function normalizeResponseAnswers(rawAnswers, questions) {
       answerJson: isJson ? value : null
     };
   }).filter(Boolean);
+}
+
+function normalizeAnswerValue(row) {
+  if (row.answer_json !== null && row.answer_json !== undefined) return row.answer_json;
+  return row.answer_text || '';
+}
+
+function normalizeEmail(value) {
+  const email = normalizeText(value);
+  if (!email) return '';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email.toLowerCase() : '';
 }
 
 async function generateCounterTransactionCode(client) {

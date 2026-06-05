@@ -3,6 +3,8 @@ const DOC_EXPORT_FOLDER_NAME = '卓越行道會專案文件';
 function doGet(e) {
   const template = HtmlService.createTemplateFromFile('Index');
   template.publicFormId = e && e.parameter ? String(e.parameter.form || e.parameter.publicForm || '') : '';
+  template.publicResponseId = e && e.parameter ? String(e.parameter.response || '') : '';
+  template.publicEditToken = e && e.parameter ? String(e.parameter.token || '') : '';
   return template
     .evaluate()
     .setTitle('卓越行道會行政系統')
@@ -171,18 +173,67 @@ function submitFormResponse(payload) {
 }
 
 function submitPublicFormResponse(payload) {
-  return apiRequest(
+  const result = apiRequest(
     'post',
     `/public/forms/${encodeURIComponent(payload.formId)}/responses`,
     {
       response: payload.response
     }
   );
+  sendPublicFormEditLinkEmail_(payload.formId, result);
+  return result;
+}
+
+function getPublicFormResponseForEdit(payload) {
+  return apiRequest(
+    'get',
+    `/public/forms/${encodeURIComponent(payload.formId)}/responses/${encodeURIComponent(payload.responseId)}`,
+    null,
+    { token: payload.token || '' }
+  );
+}
+
+function updatePublicFormResponse(payload) {
+  const result = apiRequest(
+    'put',
+    `/public/forms/${encodeURIComponent(payload.formId)}/responses/${encodeURIComponent(payload.responseId)}`,
+    {
+      token: payload.token || '',
+      response: payload.response
+    }
+  );
+  sendPublicFormEditLinkEmail_(payload.formId, result);
+  return result;
 }
 
 function getPublicFormUrl(formId) {
   const url = ScriptApp.getService().getUrl();
   return `${url}?form=${encodeURIComponent(formId)}`;
+}
+
+function getPublicFormEditUrl(formId, responseId, token) {
+  const url = ScriptApp.getService().getUrl();
+  return `${url}?form=${encodeURIComponent(formId)}&response=${encodeURIComponent(responseId)}&token=${encodeURIComponent(token)}`;
+}
+
+function sendPublicFormEditLinkEmail_(formId, result) {
+  if (!result || !result.respondentEmail || !result.editToken || !result.responseId) return;
+  const editUrl = getPublicFormEditUrl(formId, result.responseId, result.editToken);
+  MailApp.sendEmail({
+    to: result.respondentEmail,
+    subject: `表單填寫完成：${result.formTitle || '卓越行道會表單'}`,
+    body:
+`您好：
+
+我們已收到您填寫的表單「${result.formTitle || ''}」。
+
+如需修改填寫內容，請使用以下連結重新開啟：
+${editUrl}
+
+此連結可用來修改您的表單回覆，請勿轉傳給他人。
+
+卓越行道會`
+  });
 }
 
 function getFormResponses(formId, currentUser) {

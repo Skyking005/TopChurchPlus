@@ -267,7 +267,13 @@ function preloadInitialData(callback) {
 window.addEventListener('load', () => {
   const publicFormId = String(window.APP_BOOTSTRAP?.publicFormId || '').trim();
   if (publicFormId) {
-    openPublicFormFill(publicFormId);
+    const publicResponseId = String(window.APP_BOOTSTRAP?.publicResponseId || '').trim();
+    const publicEditToken = String(window.APP_BOOTSTRAP?.publicEditToken || '').trim();
+    if (publicResponseId && publicEditToken && typeof openPublicFormEdit === 'function') {
+      openPublicFormEdit(publicFormId, publicResponseId, publicEditToken);
+    } else {
+      openPublicFormFill(publicFormId);
+    }
     return;
   }
   preloadInitialData();
