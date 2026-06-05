@@ -151,6 +151,7 @@ async function getClassForecast() {
      LEFT JOIN education_courses c ON c.course_id = e.course_id
      LEFT JOIN education_course_categories cat ON cat.category_id = c.category_id
      WHERE pm.is_active = true
+       AND coalesce(mc.name, '') <> '離開'
      GROUP BY pm.id, pm.name, ch.name, mc.name, lower(coalesce(cat.category_name, '') || ' ' || coalesce(c.course_name, ''))`
   );
 
