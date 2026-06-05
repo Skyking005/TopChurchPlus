@@ -764,6 +764,65 @@ function exportPurchaseDoc(payload) {
   };
 }
 
+function exportPaymentRequestDoc(payload) {
+  const paymentId = payload.paymentId;
+  const docType = payload.docType;
+  const proofId = payload.proofId || '';
+
+  if (!paymentId) throw new Error('缺少請款編號');
+  if (docType !== 'payment' && docType !== 'expenseProof') throw new Error('未知的請款單據類型');
+  if (docType === 'expenseProof' && !proofId) throw new Error('缺少支出證明編號');
+
+  const detail = getPaymentRequestDetail(paymentId, payload.currentUser);
+  const payment = detail.payment || {};
+  const docId = docType === 'payment' ? paymentId : proofId;
+  const spec = buildPurchaseDocSpec(docType, docId, {
+    purchase: {
+      '採購編號': payment['請購編號'] || paymentId,
+      '採購摘要': payment['請款編號'] || paymentId
+    },
+    payments: [payment],
+    expenseProofs: detail.expenseProofs || []
+  });
+  const docName = `${paymentId}_${spec.title}_${docId}`;
+  return createFinanceDocumentFromSpec(docName, spec);
+}
+
+function createFinanceDocumentFromSpec(docName, spec) {
+  const doc = DocumentApp.create(docName);
+  const body = doc.getBody();
+
+  body.setMarginTop(36);
+  body.setMarginBottom(72);
+  body.setMarginLeft(36);
+  body.setMarginRight(36);
+
+  body.appendParagraph(spec.title)
+    .setHeading(DocumentApp.ParagraphHeading.HEADING1)
+    .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+
+  body.appendParagraph(`匯出時間：${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')}`)
+    .setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
+
+  spec.sections.forEach(section => {
+    appendSectionTitle(body, section.title);
+    if (section.type === 'keyValue') appendKeyValueTable(body, section.rows);
+    if (section.type === 'rows') appendRowsTable(body, section.headers, section.rows);
+  });
+
+  appendApprovalFooter(body);
+
+  doc.saveAndClose();
+  moveDocToExportFolder(doc.getId());
+
+  return {
+    success: true,
+    url: doc.getUrl(),
+    documentId: doc.getId(),
+    message: `已建立${spec.title} Doc`
+  };
+}
+
 function buildPurchaseDocSpec(docType, docId, detail) {
   const purchase = detail.purchase || {};
 

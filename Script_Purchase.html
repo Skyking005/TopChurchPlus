@@ -234,6 +234,7 @@ function renderPaymentRequests() {
       <td class="text-end">
         <button class="btn btn-sm btn-outline-secondary" onclick="openPaymentRequestEditor('${escapeAttr(row.paymentId)}')">編輯</button>
         <button class="btn btn-sm btn-outline-primary" onclick="openExpenseProofForPayment('${escapeAttr(row.paymentId)}')">新增支出證明</button>
+        <button class="btn btn-sm btn-outline-primary" onclick="exportPaymentDocument('payment', '${escapeAttr(row.paymentId)}', '', this)">匯出 Doc</button>
       </td>
     `;
     body.appendChild(tr);
@@ -277,7 +278,10 @@ function renderPaymentExpenseProofs(data) {
           <div class="text-muted">實付金額：${formatMoney(proof['實付金額'] || 0)}</div>
           <div class="small">${escapeHtml(proof['不能取得單據原因'] || '')}</div>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" onclick="openExpenseProofEditor('${escapeAttr(currentPaymentProofListPaymentId)}', '${escapeAttr(proofId)}')">編輯</button>
+        <div class="d-flex gap-2 flex-wrap justify-content-end">
+          <button class="btn btn-sm btn-outline-secondary" onclick="openExpenseProofEditor('${escapeAttr(currentPaymentProofListPaymentId)}', '${escapeAttr(proofId)}')">編輯</button>
+          <button class="btn btn-sm btn-outline-primary" onclick="exportPaymentDocument('expenseProof', '${escapeAttr(currentPaymentProofListPaymentId)}', '${escapeAttr(proofId)}', this)">匯出 Doc</button>
+        </div>
       </div>
     `;
     body.appendChild(item);
@@ -699,6 +703,33 @@ function exportPurchaseDocument(docType, encodedDocId = '', btn = null) {
       purchaseId,
       docType,
       docId: encodedDocId ? decodeURIComponent(encodedDocId) : ''
+    });
+}
+
+function exportPaymentDocument(docType, paymentId, proofId = '', btn = null) {
+  if (!paymentId) return alert('缺少請款編號，無法匯出 Doc');
+
+  const button = btn;
+  if (button) setButtonLoading(button, true, '匯出中...');
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (button) setButtonLoading(button, false);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        alert('已建立文件，但未取得連結');
+      }
+    })
+    .withFailureHandler(err => {
+      if (button) setButtonLoading(button, false);
+      showError(err);
+    })
+    .exportPaymentRequestDoc({
+      currentUser,
+      paymentId,
+      docType,
+      proofId
     });
 }
 

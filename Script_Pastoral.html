@@ -8,6 +8,7 @@ let pastoralOpenDetails = [];
 let pastoralActiveDetailId = null;
 let pastoralInlineEditMode = false;
 let pastoralActiveFiles = [];
+let pastoralListCollapsed = false;
 
 function openPastoralSystem() {
   recordFeatureUsage('pastoral');
@@ -20,6 +21,7 @@ function openPastoralSystem() {
   document.getElementById('pastoralView').classList.remove('d-none');
   document.getElementById('addPastoralMemberBtn').classList.toggle('d-none', !canEditPastoral);
   updatePastoralDetailActionButtons();
+  setPastoralListCollapsed(false);
   switchPastoralTab('members');
   loadPastoralSystem();
 }
@@ -65,10 +67,25 @@ function fillObjectSelect(id, items, valueKey, labelKey, includeAll) {
 
 function switchPastoralTab(tab) {
   pastoralCurrentTab = tab;
-  document.getElementById('pastoralMembersPanel').classList.toggle('d-none', tab !== 'members');
-  document.getElementById('pastoralGroupsPanel').classList.toggle('d-none', tab !== 'groups');
+  if (!pastoralListCollapsed) {
+    document.getElementById('pastoralMembersPanel').classList.toggle('d-none', tab !== 'members');
+    document.getElementById('pastoralGroupsPanel').classList.toggle('d-none', tab !== 'groups');
+  }
   document.getElementById('pastoralMembersTabBtn').classList.toggle('active', tab === 'members');
   document.getElementById('pastoralGroupsTabBtn').classList.toggle('active', tab === 'groups');
+}
+
+function setPastoralListCollapsed(isCollapsed) {
+  pastoralListCollapsed = isCollapsed;
+  const membersPanel = document.getElementById('pastoralMembersPanel');
+  const groupsPanel = document.getElementById('pastoralGroupsPanel');
+  if (isCollapsed) {
+    if (membersPanel) membersPanel.classList.add('d-none');
+    if (groupsPanel) groupsPanel.classList.add('d-none');
+    return;
+  }
+  if (membersPanel) membersPanel.classList.toggle('d-none', pastoralCurrentTab !== 'members');
+  if (groupsPanel) groupsPanel.classList.toggle('d-none', pastoralCurrentTab !== 'groups');
 }
 
 function loadPastoralMembers() {
@@ -199,6 +216,7 @@ function renderPastoralMemberDetail(data) {
   pastoralOpenDetails.unshift(data);
   pastoralOpenDetails = pastoralOpenDetails.slice(0, 6);
   pastoralActiveDetailId = member.memberId;
+  setPastoralListCollapsed(true);
   renderPastoralDetailTabs();
   renderActivePastoralDetail();
   document.getElementById('pastoralDetailPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -764,6 +782,7 @@ function closePastoralDetailPanel() {
   pastoralActiveDetailId = null;
   pastoralInlineEditMode = false;
   document.getElementById('pastoralDetailPanel').classList.add('d-none');
+  setPastoralListCollapsed(false);
   updatePastoralDetailActionButtons();
 }
 
