@@ -48,6 +48,9 @@ function loadProjects() {
         <td>${escapeHtml(p.projectType)}</td>
         <td>${escapeHtml(p.startDate)} - ${escapeHtml(p.endDate)}</td>
         <td><span class="status-badge status-${p.status}">${p.status}</span></td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary" onclick="copyProjectFromList('${escapeAttr(p.projectId)}')">複製</button>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -69,9 +72,25 @@ function loadProjects() {
         <div class="project-meta">單位：${escapeHtml(p.unit)}</div>
         <div class="project-meta">時間：${escapeHtml(p.startDate)} - ${escapeHtml(p.endDate)}</div>
         <div><span class="status-badge status-${p.status}">${p.status}</span></div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" onclick="event.stopPropagation(); copyProjectFromList('${escapeAttr(p.projectId)}')">複製</button>
       `;
       container.appendChild(card);
     });
+  }
+
+  function copyProjectFromList(projectId) {
+    if (!confirm('確定要複製此專案？系統會帶入主檔、同工、收入與支出資料，不會複製權限與會議紀錄。')) return;
+    lockActionButtons();
+    google.script.run
+      .withSuccessHandler(data => {
+        renderProjectCopy(data);
+        unlockActionButtons();
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .getProjectDetail(projectId, currentUser);
   }
 
   function renderPageInfo() {

@@ -29,6 +29,47 @@ function openNewProject() {
       .getProjectDetail(projectId, currentUser);
   }
 
+  function copyCurrentProject() {
+    const projectId = document.getElementById('projectId').value;
+    if (!projectId) return alert('請先開啟已保存的專案');
+    if (!confirm('確定要複製此專案？系統會帶入主檔、同工、收入與支出資料，不會複製權限與會議紀錄。')) return;
+    lockActionButtons();
+    google.script.run
+      .withSuccessHandler(data => {
+        renderProjectCopy(data);
+        unlockActionButtons();
+      })
+      .withFailureHandler(err => {
+        unlockActionButtons();
+        showError(err);
+      })
+      .getProjectDetail(projectId, currentUser);
+  }
+
+  function renderProjectCopy(data) {
+    const copied = {
+      ...data,
+      project: {
+        ...(data.project || {}),
+        '計畫編號': '',
+        '專案登入人': currentUser.name || '',
+        '專案名稱': `${data.project?.['專案名稱'] || ''} - 複製`,
+        '專案狀態': '規劃中'
+      },
+      meetings: [],
+      projectPermissions: [],
+      permission: {
+        canEdit: true,
+        canChangeStatus: true,
+        canViewFinance: true,
+        access: '完全控制',
+        statusOptions: ['規劃中', '執行中', '已完成', '取消']
+      }
+    };
+    renderProjectDetail(copied);
+    alert('已建立專案複製草稿，確認內容後請按「儲存專案」產生新編號。');
+  }
+
   function renderProjectDetail(data) {
     if (!data || !data.permission) {
       alert('專案詳細資料讀取失敗，請確認 Code.gs 的 getProjectDetail 是否有正常回傳資料。');

@@ -309,6 +309,7 @@ function renderDesktopPurchases() {
       <td class="text-end">${formatMoney(p.totalAmount)}</td>
       <td class="text-end">
         <button class="btn btn-sm btn-outline-secondary" onclick="openPurchase('${escapeAttr(p.purchaseId)}')">明細</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="copyPurchaseFromList('${escapeAttr(p.purchaseId)}')">複製</button>
         ${isClosed ? '' : `<button class="btn btn-sm btn-outline-danger" onclick="closePurchaseFromList('${escapeAttr(p.purchaseId)}')">結案</button>`}
       </td>
     `;
@@ -329,6 +330,7 @@ function renderMobilePurchases() {
       <div class="project-meta">採購編號：${escapeHtml(p.purchaseId)}</div>
       <div class="project-meta">狀態：${escapeHtml(p.status)}</div>
       <div class="project-meta">總計金額：${formatMoney(p.totalAmount)}</div>
+      <button class="btn btn-sm btn-outline-secondary mt-2" onclick="event.stopPropagation(); copyPurchaseFromList('${escapeAttr(p.purchaseId)}')">複製</button>
     `;
     container.appendChild(card);
   });
@@ -371,6 +373,42 @@ function openPurchase(purchaseId) {
       .withFailureHandler(showError)
       .getPurchaseDetail(purchaseId, currentUser);
   });
+}
+
+function copyPurchaseFromList(purchaseId) {
+  if (!confirm('確定要複製此採購單？系統會帶入基本資料與請購詳情，不會複製報價單、預借、請款與支出證明。')) return;
+  ensurePurchaseOptionsReady(() => {
+    google.script.run
+      .withSuccessHandler(renderPurchaseCopy)
+      .withFailureHandler(showError)
+      .getPurchaseDetail(purchaseId, currentUser);
+  });
+}
+
+function copyCurrentPurchase() {
+  const purchaseId = document.getElementById('purchaseId').value;
+  if (!purchaseId) return alert('請先開啟已保存的採購單');
+  copyPurchaseFromList(purchaseId);
+}
+
+function renderPurchaseCopy(data) {
+  const purchase = data.purchase || {};
+  renderPurchaseDetail({
+    ...data,
+    purchase: {
+      ...purchase,
+      '採購編號': '',
+      '申請人': getCurrentUserNameWithPosition(),
+      '申請日期': todayString(),
+      '請購狀態': '申請中',
+      '採購摘要': `${purchase['採購摘要'] || ''} - 複製`
+    },
+    advances: [],
+    expenseProofs: [],
+    payments: [],
+    quotePdfs: []
+  });
+  alert('已建立採購複製草稿，確認內容後請按「保存採購」產生新編號。');
 }
 
 function renderPurchaseDetail(data) {
