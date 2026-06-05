@@ -1,63 +1,15 @@
 require('dotenv').config();
 
-const cors = require('cors');
-const express = require('express');
-const helmet = require('helmet');
+const { createApp } = require('./app');
 const { pool, tx } = require('./db');
+const { createApiKeyMiddleware } = require('./middleware/api-key');
+const { FEATURE_ACCESS_RANK, PARAM_CATEGORIES, SYSTEM_FEATURES } = require('./modules/core/catalog');
+const { registerCoreRoutes } = require('./modules/core/routes');
 
-const app = express();
-app.use(helmet());
-app.use(cors({ origin: true }));
-app.use(express.json({ limit: '10mb' }));
+const app = createApp();
 
-const PARAM_CATEGORIES = {
-  projectTypes: 'projectTypes',
-  duties: 'duties',
-  positions: 'positions',
-  units: 'units',
-  differenceMethods: 'differenceMethods',
-  meetingStatus: 'meetingStatus',
-  projectStatus: 'projectStatus',
-  projectPermissions: 'projectPermissions',
-  chargeOptions: 'chargeOptions',
-  purchaseStatus: 'purchaseStatus',
-  paymentMethods: 'paymentMethods',
-  departments: 'departments',
-  assetTypes: 'assetTypes',
-  assetVendors: 'assetVendors',
-  assetStatuses: 'assetStatuses'
-};
-
-const SYSTEM_FEATURES = [
-  'project',
-  'finance',
-  'asset',
-  'venue',
-  'forms',
-  'counter',
-  'pastoral',
-  'education',
-  'media',
-  'worship',
-  'attendance',
-  'serving',
-  'system'
-];
-
-const FEATURE_ACCESS_RANK = { none: 0, read: 1, edit: 2 };
-
-app.use((req, res, next) => {
-  if (req.path === '/health') return next();
-  const apiKey = req.get('x-api-key');
-  if (!process.env.API_KEY || apiKey !== process.env.API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-});
-
-app.get('/health', (req, res) => {
-  res.json({ ok: true });
-});
+app.use(createApiKeyMiddleware({ publicPaths: ['/health'] }));
+registerCoreRoutes(app);
 
 app.post('/login', async (req, res, next) => {
   try {
