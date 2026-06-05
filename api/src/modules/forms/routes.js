@@ -746,9 +746,10 @@ function normalizeFormPayload(payload) {
 async function getPublicFormDetail(formId) {
   const detail = await getFormDetail(formId);
   const form = detail.form;
-  if (form.status !== 'published') throw new Error('此表單尚未開放填寫');
   if (form.visibility !== 'public') throw new Error('此表單不是公開表單');
   if (form.requireLogin) throw new Error('此表單需要登入後才能填寫');
+  if (form.status === 'closed' || form.status === 'archived') throw new Error('此表單已停止回覆，無法填寫或修改');
+  if (form.status !== 'published') throw new Error('此表單尚未開放填寫');
   return detail;
 }
 

@@ -68,9 +68,7 @@ function openPublicFormFill(formId) {
   google.script.run
     .withSuccessHandler(setFormFill)
     .withFailureHandler(err => {
-      document.getElementById('formFillQuestions').innerHTML = '';
-      document.getElementById('formFillTitle').textContent = '無法開啟表單';
-      document.getElementById('formFillError').textContent = err.message || err;
+      renderPublicFormUnavailable(err, '表單');
     })
     .getPublicFormDetail(formId);
 }
@@ -99,11 +97,23 @@ function openPublicFormEdit(formId, responseId, token) {
   google.script.run
     .withSuccessHandler(setFormFill)
     .withFailureHandler(err => {
-      document.getElementById('formFillQuestions').innerHTML = '';
-      document.getElementById('formFillTitle').textContent = '無法開啟回覆';
-      document.getElementById('formFillError').textContent = err.message || err;
+      renderPublicFormUnavailable(err, '回覆');
     })
     .getPublicFormResponseForEdit({ formId, responseId, token });
+}
+
+function renderPublicFormUnavailable(err, targetLabel) {
+  const message = String((err && err.message) || err || '');
+  const isStopped = message.includes('已停止') || message.includes('已關閉') || message.includes('已封存');
+  document.getElementById('submitFormResponseBtn').classList.add('d-none');
+  document.getElementById('formFillTitle').textContent = isStopped ? '表單已停止' : `無法開啟${targetLabel}`;
+  document.getElementById('formFillDescription').textContent = '';
+  document.getElementById('formFillQuestions').innerHTML = `
+    <div class="alert ${isStopped ? 'alert-warning' : 'alert-danger'} mb-0">
+      ${escapeHtml(message || `無法開啟${targetLabel}`)}
+    </div>
+  `;
+  document.getElementById('formFillError').textContent = '';
 }
 
 function loadForms() {
