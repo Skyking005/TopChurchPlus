@@ -9,6 +9,7 @@
         <button type="button" class="btn btn-outline-primary active" id="pastoralMembersTabBtn" onclick="switchPastoralTab('members')">會友管理</button>
         <button type="button" class="btn btn-outline-primary" id="pastoralGroupsTabBtn" onclick="switchPastoralTab('groups')">牧區管理</button>
       </div>
+      <button type="button" class="btn btn-primary d-none" id="addPastoralMemberBtn" onclick="openPastoralMemberEditor()">新增會友</button>
     </div>
 
     <div id="pastoralMembersPanel">
@@ -89,7 +90,11 @@
   <div id="pastoralDetailPanel" class="section-card d-none">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h5 class="mb-0">會友資料</h5>
-      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closePastoralDetailPanel()">全部關閉</button>
+      <div class="btn-group">
+        <button type="button" class="btn btn-outline-primary btn-sm d-none" id="editPastoralMemberBtn" onclick="editActivePastoralMember()">編輯</button>
+        <button type="button" class="btn btn-outline-danger btn-sm d-none" id="deletePastoralMemberBtn" onclick="deleteActivePastoralMember()">停用</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closePastoralDetailPanel()">全部關閉</button>
+      </div>
     </div>
     <ul id="pastoralDetailTabs" class="nav nav-tabs mb-3"></ul>
 
@@ -116,6 +121,188 @@
         <div class="pastoral-detail-block">
           <h6>最近關懷紀錄</h6>
           <div id="pastoralCareRecords" class="pastoral-care-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="pastoralMemberModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="pastoralMemberModalTitle">會友資料</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="pastoralEditMemberId">
+          <div class="row g-3">
+            <div class="col-12 col-md-3">
+              <label class="form-label">會堂</label>
+              <select id="pastoralEditChurchId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">姓名</label>
+              <input id="pastoralEditName" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">性別</label>
+              <select id="pastoralEditGender" class="form-select pastoral-edit-input">
+                <option value="">未填</option>
+                <option value="1">男</option>
+                <option value="0">女</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">生日</label>
+              <input id="pastoralEditBirthday" type="date" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">燈號</label>
+              <select id="pastoralEditLightStatus" class="form-select pastoral-edit-input">
+                <option value="">未填</option>
+                <option value="0">灰燈</option>
+                <option value="1">綠燈</option>
+                <option value="2">黃燈</option>
+                <option value="3">紅燈</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">分類</label>
+              <select id="pastoralEditCategoryCode" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">職分</label>
+              <select id="pastoralEditTitleId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">職業</label>
+              <select id="pastoralEditProfessionId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">職業備註</label>
+              <input id="pastoralEditProfessionNote" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">婚姻</label>
+              <select id="pastoralEditMaritalStatusId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">跟進同工</label>
+              <select id="pastoralEditFollowupStaffId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">牧區</label>
+              <select id="pastoralEditGroupId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">建檔日期</label>
+              <input id="pastoralEditCreatedDate" type="date" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">手機</label>
+              <input id="pastoralEditMobilePhone" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">住家電話</label>
+              <input id="pastoralEditHomePhone" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">公司電話</label>
+              <input id="pastoralEditOfficePhone" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Email</label>
+              <input id="pastoralEditEmail" type="email" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">地區</label>
+              <select id="pastoralEditRegionId" class="form-select pastoral-edit-input"></select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">城市</label>
+              <input id="pastoralEditCity" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">行政區</label>
+              <input id="pastoralEditDistrict" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">郵遞區號</label>
+              <input id="pastoralEditPostalCode" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12">
+              <label class="form-label">地址</label>
+              <input id="pastoralEditAddressLine" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">是否基督徒</label>
+              <select id="pastoralEditIsChristian" class="form-select pastoral-edit-input">
+                <option value="">未填</option>
+                <option value="true">是</option>
+                <option value="false">否</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">已決志</label>
+              <select id="pastoralEditAcceptedChrist" class="form-select pastoral-edit-input">
+                <option value="">未填</option>
+                <option value="true">是</option>
+                <option value="false">否</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">願意受洗</label>
+              <select id="pastoralEditWillingBaptism" class="form-select pastoral-edit-input">
+                <option value="">未填</option>
+                <option value="true">是</option>
+                <option value="false">否</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">受洗日期</label>
+              <input id="pastoralEditBaptizedDate" type="date" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">原教會</label>
+              <input id="pastoralEditPreviousChurchText" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">資料來源</label>
+              <input id="pastoralEditSourceText" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">配偶</label>
+              <input id="pastoralEditSpouseText" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">父親</label>
+              <input id="pastoralEditFatherText" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">母親</label>
+              <input id="pastoralEditMotherText" class="form-control pastoral-edit-input">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">子女</label>
+              <input id="pastoralEditChildrenText" class="form-control pastoral-edit-input">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">備註</label>
+              <textarea id="pastoralEditNote" class="form-control pastoral-edit-input" rows="3"></textarea>
+            </div>
+          </div>
+          <div id="pastoralMemberModalError" class="text-danger small mt-3"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="savePastoralMemberBtn" onclick="submitPastoralMember()">儲存</button>
         </div>
       </div>
     </div>

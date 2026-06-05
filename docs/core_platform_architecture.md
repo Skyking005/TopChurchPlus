@@ -12,6 +12,7 @@
 - Auth 模組：`api/src/modules/auth/routes.js`，集中登入、陌生裝置驗證、登入紀錄
 - System 模組：`api/src/modules/system/routes.js`，集中 initial data、使用者管理、權限管理、參數、使用紀錄
 - Pastoral 模組：`api/src/modules/pastoral/routes.js`，集中牧養選項、會友清單、會友詳細資料與會堂資料範圍權限
+- Pastoral 會友 CRUD：會友主檔、聯絡、地址、信仰、家庭與目前牧區歸屬可新增/編輯/停用，停用採軟刪除以保留後續系統關聯
 - Asset 模組：`api/src/modules/asset/routes.js`，集中資產清單、資產詳細/儲存、位置清單與位置管理
 - Finance 模組：`api/src/modules/finance/routes.js`，集中採購、預借、支出證明與請款申請 API
 - Project 模組：`api/src/modules/project/routes.js`，集中專案清單、專案詳細、會議紀錄與專案權限 API

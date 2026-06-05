@@ -6,15 +6,19 @@ let pastoralTotalCount = 0;
 let pastoralCurrentTab = 'members';
 let pastoralOpenDetails = [];
 let pastoralActiveDetailId = null;
+let pastoralMemberModalInstance = null;
 
 function openPastoralSystem() {
   recordFeatureUsage('pastoral');
+  const canEditPastoral = getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '牧養管理系統';
   ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
   document.getElementById('pastoralView').classList.remove('d-none');
+  document.getElementById('addPastoralMemberBtn').classList.toggle('d-none', !canEditPastoral);
+  updatePastoralDetailActionButtons();
   switchPastoralTab('members');
   loadPastoralSystem();
 }
@@ -36,6 +40,14 @@ function setupPastoralOptions() {
   fillObjectSelect('pastoralChurchFilter', pastoralOptions.churches || [], 'id', 'name', true);
   fillObjectSelect('pastoralCategoryFilter', pastoralOptions.categories || [], 'code', 'name', true);
   fillObjectSelect('pastoralGroupFilter', pastoralOptions.groups || [], 'groupId', 'path', true);
+  fillObjectSelect('pastoralEditChurchId', pastoralOptions.churches || [], 'id', 'name', false);
+  fillObjectSelect('pastoralEditCategoryCode', pastoralOptions.categories || [], 'code', 'name', true);
+  fillObjectSelect('pastoralEditTitleId', pastoralOptions.titles || [], 'id', 'name', true);
+  fillObjectSelect('pastoralEditProfessionId', pastoralOptions.professions || [], 'id', 'name', true);
+  fillObjectSelect('pastoralEditMaritalStatusId', pastoralOptions.maritalStatuses || [], 'id', 'name', true);
+  fillObjectSelect('pastoralEditGroupId', pastoralOptions.groups || [], 'groupId', 'path', true);
+  fillObjectSelect('pastoralEditRegionId', pastoralOptions.regions || [], 'id', 'label', true);
+  fillObjectSelect('pastoralEditFollowupStaffId', pastoralOptions.accounts || [], 'staffId', 'name', true);
 }
 
 function fillObjectSelect(id, items, valueKey, labelKey, includeAll) {
@@ -215,6 +227,7 @@ function renderActivePastoralDetail() {
   }
   const member = data.member || {};
   document.getElementById('pastoralDetailPanel').classList.remove('d-none');
+  updatePastoralDetailActionButtons();
 
   renderDefinitionList('pastoralBasicInfo', [
     ['會堂', member.churchName],
@@ -255,6 +268,199 @@ function renderActivePastoralDetail() {
   ]);
 
   renderPastoralCareRecords(data.careRecords || []);
+}
+
+function updatePastoralDetailActionButtons() {
+  const canEditPastoral = currentUser && getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile' && pastoralActiveDetailId;
+  const editBtn = document.getElementById('editPastoralMemberBtn');
+  const deleteBtn = document.getElementById('deletePastoralMemberBtn');
+  if (editBtn) editBtn.classList.toggle('d-none', !canEditPastoral);
+  if (deleteBtn) deleteBtn.classList.toggle('d-none', !canEditPastoral);
+}
+
+function openPastoralMemberEditor(data = null) {
+  if (!pastoralOptions) {
+    alert('牧養選項尚未載入完成');
+    return;
+  }
+  const member = data?.member || {};
+  document.getElementById('pastoralMemberModalTitle').textContent = member.memberId ? '編輯會友' : '新增會友';
+  document.getElementById('pastoralMemberModalError').textContent = '';
+  setPastoralFieldValues(member);
+  pastoralMemberModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('pastoralMemberModal'));
+  pastoralMemberModalInstance.show();
+}
+
+function editActivePastoralMember() {
+  const data = pastoralOpenDetails.find(item => String(item.member?.memberId) === String(pastoralActiveDetailId));
+  if (!data) return;
+  openPastoralMemberEditor(data);
+}
+
+function setPastoralFieldValues(member) {
+  const today = new Date().toISOString().slice(0, 10);
+  setFieldValue('pastoralEditMemberId', member.memberId || '');
+  setFieldValue('pastoralEditChurchId', member.churchId || '');
+  setFieldValue('pastoralEditName', member.name || '');
+  setFieldValue('pastoralEditGender', member.genderValue ?? genderTextToValue(member.gender));
+  setFieldValue('pastoralEditBirthday', member.birthday || '');
+  setFieldValue('pastoralEditLightStatus', member.lightStatusValue ?? lightTextToValue(member.lightStatus));
+  setFieldValue('pastoralEditCategoryCode', member.categoryCode || '');
+  setFieldValue('pastoralEditTitleId', member.titleId || '');
+  setFieldValue('pastoralEditProfessionId', member.professionId || '');
+  setFieldValue('pastoralEditProfessionNote', member.professionNote || '');
+  setFieldValue('pastoralEditMaritalStatusId', member.maritalStatusId || '');
+  setFieldValue('pastoralEditFollowupStaffId', member.followupStaffId || '');
+  setFieldValue('pastoralEditGroupId', member.groupId || '');
+  setFieldValue('pastoralEditCreatedDate', member.createdDate || today);
+  setFieldValue('pastoralEditMobilePhone', member.mobilePhone || '');
+  setFieldValue('pastoralEditHomePhone', member.homePhone || '');
+  setFieldValue('pastoralEditOfficePhone', member.officePhone || '');
+  setFieldValue('pastoralEditEmail', member.email || '');
+  setFieldValue('pastoralEditRegionId', member.regionId || '');
+  setFieldValue('pastoralEditCity', member.city || '');
+  setFieldValue('pastoralEditDistrict', member.district || '');
+  setFieldValue('pastoralEditPostalCode', member.postalCode || '');
+  setFieldValue('pastoralEditAddressLine', member.addressLine || '');
+  setFieldValue('pastoralEditIsChristian', booleanTextToValue(member.isChristian));
+  setFieldValue('pastoralEditAcceptedChrist', booleanTextToValue(member.acceptedChrist));
+  setFieldValue('pastoralEditWillingBaptism', booleanTextToValue(member.willingBaptism));
+  setFieldValue('pastoralEditBaptizedDate', member.baptizedDate || '');
+  setFieldValue('pastoralEditPreviousChurchText', member.previousChurchText || '');
+  setFieldValue('pastoralEditSourceText', member.sourceText || '');
+  setFieldValue('pastoralEditSpouseText', member.spouseText || '');
+  setFieldValue('pastoralEditFatherText', member.fatherText || '');
+  setFieldValue('pastoralEditMotherText', member.motherText || '');
+  setFieldValue('pastoralEditChildrenText', member.childrenText || '');
+  setFieldValue('pastoralEditNote', member.note || '');
+}
+
+function setFieldValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value == null ? '' : value;
+}
+
+function getFieldValue(id) {
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+function submitPastoralMember() {
+  const errorBox = document.getElementById('pastoralMemberModalError');
+  const btn = document.getElementById('savePastoralMemberBtn');
+  errorBox.textContent = '';
+  const memberId = getFieldValue('pastoralEditMemberId');
+  const name = getFieldValue('pastoralEditName');
+  const churchId = getFieldValue('pastoralEditChurchId');
+  if (!churchId) {
+    errorBox.textContent = '請選擇會堂';
+    return;
+  }
+  if (!name) {
+    errorBox.textContent = '請填寫姓名';
+    return;
+  }
+
+  const payload = {
+    memberId,
+    currentUser,
+    member: {
+      base: {
+        churchId,
+        name,
+        gender: getFieldValue('pastoralEditGender'),
+        birthday: getFieldValue('pastoralEditBirthday'),
+        categoryCode: getFieldValue('pastoralEditCategoryCode'),
+        titleId: getFieldValue('pastoralEditTitleId'),
+        professionId: getFieldValue('pastoralEditProfessionId'),
+        professionNote: getFieldValue('pastoralEditProfessionNote'),
+        maritalStatusId: getFieldValue('pastoralEditMaritalStatusId'),
+        followupStaffId: getFieldValue('pastoralEditFollowupStaffId'),
+        lightStatus: getFieldValue('pastoralEditLightStatus'),
+        createdDate: getFieldValue('pastoralEditCreatedDate'),
+        baptizedDate: getFieldValue('pastoralEditBaptizedDate'),
+        sourceText: getFieldValue('pastoralEditSourceText'),
+        note: getFieldValue('pastoralEditNote')
+      },
+      contact: {
+        mobilePhone: getFieldValue('pastoralEditMobilePhone'),
+        homePhone: getFieldValue('pastoralEditHomePhone'),
+        officePhone: getFieldValue('pastoralEditOfficePhone'),
+        email: getFieldValue('pastoralEditEmail')
+      },
+      address: {
+        regionId: getFieldValue('pastoralEditRegionId'),
+        city: getFieldValue('pastoralEditCity'),
+        district: getFieldValue('pastoralEditDistrict'),
+        postalCode: getFieldValue('pastoralEditPostalCode'),
+        addressLine: getFieldValue('pastoralEditAddressLine')
+      },
+      faith: {
+        isChristian: getFieldValue('pastoralEditIsChristian'),
+        acceptedChrist: getFieldValue('pastoralEditAcceptedChrist'),
+        willingBaptism: getFieldValue('pastoralEditWillingBaptism'),
+        previousChurchText: getFieldValue('pastoralEditPreviousChurchText')
+      },
+      family: {
+        spouseText: getFieldValue('pastoralEditSpouseText'),
+        fatherText: getFieldValue('pastoralEditFatherText'),
+        motherText: getFieldValue('pastoralEditMotherText'),
+        childrenText: getFieldValue('pastoralEditChildrenText')
+      },
+      groupId: getFieldValue('pastoralEditGroupId')
+    }
+  };
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (pastoralMemberModalInstance) pastoralMemberModalInstance.hide();
+      alert(res.message);
+      pastoralCurrentPage = 1;
+      loadPastoralMembers();
+      if (res.memberId) openPastoralMember(res.memberId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .savePastoralMember(payload);
+}
+
+function deleteActivePastoralMember() {
+  const data = pastoralOpenDetails.find(item => String(item.member?.memberId) === String(pastoralActiveDetailId));
+  const member = data?.member || {};
+  if (!member.memberId) return;
+  if (!confirm(`確定要停用「${member.name}」的會友資料？`)) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      closePastoralDetail(member.memberId);
+      loadPastoralMembers();
+    })
+    .withFailureHandler(showError)
+    .deletePastoralMember({ memberId: member.memberId, currentUser });
+}
+
+function genderTextToValue(text) {
+  if (text === '男') return '1';
+  if (text === '女') return '0';
+  return text || '';
+}
+
+function lightTextToValue(text) {
+  if (text === '灰燈') return '0';
+  if (text === '綠燈') return '1';
+  if (text === '黃燈') return '2';
+  if (text === '紅燈') return '3';
+  return text || '';
+}
+
+function booleanTextToValue(text) {
+  if (text === '是') return 'true';
+  if (text === '否') return 'false';
+  return text || '';
 }
 
 function activatePastoralDetail(memberId) {
@@ -307,6 +513,7 @@ function closePastoralDetailPanel() {
   pastoralOpenDetails = [];
   pastoralActiveDetailId = null;
   document.getElementById('pastoralDetailPanel').classList.add('d-none');
+  updatePastoralDetailActionButtons();
 }
 
 function getPastoralLightClass(status) {

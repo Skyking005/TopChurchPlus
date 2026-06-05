@@ -1,5 +1,8 @@
-const { pool } = require('../../db');
-const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../core/catalog');
+const { pool, tx } = require('../../db');
+const { recordDomainEvent } = require('../../shared/cross-system');
+const { formatDate, formatDateTime } = require('../../shared/format');
+const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
+const { hasAnyRole, parseUser } = require('../../shared/users');
 
 function registerPastoralRoutes(app) {
   app.get('/pastoral/options', async (req, res, next) => {
@@ -33,6 +36,36 @@ function registerPastoralRoutes(app) {
       next(err);
     }
   });
+
+  app.post('/pastoral/members', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertPastoralEditable(currentUser);
+      res.json(await savePastoralMember(null, req.body.member || {}, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/pastoral/members/:memberId', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertPastoralEditable(currentUser);
+      res.json(await savePastoralMember(req.params.memberId, req.body.member || {}, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.delete('/pastoral/members/:memberId', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertPastoralEditable(currentUser);
+      res.json(await softDeletePastoralMember(req.params.memberId, currentUser));
+    } catch (err) {
+      next(err);
+    }
+  });
 }
 
 async function getPastoralOptions(currentUser) {
@@ -42,7 +75,7 @@ async function getPastoralOptions(currentUser) {
   const groupWhere = churchAccess.all ? '' : 'WHERE g.church_id = ANY($1::int[])';
   const groupValues = churchAccess.all ? [] : [churchAccess.churchIds];
 
-  const [churches, categories, groups] = await Promise.all([
+  const [churches, categories, groups, titles, professions, maritalStatuses, regions, accounts] = await Promise.all([
     pool.query(`
       SELECT id, name, church_type
       FROM churches
@@ -70,13 +103,38 @@ async function getPastoralOptions(currentUser) {
       ${groupWhere}
       GROUP BY g.id, g.name, g.path, g.level_no, gt.name, c.name, g.sort_order
       ORDER BY g.level_no, g.sort_order, g.name
-    `, groupValues)
+    `, groupValues),
+    pool.query('SELECT id, name FROM pastoral_titles ORDER BY sort_order, id'),
+    pool.query('SELECT id, name FROM professions ORDER BY sort_order, id'),
+    pool.query('SELECT id, name FROM marital_statuses ORDER BY sort_order, id'),
+    pool.query('SELECT id, city, district, postal_code FROM regions ORDER BY city, district, postal_code'),
+    pool.query(`
+      SELECT staff_id, name, position
+      FROM accounts
+      ORDER BY
+        CASE WHEN staff_id ~ '^[0-9]+$' THEN staff_id::int END NULLS LAST,
+        staff_id
+    `)
   ]);
 
   return {
     churches: churches.rows.map(row => ({ id: row.id, name: row.name, churchType: row.church_type })),
     categories: categories.rows.map(row => ({ code: row.code, name: row.name })),
-    groups: groups.rows.map(toPastoralGroupItem)
+    groups: groups.rows.map(toPastoralGroupItem),
+    titles: titles.rows.map(row => ({ id: row.id, name: row.name })),
+    professions: professions.rows.map(row => ({ id: row.id, name: row.name })),
+    maritalStatuses: maritalStatuses.rows.map(row => ({ id: row.id, name: row.name })),
+    regions: regions.rows.map(row => ({
+      id: row.id,
+      city: row.city,
+      district: row.district,
+      postalCode: row.postal_code,
+      label: [row.city, row.district].filter(Boolean).join(' ')
+    })),
+    accounts: accounts.rows.map(row => ({
+      staffId: row.staff_id,
+      name: [row.name, row.position].filter(Boolean).join(' ')
+    }))
   };
 }
 
@@ -91,6 +149,7 @@ async function getPastoralMembers(query, currentUser) {
   const offset = (page - 1) * pageSize;
   const where = [];
   const values = [];
+  where.push('pm.is_active');
 
   if (!churchAccess.all) {
     if (!churchAccess.churchIds.length) {
@@ -213,6 +272,7 @@ async function getPastoralMemberDetail(memberId, currentUser) {
        addr.city,
        addr.district,
        faith.is_christian,
+       faith.previous_church_id,
        faith.previous_church_text,
        faith.willing_join_church,
        faith.willing_contact,
@@ -225,6 +285,10 @@ async function getPastoralMemberDetail(memberId, currentUser) {
        fam.father_text,
        fam.mother_text,
        fam.children_text,
+       addr.country_id,
+       addr.region_id,
+       addr.postal_code,
+       pga.group_id,
        g.path AS group_path
      FROM pastoral_members pm
      LEFT JOIN churches ch ON ch.id = pm.church_id
@@ -259,6 +323,339 @@ async function getPastoralMemberDetail(memberId, currentUser) {
     member: toPastoralMemberDetail(member),
     careRecords: careRecords.rows.map(toPastoralCareRecord)
   };
+}
+
+async function savePastoralMember(memberId, payload, currentUser) {
+  const normalized = normalizePastoralMemberPayload(payload);
+  await assertChurchWritable(normalized.base.churchId, currentUser);
+
+  return tx(async client => {
+    const isNew = !memberId;
+    const id = isNew ? await generatePastoralMemberId(client) : Number(memberId);
+    if (!Number.isInteger(id)) throw new Error('會友編號格式錯誤');
+
+    if (!isNew) {
+      const existing = await client.query('SELECT church_id FROM pastoral_members WHERE id = $1 AND is_active', [id]);
+      if (!existing.rows[0]) throw new Error('找不到會友資料');
+      await assertChurchWritable(existing.rows[0].church_id, currentUser);
+    }
+
+    await client.query(
+      `INSERT INTO pastoral_members (
+         id, church_id, name, gender, birthday, membership_category_code, title_id,
+         profession_id, profession_note, source_text, marital_status_id, marital_note,
+         line_display_id, line_user_id, light_status, followup_staff_id, created_date,
+         baptized_date, note, is_active, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,now())
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id,
+         name = EXCLUDED.name,
+         gender = EXCLUDED.gender,
+         birthday = EXCLUDED.birthday,
+         membership_category_code = EXCLUDED.membership_category_code,
+         title_id = EXCLUDED.title_id,
+         profession_id = EXCLUDED.profession_id,
+         profession_note = EXCLUDED.profession_note,
+         source_text = EXCLUDED.source_text,
+         marital_status_id = EXCLUDED.marital_status_id,
+         marital_note = EXCLUDED.marital_note,
+         line_display_id = EXCLUDED.line_display_id,
+         line_user_id = EXCLUDED.line_user_id,
+         light_status = EXCLUDED.light_status,
+         followup_staff_id = EXCLUDED.followup_staff_id,
+         created_date = EXCLUDED.created_date,
+         baptized_date = EXCLUDED.baptized_date,
+         note = EXCLUDED.note,
+         is_active = true,
+         updated_at = now()`,
+      [
+        id,
+        normalized.base.churchId,
+        normalized.base.name,
+        normalized.base.gender,
+        normalized.base.birthday,
+        normalized.base.categoryCode,
+        normalized.base.titleId,
+        normalized.base.professionId,
+        normalized.base.professionNote,
+        normalized.base.sourceText,
+        normalized.base.maritalStatusId,
+        normalized.base.maritalNote,
+        normalized.base.lineDisplayId,
+        normalized.base.lineUserId,
+        normalized.base.lightStatus,
+        normalized.base.followupStaffId,
+        normalized.base.createdDate,
+        normalized.base.baptizedDate,
+        normalized.base.note
+      ]
+    );
+
+    await upsertPastoralContact(client, id, normalized.contact);
+    await upsertPastoralAddress(client, id, normalized.address);
+    await upsertPastoralFaith(client, id, normalized.faith);
+    await upsertPastoralFamily(client, id, normalized.family);
+    await replaceCurrentPastoralGroup(client, id, normalized.groupId);
+
+    await recordDomainEvent({
+      eventType: isNew ? 'pastoral.member_created' : 'pastoral.member_updated',
+      systemKey: 'pastoral',
+      entityType: 'pastoral_member',
+      entityId: String(id),
+      payload: { churchId: normalized.base.churchId, name: normalized.base.name },
+      currentUser
+    }, client);
+
+    return { success: true, memberId: id, message: isNew ? '會友資料已建立' : '會友資料已儲存' };
+  });
+}
+
+async function softDeletePastoralMember(memberId, currentUser) {
+  const id = Number(memberId);
+  if (!Number.isInteger(id)) throw new Error('會友編號格式錯誤');
+
+  return tx(async client => {
+    const existing = await client.query('SELECT church_id, name FROM pastoral_members WHERE id = $1 AND is_active', [id]);
+    if (!existing.rows[0]) throw new Error('找不到會友資料');
+    await assertChurchWritable(existing.rows[0].church_id, currentUser);
+
+    await client.query('UPDATE pastoral_members SET is_active = false, updated_at = now() WHERE id = $1', [id]);
+    await retireCurrentPastoralGroup(client, id);
+
+    await recordDomainEvent({
+      eventType: 'pastoral.member_deleted',
+      systemKey: 'pastoral',
+      entityType: 'pastoral_member',
+      entityId: String(id),
+      payload: { churchId: existing.rows[0].church_id, name: existing.rows[0].name },
+      currentUser
+    }, client);
+
+    return { success: true, message: '會友資料已停用' };
+  });
+}
+
+function normalizePastoralMemberPayload(payload) {
+  const base = payload.base || payload.member || payload;
+  const name = normalizeText(base.name);
+  if (!name) throw new Error('請填寫姓名');
+  const churchId = toNullableInteger(base.churchId);
+  if (churchId === null) throw new Error('請選擇會堂');
+
+  return {
+    base: {
+      name,
+      churchId,
+      gender: toNullableInteger(base.gender),
+      birthday: normalizeDate(base.birthday),
+      categoryCode: normalizeText(base.categoryCode || base.membershipCategoryCode),
+      titleId: toNullableInteger(base.titleId),
+      professionId: toNullableInteger(base.professionId),
+      professionNote: normalizeText(base.professionNote),
+      sourceText: normalizeText(base.sourceText),
+      maritalStatusId: toNullableInteger(base.maritalStatusId),
+      maritalNote: normalizeText(base.maritalNote),
+      lineDisplayId: normalizeText(base.lineDisplayId),
+      lineUserId: normalizeText(base.lineUserId),
+      lightStatus: toNullableInteger(base.lightStatus),
+      followupStaffId: toNullableInteger(base.followupStaffId),
+      createdDate: normalizeDate(base.createdDate) || new Date(),
+      baptizedDate: normalizeDate(base.baptizedDate),
+      note: normalizeText(base.note)
+    },
+    contact: payload.contact || {},
+    address: payload.address || {},
+    faith: payload.faith || {},
+    family: payload.family || {},
+    groupId: toNullableInteger(payload.groupId || base.groupId)
+  };
+}
+
+async function upsertPastoralContact(client, memberId, contact) {
+  await client.query(
+    `INSERT INTO pastoral_member_contacts (
+       member_id, email, home_phone, office_phone, mobile_phone,
+       preferred_contact_time, referrer_name, referrer_phone, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
+     ON CONFLICT (member_id) DO UPDATE SET
+       email = EXCLUDED.email,
+       home_phone = EXCLUDED.home_phone,
+       office_phone = EXCLUDED.office_phone,
+       mobile_phone = EXCLUDED.mobile_phone,
+       preferred_contact_time = EXCLUDED.preferred_contact_time,
+       referrer_name = EXCLUDED.referrer_name,
+       referrer_phone = EXCLUDED.referrer_phone,
+       updated_at = now()`,
+    [
+      memberId,
+      normalizeText(contact.email),
+      normalizeText(contact.homePhone),
+      normalizeText(contact.officePhone),
+      normalizeText(contact.mobilePhone),
+      normalizeText(contact.preferredContactTime),
+      normalizeText(contact.referrerName),
+      normalizeText(contact.referrerPhone)
+    ]
+  );
+}
+
+async function upsertPastoralAddress(client, memberId, address) {
+  const regionId = toNullableInteger(address.regionId);
+  let region = null;
+  if (regionId) {
+    const found = await client.query('SELECT country_id, city, district, postal_code FROM regions WHERE id = $1', [regionId]);
+    region = found.rows[0] || null;
+  }
+
+  const row = {
+    countryId: toNullableInteger(address.countryId) || region?.country_id || null,
+    regionId,
+    postalCode: normalizeText(address.postalCode) || region?.postal_code || null,
+    city: normalizeText(address.city) || region?.city || null,
+    district: normalizeText(address.district) || region?.district || null,
+    addressLine: normalizeText(address.addressLine)
+  };
+
+  await client.query('DELETE FROM pastoral_member_addresses WHERE member_id = $1 AND is_primary', [memberId]);
+  if (!row.countryId && !row.regionId && !row.postalCode && !row.city && !row.district && !row.addressLine) return;
+
+  await client.query(
+    `INSERT INTO pastoral_member_addresses (
+       member_id, country_id, region_id, postal_code, city, district, address_line, is_primary
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,true)`,
+    [memberId, row.countryId, row.regionId, row.postalCode, row.city, row.district, row.addressLine]
+  );
+}
+
+async function upsertPastoralFaith(client, memberId, faith) {
+  await client.query(
+    `INSERT INTO pastoral_member_faith (
+       member_id, is_christian, previous_church_id, previous_church_text,
+       willing_join_church, willing_contact, accepted_christ,
+       willing_continue_group, willing_baptism, prayer_request, feedback, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+     ON CONFLICT (member_id) DO UPDATE SET
+       is_christian = EXCLUDED.is_christian,
+       previous_church_id = EXCLUDED.previous_church_id,
+       previous_church_text = EXCLUDED.previous_church_text,
+       willing_join_church = EXCLUDED.willing_join_church,
+       willing_contact = EXCLUDED.willing_contact,
+       accepted_christ = EXCLUDED.accepted_christ,
+       willing_continue_group = EXCLUDED.willing_continue_group,
+       willing_baptism = EXCLUDED.willing_baptism,
+       prayer_request = EXCLUDED.prayer_request,
+       feedback = EXCLUDED.feedback,
+       updated_at = now()`,
+    [
+      memberId,
+      toNullableBoolean(faith.isChristian),
+      toNullableInteger(faith.previousChurchId),
+      normalizeText(faith.previousChurchText),
+      toNullableBoolean(faith.willingJoinChurch),
+      toNullableBoolean(faith.willingContact),
+      toNullableBoolean(faith.acceptedChrist),
+      toNullableBoolean(faith.willingContinueGroup),
+      toNullableBoolean(faith.willingBaptism),
+      normalizeText(faith.prayerRequest),
+      normalizeText(faith.feedback)
+    ]
+  );
+}
+
+async function upsertPastoralFamily(client, memberId, family) {
+  await client.query(
+    `INSERT INTO pastoral_member_family_notes (
+       member_id, spouse_text, father_text, mother_text, children_text, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,now())
+     ON CONFLICT (member_id) DO UPDATE SET
+       spouse_text = EXCLUDED.spouse_text,
+       father_text = EXCLUDED.father_text,
+       mother_text = EXCLUDED.mother_text,
+       children_text = EXCLUDED.children_text,
+       updated_at = now()`,
+    [
+      memberId,
+      normalizeText(family.spouseText),
+      normalizeText(family.fatherText),
+      normalizeText(family.motherText),
+      normalizeText(family.childrenText)
+    ]
+  );
+}
+
+async function replaceCurrentPastoralGroup(client, memberId, groupId) {
+  const current = await client.query(
+    'SELECT group_id FROM pastoral_member_group_assignments WHERE member_id = $1 AND is_current LIMIT 1',
+    [memberId]
+  );
+  if (current.rows[0] && Number(current.rows[0].group_id) === Number(groupId)) return;
+
+  await retireCurrentPastoralGroup(client, memberId);
+  if (!groupId) return;
+  await client.query(
+    `INSERT INTO pastoral_member_group_assignments (member_id, group_id, started_at, is_current)
+     VALUES ($1, $2, CURRENT_DATE, true)
+     ON CONFLICT (member_id, group_id, is_current) DO UPDATE SET
+       ended_at = NULL,
+       updated_at = now()`,
+    [memberId, groupId]
+  );
+}
+
+async function retireCurrentPastoralGroup(client, memberId) {
+  const current = await client.query(
+    'SELECT group_id FROM pastoral_member_group_assignments WHERE member_id = $1 AND is_current LIMIT 1',
+    [memberId]
+  );
+  if (!current.rows[0]) return;
+  const groupId = current.rows[0].group_id;
+
+  await client.query(
+    'DELETE FROM pastoral_member_group_assignments WHERE member_id = $1 AND group_id = $2 AND NOT is_current',
+    [memberId, groupId]
+  );
+  await client.query(
+    `UPDATE pastoral_member_group_assignments
+     SET is_current = false, ended_at = COALESCE(ended_at, CURRENT_DATE), updated_at = now()
+     WHERE member_id = $1 AND is_current`,
+    [memberId]
+  );
+}
+
+async function generatePastoralMemberId(client) {
+  const { rows } = await client.query('SELECT COALESCE(max(id), 0)::int + 1 AS next_id FROM pastoral_members');
+  return rows[0].next_id;
+}
+
+async function assertChurchWritable(churchId, currentUser) {
+  if (hasAnyRole(currentUser, ['管理員', '超級管理者'])) return;
+  const access = await getPastoralChurchAccess(currentUser);
+  if (!access.churchIds.includes(Number(churchId))) {
+    throw new Error('您沒有此會堂的牧養資料操作權限');
+  }
+}
+
+function normalizeText(value) {
+  const text = String(value || '').trim();
+  return text || null;
+}
+
+function normalizeDate(value) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  return text.slice(0, 10);
+}
+
+function toNullableInteger(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isInteger(number) ? number : null;
+}
+
+function toNullableBoolean(value) {
+  if (value === true || value === 'true' || value === '是' || value === 1 || value === '1') return true;
+  if (value === false || value === 'false' || value === '否' || value === 0 || value === '0') return false;
+  return null;
 }
 
 function toPastoralGroupItem(row) {
@@ -299,30 +696,48 @@ function toPastoralMemberDetail(row) {
   return {
     memberId: row.id,
     name: row.name,
+    churchId: row.church_id,
     gender: formatGender(row.gender),
+    genderValue: row.gender,
     birthday: formatDate(row.birthday),
     churchName: row.church_name || '',
     churchType: row.church_type || '',
+    categoryCode: row.membership_category_code || '',
     categoryName: row.category_name || '',
+    titleId: row.title_id,
     titleName: row.title_name || '',
+    professionId: row.profession_id,
     professionName: row.profession_name || '',
     professionNote: row.profession_note || '',
+    maritalStatusId: row.marital_status_id,
     maritalStatusName: row.marital_status_name || '',
     maritalNote: row.marital_note || '',
     sourceText: row.source_text || '',
+    groupId: row.group_id,
     groupPath: row.group_path || '',
     mobilePhone: row.mobile_phone || '',
     homePhone: row.home_phone || '',
     officePhone: row.office_phone || '',
     email: row.email || '',
     preferredContactTime: row.preferred_contact_time || '',
+    countryId: row.country_id,
+    regionId: row.region_id,
+    postalCode: row.postal_code || '',
+    city: row.city || '',
+    district: row.district || '',
+    addressLine: row.address_line || '',
     address: [row.city, row.district, row.address_line].filter(Boolean).join(' '),
     referrerName: row.referrer_name || '',
     referrerPhone: row.referrer_phone || '',
     lineDisplayId: row.line_display_id || '',
+    lineUserId: row.line_user_id || '',
     lineBound: Boolean(row.line_user_id),
     lightStatus: formatLightStatus(row.light_status),
+    lightStatusValue: row.light_status,
+    followupStaffId: row.followup_staff_id,
+    createdDate: formatDate(row.created_date),
     isChristian: formatBoolean(row.is_christian),
+    previousChurchId: row.previous_church_id,
     previousChurchText: row.previous_church_text || '',
     willingJoinChurch: formatBoolean(row.willing_join_church),
     willingContact: formatBoolean(row.willing_contact),
@@ -353,41 +768,8 @@ function assertPastoralReadable(user) {
   return assertFeatureReadable(user, 'pastoral');
 }
 
-async function assertFeatureReadable(user, featureKey) {
-  if (!user || !user.name) throw new Error('缺少登入者資訊');
-  const access = await getFeatureAccess(user, featureKey);
-  if (access === 'read' || access === 'edit') return access;
-  throw new Error('沒有此系統功能的使用權限');
-}
-
-async function getFeatureAccess(user, featureKey) {
-  if (!SYSTEM_FEATURES.includes(featureKey)) return 'none';
-  if (user && user.featurePermissions && user.featurePermissions[featureKey]) {
-    return user.featurePermissions[featureKey];
-  }
-  const access = await getEffectiveFeaturePermissions(user);
-  return access[featureKey] || 'none';
-}
-
-async function getEffectiveFeaturePermissions(user) {
-  const roles = normalizeRoles(user && user.roles, user && user.role);
-  if (!roles.length) return {};
-
-  const { rows } = await pool.query(
-    `SELECT feature_key, access_level
-     FROM role_feature_permissions
-     WHERE role = ANY($1::text[])`,
-    [roles]
-  );
-
-  const access = {};
-  rows.forEach(row => {
-    const current = access[row.feature_key] || 'none';
-    if ((FEATURE_ACCESS_RANK[row.access_level] || 0) > (FEATURE_ACCESS_RANK[current] || 0)) {
-      access[row.feature_key] = row.access_level;
-    }
-  });
-  return access;
+function assertPastoralEditable(user) {
+  return assertFeatureEditable(user, 'pastoral');
 }
 
 async function getPastoralChurchAccess(user) {
@@ -401,20 +783,6 @@ async function getPastoralChurchAccess(user) {
     [staffId]
   );
   return { all: false, churchIds: rows.map(row => Number(row.church_id)).filter(Number.isFinite) };
-}
-
-function hasAnyRole(user, rolesToCheck) {
-  const roles = normalizeRoles(user && user.roles, user && user.role);
-  return rolesToCheck.some(role => roles.includes(role));
-}
-
-function normalizeRoles(roles, fallbackRole) {
-  const values = Array.isArray(roles) ? roles : [];
-  const normalized = values
-    .concat(fallbackRole || [])
-    .map(role => String(role || '').trim())
-    .filter(Boolean);
-  return [...new Set(normalized)];
 }
 
 function formatGender(value) {
@@ -445,26 +813,6 @@ function formatFaithStatus(row) {
   if (row.is_christian === true) return '基督徒';
   if (row.is_christian === false) return '未信主';
   return '';
-}
-
-function formatDate(value) {
-  if (!value) return '';
-  return new Date(value).toISOString().slice(0, 10);
-}
-
-function formatDateTime(value) {
-  if (!value) return '';
-  return new Date(value).toISOString();
-}
-
-function parseUser(req) {
-  const raw = req.get('x-current-user');
-  if (!raw) return {};
-  try {
-    return JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-  } catch (err) {
-    return {};
-  }
 }
 
 module.exports = { registerPastoralRoutes };

@@ -79,6 +79,31 @@ function getPastoralMemberDetail(memberId, currentUser) {
   return apiRequest('get', `/pastoral/members/${encodeURIComponent(memberId)}`, null, null, currentUser);
 }
 
+function savePastoralMember(payload) {
+  const memberId = payload.memberId || payload.member?.memberId || '';
+  if (memberId) {
+    return apiRequest(
+      'put',
+      `/pastoral/members/${encodeURIComponent(memberId)}`,
+      { currentUser: payload.currentUser, member: payload.member }
+    );
+  }
+  return apiRequest('post', '/pastoral/members', {
+    currentUser: payload.currentUser,
+    member: payload.member
+  });
+}
+
+function deletePastoralMember(payload) {
+  return apiRequest(
+    'delete',
+    `/pastoral/members/${encodeURIComponent(payload.memberId)}`,
+    null,
+    null,
+    payload.currentUser
+  );
+}
+
 function getProjects(filters, currentUser) {
   filters = filters || {};
   currentUser = currentUser || filters.currentUser;
