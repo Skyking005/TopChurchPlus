@@ -213,6 +213,26 @@ function getQtInventory(filters, currentUser) {
   }, currentUser);
 }
 
+function getQtOrders(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/orders', null, {
+    keyword: filters.keyword || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 10
+  }, currentUser);
+}
+
+function getQtOrderDetail(orderId, currentUser) {
+  return apiRequest('get', '/qt/orders/' + encodeURIComponent(orderId), null, null, currentUser);
+}
+
+function getQtReport(type, filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/reports/' + encodeURIComponent(type), null, {
+    issueMonth: filters.issueMonth || ''
+  }, currentUser);
+}
+
 function getQtInventoryMovements(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory/movements', null, {

@@ -1,102 +1,165 @@
 <section id="qtView" class="d-none">
-  <div class="section-card">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-      <div>
-        <h5 class="mb-1">QT 管理系統</h5>
-        <div class="text-muted small">每月會堂庫存、調撥與下單前庫存檢查</div>
-      </div>
-      <div class="btn-group">
-        <button type="button" class="btn btn-outline-primary" onclick="openQtMovementModal()">新增異動</button>
-        <button type="button" class="btn btn-outline-primary" onclick="openQtTransferModal()">庫存調撥</button>
-      </div>
-    </div>
-
-    <div class="row g-2 align-items-end mb-3">
-      <div class="col-12 col-md-3">
-        <label class="form-label">月份</label>
-        <input id="qtIssueMonth" type="month" class="form-control">
-      </div>
-      <div class="col-12 col-md-3">
-        <label class="form-label">會堂</label>
-        <select id="qtChurchFilter" class="form-select"></select>
-      </div>
-      <div class="col-12 col-md-3">
-        <label class="form-label">QT 類型</label>
-        <select id="qtProductFilter" class="form-select"></select>
-      </div>
-      <div class="col-12 col-md-3 d-grid">
-        <button type="button" class="btn btn-primary" onclick="loadQtInventory()">查詢</button>
+  <div class="section-card p-0 overflow-hidden">
+    <div class="qt-toolbar">
+      <div class="btn-group flex-wrap" role="group">
+        <button type="button" class="btn btn-primary qt-tab-btn" data-qt-tab="orders" onclick="switchQtTab('orders')">訂購管理</button>
+        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="finance" onclick="switchQtTab('finance')">財務報表</button>
+        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="expiring" onclick="switchQtTab('expiring')">本月到期報表</button>
+        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="pickup" onclick="switchQtTab('pickup')">每月領取報表</button>
+        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="pastoral-summary" onclick="switchQtTab('pastoral-summary')">牧區訂閱統計</button>
       </div>
     </div>
 
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-xl-7">
-        <div class="card h-100">
-          <div class="card-header section-header">
-            <span>庫存總覽</span>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadQtInventory()">重新整理</button>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>月份</th>
-                  <th>會堂</th>
-                  <th>QT 類型</th>
-                  <th class="text-end">入庫</th>
-                  <th class="text-end">出庫/預扣</th>
-                  <th class="text-end">可用庫存</th>
-                </tr>
-              </thead>
-              <tbody id="qtInventoryTableBody"></tbody>
-            </table>
-          </div>
-        </div>
+    <div id="qtOrdersPanel" class="qt-panel">
+      <div class="input-group qt-search-row">
+        <span class="input-group-text">關鍵字搜尋</span>
+        <input id="qtOrderKeyword" class="form-control" placeholder="單號/姓名/電話/牧區搜尋" onkeydown="handleQtOrderSearchKey(event)">
+        <button type="button" class="btn btn-outline-secondary" onclick="loadQtOrders(1)">搜尋</button>
       </div>
-      <div class="col-12 col-xl-5">
-        <div class="card h-100">
-          <div class="card-header">價格方案</div>
-          <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>方案</th>
-                  <th>類型</th>
-                  <th class="text-end">月數</th>
-                  <th class="text-end">金額</th>
-                </tr>
-              </thead>
-              <tbody id="qtPricePlanTableBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="card-header section-header">
-        <span>庫存異動紀錄</span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="loadQtMovements()">重新整理</button>
-      </div>
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th>時間</th>
-              <th>月份</th>
-              <th>會堂</th>
-              <th>QT 類型</th>
-              <th>異動</th>
+              <th>數位訂單編號</th>
+              <th>牧區</th>
+              <th>姓名</th>
+              <th>電話</th>
+              <th>訂購區間</th>
+              <th></th>
+              <th>訂購方案</th>
               <th class="text-end">數量</th>
-              <th>備註</th>
+              <th class="text-end">金額</th>
+              <th>狀態</th>
+              <th>歷史</th>
             </tr>
           </thead>
-          <tbody id="qtMovementTableBody"></tbody>
+          <tbody id="qtOrderTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 p-3 border-top">
+        <div id="qtOrderPageInfo" class="text-muted small"></div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeQtOrderPage(-1)">上一頁</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeQtOrderPage(1)">下一頁</button>
+        </div>
+      </div>
+
+      <div class="p-3 border-top">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h6 class="mb-1">會堂月庫存</h6>
+            <div class="text-muted small">供訂購、櫃台與未來 LINE BOT 下單前檢查使用</div>
+          </div>
+          <div class="btn-group">
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openQtMovementModal()">新增異動</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="openQtTransferModal()">庫存調撥</button>
+          </div>
+        </div>
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label">月份</label>
+            <input id="qtIssueMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">會堂</label>
+            <select id="qtChurchFilter" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">QT 類型</label>
+            <select id="qtProductFilter" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-3 d-grid">
+            <button type="button" class="btn btn-primary" onclick="loadQtInventory()">查詢庫存</button>
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-12 col-xl-7">
+            <div class="table-responsive border rounded">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>月份</th>
+                    <th>會堂</th>
+                    <th>QT 類型</th>
+                    <th class="text-end">入庫</th>
+                    <th class="text-end">出庫/預扣</th>
+                    <th class="text-end">可用庫存</th>
+                  </tr>
+                </thead>
+                <tbody id="qtInventoryTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-12 col-xl-5">
+            <div class="table-responsive border rounded">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>方案</th>
+                    <th>類型</th>
+                    <th class="text-end">月數</th>
+                    <th class="text-end">金額</th>
+                  </tr>
+                </thead>
+                <tbody id="qtPricePlanTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="table-responsive border rounded">
+              <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>時間</th>
+                    <th>月份</th>
+                    <th>會堂</th>
+                    <th>QT 類型</th>
+                    <th>異動</th>
+                    <th class="text-end">數量</th>
+                    <th>備註</th>
+                  </tr>
+                </thead>
+                <tbody id="qtMovementTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="qtReportPanel" class="qt-panel d-none">
+      <div class="row g-2 align-items-end qt-search-row">
+        <div class="col-12 col-md-3">
+          <label class="form-label">報表月份</label>
+          <input id="qtReportMonth" type="month" class="form-control">
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadQtReport()">查詢</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead id="qtReportTableHead"></thead>
+          <tbody id="qtReportTableBody"></tbody>
         </table>
       </div>
     </div>
   </div>
 </section>
+
+<div class="modal fade" id="qtOrderDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">QT 訂單詳情</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="qtOrderDetailBody"></div>
+    </div>
+  </div>
+</div>
 
 <div class="modal fade" id="qtMovementModal" tabindex="-1">
   <div class="modal-dialog">

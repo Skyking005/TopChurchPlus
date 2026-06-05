@@ -24,6 +24,36 @@ function registerQtRoutes(app) {
     }
   });
 
+  app.get('/qt/orders', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'qt');
+      res.json(await getOrders(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/qt/orders/:orderId', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'qt');
+      res.json(await getOrderDetail(req.params.orderId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/qt/reports/:type', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'qt');
+      res.json(await getReport(req.params.type, req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/qt/inventory/movements', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -61,6 +91,95 @@ function registerQtRoutes(app) {
       next(err);
     }
   });
+}
+
+async function getOrders(query) {
+  const page = Math.max(Number(query.page || 1), 1);
+  const pageSize = Math.min(Math.max(Number(query.pageSize || 10), 1), 50);
+  const offset = (page - 1) * pageSize;
+  const keyword = String(query.keyword || '').trim();
+  const values = [];
+  const where = [];
+
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      CAST(o.order_id AS text) ILIKE $${values.length}
+      OR COALESCE(m.name, '') ILIKE $${values.length}
+      OR COALESCE(pc.mobile_phone, '') ILIKE $${values.length}
+      OR COALESCE(pg.name, '') ILIKE $${values.length}
+    )`);
+  }
+
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const listValues = values.concat([pageSize, offset]);
+  const { rows } = await pool.query(
+    `${orderListSelect()}
+     ${whereSql}
+     ORDER BY o.order_id DESC
+     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    listValues
+  );
+  const countResult = await pool.query(
+    `SELECT count(*)::int AS total
+     FROM qt_orders o
+     LEFT JOIN pastoral_members m ON m.id = o.member_id
+     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = m.id
+     LEFT JOIN LATERAL (
+       SELECT g.name
+       FROM pastoral_member_group_assignments a
+       JOIN pastoral_groups g ON g.id = a.group_id
+       WHERE a.member_id = m.id AND a.is_current
+       ORDER BY g.level_no DESC, g.sort_order DESC, g.id DESC
+       LIMIT 1
+     ) pg ON true
+     ${whereSql}`,
+    values
+  );
+
+  return {
+    rows: rows.map(toOrderListItem),
+    page,
+    pageSize,
+    total: Number(countResult.rows[0].total || 0)
+  };
+}
+
+async function getOrderDetail(orderId) {
+  const { rows } = await pool.query(
+    `${orderListSelect()}
+     WHERE o.order_id = $1`,
+    [Number(orderId)]
+  );
+  if (!rows.length) throw new Error('找不到此 QT 訂單');
+
+  const items = await pool.query(
+    `SELECT i.order_item_id, i.issue_month, i.is_received, i.received_at, rm.name AS receiver_name
+     FROM qt_order_items i
+     LEFT JOIN pastoral_members rm ON rm.id = i.receiver_member_id
+     WHERE i.order_id = $1
+     ORDER BY i.issue_month, i.order_item_id`,
+    [Number(orderId)]
+  );
+
+  return {
+    ...toOrderListItem(rows[0]),
+    items: items.rows.map(row => ({
+      orderItemId: row.order_item_id,
+      issueMonth: formatDate(row.issue_month),
+      isReceived: Boolean(row.is_received),
+      receiverName: row.receiver_name || '',
+      receivedAt: row.received_at
+    }))
+  };
+}
+
+async function getReport(type, query) {
+  if (type === 'finance') return getFinanceReport(query);
+  if (type === 'expiring') return getExpiringReport(query);
+  if (type === 'pickup') return getPickupReport(query);
+  if (type === 'pastoral-summary') return getPastoralSummaryReport(query);
+  throw new Error('QT 報表類型錯誤');
 }
 
 async function getQtOptions() {
@@ -102,6 +221,153 @@ async function getQtOptions() {
       churchName: row.name
     }))
   };
+}
+
+function orderListSelect() {
+  return `SELECT
+       o.order_id,
+       o.start_month,
+       o.end_month,
+       o.quantity,
+       o.amount,
+       o.order_status,
+       o.finance_status,
+       o.ordered_at,
+       o.paid_at,
+       o.cancelled_at,
+       c.name AS church_name,
+       m.name AS member_name,
+       pc.mobile_phone,
+       pg.name AS pastoral_group_name,
+       p.plan_name,
+       pt.payment_type_name
+     FROM qt_orders o
+     LEFT JOIN churches c ON c.id = o.church_id
+     LEFT JOIN pastoral_members m ON m.id = o.member_id
+     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = m.id
+     LEFT JOIN qt_price_plans p ON p.plan_id = o.plan_id
+     LEFT JOIN qt_payment_types pt ON pt.payment_type_id = o.payment_type_id
+     LEFT JOIN LATERAL (
+       SELECT g.name
+       FROM pastoral_member_group_assignments a
+       JOIN pastoral_groups g ON g.id = a.group_id
+       WHERE a.member_id = m.id AND a.is_current
+       ORDER BY g.level_no DESC, g.sort_order DESC, g.id DESC
+       LIMIT 1
+     ) pg ON true`;
+}
+
+async function getFinanceReport(query) {
+  const issueMonth = normalizeMonth(query.issueMonth || new Date());
+  const { rows } = await pool.query(
+    `SELECT c.name AS church_name, pt.payment_type_name, o.finance_status,
+       count(*)::int AS order_count,
+       COALESCE(sum(o.quantity), 0)::int AS quantity,
+       COALESCE(sum(o.amount), 0)::int AS amount
+     FROM qt_orders o
+     LEFT JOIN churches c ON c.id = o.church_id
+     LEFT JOIN qt_payment_types pt ON pt.payment_type_id = o.payment_type_id
+     WHERE date_trunc('month', o.paid_at)::date = $1
+     GROUP BY c.sort_order, c.name, pt.payment_type_name, o.finance_status
+     ORDER BY c.sort_order, c.name, pt.payment_type_name, o.finance_status`,
+    [issueMonth]
+  );
+  return rows.map(row => ({
+    churchName: row.church_name || '未設定會堂',
+    paymentTypeName: row.payment_type_name || '未設定',
+    financeStatus: row.finance_status,
+    orderCount: Number(row.order_count || 0),
+    quantity: Number(row.quantity || 0),
+    amount: Number(row.amount || 0)
+  }));
+}
+
+async function getExpiringReport(query) {
+  const issueMonth = normalizeMonth(query.issueMonth || new Date());
+  const { rows } = await pool.query(
+    `${orderListSelect()}
+     WHERE date_trunc('month', o.end_month)::date = $1
+       AND o.order_status <> 'cancelled'
+     ORDER BY c.sort_order, pg.name, m.name, o.order_id`,
+    [issueMonth]
+  );
+  return rows.map(toOrderListItem);
+}
+
+async function getPickupReport(query) {
+  const issueMonth = normalizeMonth(query.issueMonth || new Date());
+  const { rows } = await pool.query(
+    `SELECT c.name AS church_name, pg.name AS pastoral_group_name, m.name AS member_name,
+       pc.mobile_phone, o.order_id, p.plan_name, i.issue_month, i.is_received,
+       i.received_at, rm.name AS receiver_name
+     FROM qt_order_items i
+     JOIN qt_orders o ON o.order_id = i.order_id
+     LEFT JOIN churches c ON c.id = o.church_id
+     LEFT JOIN pastoral_members m ON m.id = o.member_id
+     LEFT JOIN pastoral_member_contacts pc ON pc.member_id = m.id
+     LEFT JOIN pastoral_members rm ON rm.id = i.receiver_member_id
+     LEFT JOIN qt_price_plans p ON p.plan_id = o.plan_id
+     LEFT JOIN LATERAL (
+       SELECT g.name
+       FROM pastoral_member_group_assignments a
+       JOIN pastoral_groups g ON g.id = a.group_id
+       WHERE a.member_id = m.id AND a.is_current
+       ORDER BY g.level_no DESC, g.sort_order DESC, g.id DESC
+       LIMIT 1
+     ) pg ON true
+     WHERE i.issue_month = $1
+     ORDER BY c.sort_order, pg.name, m.name, o.order_id
+     LIMIT 500`,
+    [issueMonth]
+  );
+  return rows.map(row => ({
+    churchName: row.church_name || '未設定會堂',
+    pastoralGroupName: row.pastoral_group_name || '未分配',
+    memberName: row.member_name || '',
+    mobilePhone: row.mobile_phone || '',
+    orderId: row.order_id,
+    planName: row.plan_name || '',
+    issueMonth: formatDate(row.issue_month),
+    isReceived: Boolean(row.is_received),
+    receiverName: row.receiver_name || '',
+    receivedAt: row.received_at
+  }));
+}
+
+async function getPastoralSummaryReport(query) {
+  const issueMonth = normalizeMonth(query.issueMonth || new Date());
+  const { rows } = await pool.query(
+    `SELECT c.name AS church_name, COALESCE(pg.name, '未分配') AS pastoral_group_name,
+       p.plan_name,
+       count(DISTINCT o.order_id)::int AS order_count,
+       COALESCE(sum(o.quantity), 0)::int AS quantity,
+       COALESCE(sum(o.amount), 0)::int AS amount
+     FROM qt_order_items i
+     JOIN qt_orders o ON o.order_id = i.order_id
+     LEFT JOIN churches c ON c.id = o.church_id
+     LEFT JOIN pastoral_members m ON m.id = o.member_id
+     LEFT JOIN qt_price_plans p ON p.plan_id = o.plan_id
+     LEFT JOIN LATERAL (
+       SELECT g.name
+       FROM pastoral_member_group_assignments a
+       JOIN pastoral_groups g ON g.id = a.group_id
+       WHERE a.member_id = m.id AND a.is_current
+       ORDER BY g.level_no DESC, g.sort_order DESC, g.id DESC
+       LIMIT 1
+     ) pg ON true
+     WHERE i.issue_month = $1
+     GROUP BY c.sort_order, c.name, pg.name, p.plan_name
+     ORDER BY c.sort_order, c.name, pg.name, p.plan_name`,
+    [issueMonth]
+  );
+  return rows.map(row => ({
+    churchName: row.church_name || '未設定會堂',
+    pastoralGroupName: row.pastoral_group_name || '未分配',
+    planName: row.plan_name || '',
+    orderCount: Number(row.order_count || 0),
+    quantity: Number(row.quantity || 0),
+    amount: Number(row.amount || 0)
+  }));
 }
 
 async function getInventory(query) {
@@ -297,6 +563,27 @@ function toInventoryItem(row) {
     inboundQuantity: Number(row.inbound_quantity || 0),
     outboundQuantity: Number(row.outbound_quantity || 0),
     availableQuantity: Number(row.available_quantity || 0)
+  };
+}
+
+function toOrderListItem(row) {
+  return {
+    orderId: row.order_id,
+    churchName: row.church_name || '未設定會堂',
+    pastoralGroupName: row.pastoral_group_name || '未分配',
+    memberName: row.member_name || '',
+    mobilePhone: row.mobile_phone || '',
+    startMonth: formatDate(row.start_month),
+    endMonth: formatDate(row.end_month),
+    planName: row.plan_name || '',
+    quantity: Number(row.quantity || 0),
+    amount: Number(row.amount || 0),
+    orderStatus: row.order_status,
+    financeStatus: row.finance_status,
+    paymentTypeName: row.payment_type_name || '',
+    orderedAt: row.ordered_at,
+    paidAt: row.paid_at,
+    cancelledAt: row.cancelled_at
   };
 }
 
