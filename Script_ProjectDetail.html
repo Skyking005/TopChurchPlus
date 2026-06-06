@@ -363,7 +363,9 @@ function exportProjectDoc() {
   google.script.run
     .withSuccessHandler(res => {
       setButtonLoading(btn, false);
-      if (res && res.url) {
+      if (res && res.dataUrl) {
+        downloadDataUrl(res.dataUrl, res.fileName || `${projectId}_專案文件.docx`);
+      } else if (res && res.url) {
         window.open(res.url, '_blank');
       } else {
         alert('已建立文件，但未取得連結');

@@ -1,5 +1,3 @@
-const DOC_EXPORT_FOLDER_NAME = '卓越行道會專案文件';
-
 function doGet(e) {
   const shortCode = e && e.parameter ? String(e.parameter.s || e.parameter.short || '') : '';
   if (shortCode) {
@@ -51,10 +49,6 @@ function setApiConfig(apiBaseUrl, apiKey) {
     API_BASE_URL: String(apiBaseUrl || '').replace(/\/$/, ''),
     API_KEY: apiKey
   });
-}
-
-function setDocExportFolderId(folderId) {
-  PropertiesService.getScriptProperties().setProperty('DOC_EXPORT_FOLDER_ID', folderId);
 }
 
 function login(email, deviceType, deviceInfo) {
@@ -772,97 +766,12 @@ function getProjectMeetings(projectId, currentUser) {
 function exportProjectDoc(projectId, currentUser) {
   if (!projectId) throw new Error('缺少專案編號');
 
-  const detail = getProjectDetail(projectId, currentUser);
-  const project = detail.project || {};
-  const docName = `${project['計畫編號'] || projectId}_${project['專案名稱'] || '專案'}_專案文件`;
-  const doc = DocumentApp.create(docName);
-  const body = doc.getBody();
-
-  body.setMarginTop(36);
-  body.setMarginBottom(72);
-  body.setMarginLeft(36);
-  body.setMarginRight(36);
-
-  body.appendParagraph('專案申請/執行資料')
-    .setHeading(DocumentApp.ParagraphHeading.HEADING1)
-    .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-
-  body.appendParagraph(`匯出時間：${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')}`)
-    .setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-
-  appendSectionTitle(body, '一、基本資料');
-  appendKeyValueTable(body, [
-    ['計畫編號', project['計畫編號']],
-    ['專案登入人', project['專案登入人']],
-    ['專案名稱', project['專案名稱']],
-    ['專案類型', project['專案類型']],
-    ['執行期間', `${project['專案執行開始時間'] || ''} ~ ${project['專案執行結束時間'] || ''}`],
-    ['執行單位', project['專案執行單位']],
-    ['是否收費', project['專案是否收費']],
-    ['專案狀態', project['專案狀態']],
-    ['收支差額處理方式', project['收支差額處理方式']]
-  ]);
-
-  appendSectionTitle(body, '二、專案內容');
-  appendHtmlLikeContent(body, project['專案內容']);
-
-  appendSectionTitle(body, '三、專案人員');
-  appendRowsTable(body, ['職責', '主責人', '主責項目', '備註'], detail.people || []);
-
-  appendSectionTitle(body, '四、收入資料');
-  appendRowsTable(body, ['會堂', '收入項目', '數量', '單價', '小計'], detail.income || []);
-
-  appendSectionTitle(body, '五、支出資料');
-  appendRowsTable(body, ['會堂', '支出項目', '數量', '單價', '小計'], detail.budget || []);
-
-  appendSectionTitle(body, '六、收支摘要');
-  appendKeyValueTable(body, [
-    ['專案總收入', project['專案總收入']],
-    ['專案總支出', project['專案總支出']],
-    ['收支差額', Number(project['專案總收入'] || 0) - Number(project['專案總支出'] || 0)]
-  ]);
-
-  appendSectionTitle(body, '七、會議記錄');
-  appendRowsTable(body, ['會議編號', '會議時間', '會議主題', '與會者', '會議狀態'], detail.meetings || []);
-
-  appendApprovalFooter(body);
-
-  doc.saveAndClose();
-  moveDocToExportFolder(doc.getId());
-
-  return {
-    success: true,
-    url: doc.getUrl(),
-    documentId: doc.getId(),
-    message: '已建立專案 Doc'
-  };
-}
-
-function moveDocToExportFolder(documentId) {
-  const folder = getDocExportFolder();
-  const file = DriveApp.getFileById(documentId);
-  file.moveTo(folder);
-}
-
-function getDocExportFolder() {
-  const props = PropertiesService.getScriptProperties();
-  const folderId = props.getProperty('DOC_EXPORT_FOLDER_ID');
-
-  if (folderId) {
-    return DriveApp.getFolderById(folderId);
-  }
-
-  const folders = DriveApp.getFoldersByName(DOC_EXPORT_FOLDER_NAME);
-  if (!folders.hasNext()) {
-    throw new Error(`找不到 DOC 輸出資料夾：${DOC_EXPORT_FOLDER_NAME}`);
-  }
-
-  const folder = folders.next();
-  if (folders.hasNext()) {
-    throw new Error(`找到多個同名 DOC 輸出資料夾，請設定 DOC_EXPORT_FOLDER_ID：${DOC_EXPORT_FOLDER_NAME}`);
-  }
-
-  return folder;
+  return fetchNasDocx_(
+    `/documents/projects/${encodeURIComponent(projectId)}.docx`,
+    currentUser,
+    `${projectId}_專案文件.docx`,
+    '已建立專案 DOCX'
+  );
 }
 
 function saveProject(payload) {
@@ -987,42 +896,15 @@ function exportPurchaseDoc(payload) {
 
   if (!purchaseId) throw new Error('缺少採購編號');
 
-  const detail = getPurchaseDetail(purchaseId, payload.currentUser);
-  const purchase = detail.purchase || {};
-  const spec = buildPurchaseDocSpec(docType, docId, detail);
-  const docName = `${purchaseId}_${spec.title}_${docId || purchase['採購摘要'] || '採購'}`;
-  const doc = DocumentApp.create(docName);
-  const body = doc.getBody();
-
-  body.setMarginTop(36);
-  body.setMarginBottom(72);
-  body.setMarginLeft(36);
-  body.setMarginRight(36);
-
-  body.appendParagraph(spec.title)
-    .setHeading(DocumentApp.ParagraphHeading.HEADING1)
-    .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-
-  body.appendParagraph(`匯出時間：${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')}`)
-    .setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-
-  spec.sections.forEach(section => {
-    appendSectionTitle(body, section.title);
-    if (section.type === 'keyValue') appendKeyValueTable(body, section.rows);
-    if (section.type === 'rows') appendRowsTable(body, section.headers, section.rows);
-  });
-
-  appendApprovalFooter(body);
-
-  doc.saveAndClose();
-  moveDocToExportFolder(doc.getId());
-
-  return {
-    success: true,
-    url: doc.getUrl(),
-    documentId: doc.getId(),
-    message: `已建立${spec.title} Doc`
-  };
+  const docPath = docId
+    ? `/documents/finance/purchases/${encodeURIComponent(purchaseId)}/${encodeURIComponent(docType)}/${encodeURIComponent(docId)}.docx`
+    : `/documents/finance/purchases/${encodeURIComponent(purchaseId)}/${encodeURIComponent(docType)}.docx`;
+  return fetchNasDocx_(
+    docPath,
+    payload.currentUser,
+    `${purchaseId}_${docType}${docId ? `_${docId}` : ''}.docx`,
+    '已建立財務單據 DOCX'
+  );
 }
 
 function exportPaymentRequestDoc(payload) {
@@ -1034,25 +916,22 @@ function exportPaymentRequestDoc(payload) {
   if (docType !== 'payment' && docType !== 'expenseProof') throw new Error('未知的請款單據類型');
   if (docType === 'expenseProof' && !proofId) throw new Error('缺少支出證明編號');
 
-  const detail = getPaymentRequestDetail(paymentId, payload.currentUser);
-  const payment = detail.payment || {};
-  const docId = docType === 'payment' ? paymentId : proofId;
-  const spec = buildPurchaseDocSpec(docType, docId, {
-    purchase: {
-      '採購編號': payment['請購編號'] || paymentId,
-      '採購摘要': payment['請款編號'] || paymentId
-    },
-    payments: [payment],
-    expenseProofs: detail.expenseProofs || []
-  });
-  const docName = `${paymentId}_${spec.title}_${docId}`;
-  return createFinanceDocumentFromSpec(docName, spec);
+  const docPath = docType === 'payment'
+    ? `/documents/finance/payment-requests/${encodeURIComponent(paymentId)}.docx`
+    : `/documents/finance/payment-requests/${encodeURIComponent(paymentId)}/expense-proofs/${encodeURIComponent(proofId)}.docx`;
+  return fetchNasDocx_(
+    docPath,
+    payload.currentUser,
+    `${paymentId}_${docType === 'payment' ? '請款申請單' : `支出證明申請單_${proofId}`}.docx`,
+    '已建立財務單據 DOCX'
+  );
 }
 
 function exportPaymentRequestDocx(payload) {
-  const paymentId = payload.paymentId;
-  if (!paymentId) throw new Error('缺少請款編號');
+  return exportPaymentRequestDoc(Object.assign({}, payload, { docType: 'payment' }));
+}
 
+function fetchNasDocx_(path, currentUser, fallbackFileName, message) {
   const props = PropertiesService.getScriptProperties();
   const baseUrl = props.getProperty('API_BASE_URL');
   const apiKey = props.getProperty('API_KEY');
@@ -1060,12 +939,11 @@ function exportPaymentRequestDocx(payload) {
     throw new Error('尚未設定 API_BASE_URL / API_KEY，請先執行 setApiConfig。');
   }
 
-  const url = `${baseUrl}/documents/finance/payment-requests/${encodeURIComponent(paymentId)}.docx`;
-  const response = UrlFetchApp.fetch(url, {
+  const response = UrlFetchApp.fetch(`${baseUrl}${path}`, {
     method: 'get',
     headers: {
       'x-api-key': apiKey,
-      'x-current-user': Utilities.base64EncodeWebSafe(JSON.stringify(payload.currentUser || {}))
+      'x-current-user': Utilities.base64EncodeWebSafe(JSON.stringify(currentUser || {}))
     },
     muteHttpExceptions: true
   });
@@ -1075,189 +953,13 @@ function exportPaymentRequestDocx(payload) {
   }
 
   const blob = response.getBlob();
-  const fileName = `${paymentId}_請款申請單.docx`;
   return {
     success: true,
-    fileName,
+    fileName: fallbackFileName || 'document.docx',
     mimeType: blob.getContentType(),
     dataUrl: `data:${blob.getContentType()};base64,${Utilities.base64Encode(blob.getBytes())}`,
-    message: '已建立請款申請單 DOCX'
+    message: message || '已建立 DOCX'
   };
-}
-
-function createFinanceDocumentFromSpec(docName, spec) {
-  const doc = DocumentApp.create(docName);
-  const body = doc.getBody();
-
-  body.setMarginTop(36);
-  body.setMarginBottom(72);
-  body.setMarginLeft(36);
-  body.setMarginRight(36);
-
-  body.appendParagraph(spec.title)
-    .setHeading(DocumentApp.ParagraphHeading.HEADING1)
-    .setAlignment(DocumentApp.HorizontalAlignment.CENTER);
-
-  body.appendParagraph(`匯出時間：${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')}`)
-    .setAlignment(DocumentApp.HorizontalAlignment.RIGHT);
-
-  spec.sections.forEach(section => {
-    appendSectionTitle(body, section.title);
-    if (section.type === 'keyValue') appendKeyValueTable(body, section.rows);
-    if (section.type === 'rows') appendRowsTable(body, section.headers, section.rows);
-  });
-
-  appendApprovalFooter(body);
-
-  doc.saveAndClose();
-  moveDocToExportFolder(doc.getId());
-
-  return {
-    success: true,
-    url: doc.getUrl(),
-    documentId: doc.getId(),
-    message: `已建立${spec.title} Doc`
-  };
-}
-
-function buildPurchaseDocSpec(docType, docId, detail) {
-  const purchase = detail.purchase || {};
-
-  if (docType === 'purchase') {
-    return {
-      title: '採購申請單',
-      sections: [
-        {
-          title: '一、採購基本資料',
-          type: 'keyValue',
-          rows: [
-            ['採購編號', purchase['採購編號']],
-            ['會堂', purchase['會堂']],
-            ['部門', purchase['部門']],
-            ['申請人', purchase['申請人']],
-            ['申請日期', purchase['申請日期']],
-            ['採購摘要', purchase['採購摘要']],
-            ['請購狀態', purchase['請購狀態']],
-            ['總計金額', purchase['總計金額']]
-          ]
-        },
-        { title: '二、申請詳細原因', type: 'keyValue', rows: [['說明', purchase['申請詳細原因']]] },
-        { title: '三、請購詳情', type: 'rows', headers: ['項目', '數量', '單價', '總價', '備註'], rows: detail.items || [] }
-      ]
-    };
-  }
-
-  if (docType === 'advance') {
-    const advance = findDocRow(detail.advances, '預借編號', docId);
-    return {
-      title: '預借申請單',
-      sections: [
-        {
-          title: '一、預借基本資料',
-          type: 'keyValue',
-          rows: [
-            ['預借編號', advance['預借編號']],
-            ['請購編號', advance['請購編號']],
-            ['請款會堂', advance['請款會堂']],
-            ['借款人', advance['借款人']],
-            ['申請日期', advance['申請日期']],
-            ['預借總金額', advance['預借總金額']],
-            ['預計核銷日期', advance['預計核銷日期']]
-          ]
-        },
-        { title: '二、預借詳情', type: 'rows', headers: ['項次', '事由', '金額', '備註/說明'], rows: advance.items || [] },
-        {
-          title: '三、支付方式',
-          type: 'keyValue',
-          rows: [
-            ['支付方式', advance['支付方式']],
-            ['匯款銀行', advance['匯款銀行']],
-            ['分行', advance['分行']],
-            ['帳戶名稱', advance['帳戶名稱']],
-            ['帳號', advance['帳號']]
-          ]
-        }
-      ]
-    };
-  }
-
-  if (docType === 'expenseProof') {
-    const proof = findDocRow(detail.expenseProofs, '支出證明編號', docId);
-    return {
-      title: '支出證明申請單',
-      sections: [
-        {
-          title: '一、支出證明基本資料',
-          type: 'keyValue',
-          rows: [
-            ['支出證明編號', proof['支出證明編號']],
-            ['請購編號', proof['請購編號']],
-            ['請款會堂', proof['請款會堂']],
-            ['申請日期', proof['申請日期']],
-            ['實付金額', proof['實付金額']],
-            ['不能取得單據原因', proof['不能取得單據原因']]
-          ]
-        },
-        {
-          title: '二、受領人資料',
-          type: 'keyValue',
-          rows: [
-            ['姓名', proof['姓名']],
-            ['身分證字號', proof['身分證字號']],
-            ['地址', proof['地址']]
-          ]
-        },
-        { title: '三、支出證明詳情', type: 'rows', headers: ['項次', '項目', '費用'], rows: proof.items || [] }
-      ]
-    };
-  }
-
-  if (docType === 'payment') {
-    const payment = findDocRow(detail.payments, '請款編號', docId);
-    return {
-      title: '請款申請單',
-      sections: [
-        {
-          title: '一、請款基本資料',
-          type: 'keyValue',
-          rows: [
-            ['請款編號', payment['請款編號']],
-            ['請購編號', payment['請購編號']],
-            ['請款會堂', payment['請款會堂']],
-            ['請款人', payment['請款人']],
-            ['申請日期', payment['申請日期']],
-            ['請款總金額', payment['請款總金額']]
-          ]
-        },
-        { title: '二、請款詳細內容', type: 'rows', headers: ['項目', '數量', '單價', '總價', '備註'], rows: payment.items || [] },
-        {
-          title: '三、支付方式',
-          type: 'keyValue',
-          rows: [
-            ['是否有預借', payment['是否有預借']],
-            ['支付方式', payment['支付方式']],
-            ['預借編號', payment['預借編號']],
-            ['前已預借金額', payment['前已預借金額']],
-            ['轉正', payment['轉正']],
-            ['代支', payment['代支']],
-            ['繳回', payment['繳回']],
-            ['匯款銀行', payment['匯款銀行']],
-            ['分行', payment['分行']],
-            ['帳戶名稱', payment['帳戶名稱']],
-            ['帳號', payment['帳號']]
-          ]
-        }
-      ]
-    };
-  }
-
-  throw new Error('未知的採購單據類型');
-}
-
-function findDocRow(rows, key, value) {
-  const row = (rows || []).find(item => String(item[key]) === String(value));
-  if (!row) throw new Error(`找不到單據資料：${value}`);
-  return row;
 }
 
 function savePurchase(payload) {
@@ -1598,148 +1300,4 @@ function resolveAttendeeEmailsFromAccounts(attendeesText, accounts) {
   });
 
   return [...new Set(emails)];
-}
-
-function appendSectionTitle(body, text) {
-  body.appendParagraph(text)
-    .setHeading(DocumentApp.ParagraphHeading.HEADING2)
-    .setSpacingBefore(12)
-    .setSpacingAfter(6);
-}
-
-function appendKeyValueTable(body, rows) {
-  const table = body.appendTable(rows.map(row => [
-    toDocText(row[0]),
-    toDocText(row[1])
-  ]));
-
-  for (let i = 0; i < table.getNumRows(); i += 1) {
-    const row = table.getRow(i);
-    row.getCell(0).setBackgroundColor('#f1f3f5').setWidth(120);
-    row.getCell(0).editAsText().setBold(true);
-  }
-
-  body.appendParagraph('');
-}
-
-function appendRowsTable(body, headers, rows) {
-  const values = [headers].concat(
-    rows.length
-      ? rows.map(row => headers.map(header => toDocText(row[header])))
-      : [headers.map(() => '')]
-  );
-
-  const table = body.appendTable(values);
-  const headerRow = table.getRow(0);
-
-  for (let i = 0; i < headerRow.getNumCells(); i += 1) {
-    headerRow.getCell(i).setBackgroundColor('#f1f3f5');
-    headerRow.getCell(i).editAsText().setBold(true);
-  }
-
-  body.appendParagraph('');
-}
-
-function appendHtmlLikeContent(body, html) {
-  const content = String(html || '').trim();
-  if (!content) {
-    body.appendParagraph(' ');
-    return;
-  }
-
-  const tableRegex = /<table[\s\S]*?<\/table>/gi;
-  let lastIndex = 0;
-  let matched = false;
-  let match;
-
-  while ((match = tableRegex.exec(content)) !== null) {
-    appendHtmlTextBlock(body, content.slice(lastIndex, match.index));
-    appendHtmlTable(body, match[0]);
-    lastIndex = match.index + match[0].length;
-    matched = true;
-  }
-
-  appendHtmlTextBlock(body, content.slice(lastIndex));
-
-  if (!matched && !stripHtmlForDoc(content)) {
-    body.appendParagraph(' ');
-  }
-
-  body.appendParagraph('');
-}
-
-function appendHtmlTextBlock(body, html) {
-  const lines = htmlToLines(html);
-  lines.forEach(line => body.appendParagraph(line || ' '));
-}
-
-function appendHtmlTable(body, tableHtml) {
-  const rows = [];
-  const rowMatches = tableHtml.match(/<tr[\s\S]*?<\/tr>/gi) || [];
-
-  rowMatches.forEach(rowHtml => {
-    const cells = [];
-    const cellMatches = rowHtml.match(/<t[dh][\s\S]*?<\/t[dh]>/gi) || [];
-    cellMatches.forEach(cellHtml => {
-      cells.push(stripHtmlForDoc(cellHtml));
-    });
-    if (cells.length) rows.push(cells);
-  });
-
-  if (!rows.length) return;
-
-  body.appendTable(rows);
-  body.appendParagraph('');
-}
-
-function htmlToLines(html) {
-  return String(html || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .split(/\n+/)
-    .map(line => stripHtmlForDoc(line))
-    .filter(line => line !== '');
-}
-
-function stripHtmlForDoc(value) {
-  return decodeDocEntities(String(value || '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim());
-}
-
-function decodeDocEntities(value) {
-  return String(value || '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'");
-}
-
-function appendApprovalFooter(body) {
-  body.appendParagraph('');
-  body.appendParagraph('');
-
-  const table = body.appendTable([
-    ['主任牧師/決行', '複核', '財務', '部門主管/申請人'],
-    ['', '', '', '']
-  ]);
-
-  for (let i = 0; i < 4; i += 1) {
-    table.getRow(0).getCell(i).setBackgroundColor('#f1f3f5');
-    table.getRow(0).getCell(i).editAsText().setBold(true);
-    table.getRow(1).getCell(i).setText('\n\n');
-  }
-}
-
-function toDocText(value) {
-  if (value === null || value === undefined) return '';
-  if (Array.isArray(value)) return value.join(', ');
-  return String(value);
 }

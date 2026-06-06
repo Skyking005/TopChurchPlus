@@ -159,4 +159,13 @@ function stripHtml(value) {
   div.innerHTML = String(value || '');
   return div.textContent.trim();
 }
+
+function downloadDataUrl(dataUrl, fileName) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = fileName || 'document.docx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
 </script>
