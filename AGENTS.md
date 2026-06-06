@@ -37,6 +37,14 @@
 - If a feature branch needs a schema change, document the required table/column/index first and stop for confirmation before editing database files.
 - Do not point multiple experimental branches at the same production database.
 
+## PowerShell, SSH, And SQL Workflow
+
+- In PowerShell, do not inline complex SQL containing PostgreSQL concatenation (`||`), semicolons, nested quotes, JSON, or Traditional Chinese directly into an `ssh "... psql -c \"...\""` one-liner. PowerShell and the remote shell can parse those characters before PostgreSQL receives them.
+- Prefer writing SQL to a UTF-8 `.sql` file under `tmp/` or `database/`, then execute it with `psql -f` inside the NAS/PostgreSQL container.
+- For read-only ad hoc checks, prefer API routes or project tools first. If direct SQL is required, pass the SQL as a file or use a small checked script instead of hand-built nested shell strings.
+- When SQL writes or test payloads include Traditional Chinese, use the UTF-8 API workflow described above and read the saved row back to confirm it is not mojibake.
+- For `rg` file filtering in PowerShell, prefer `rg "pattern" -g "*.html" -g "*.gs"` or `rg "pattern" -g "Script_*.html"` instead of relying on PowerShell wildcard path expansion.
+
 ## Deployment And Domains
 
 - `topchurchplus.com` currently forwards to the Google Apps Script web app.
