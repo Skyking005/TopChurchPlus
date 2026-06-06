@@ -93,24 +93,30 @@ async function createZoomReservation(payload) {
   await assertZoomAccountActive(zoomAccountId);
   await assertZoomAvailable(zoomAccountId, startAt, endAt);
 
-  const { rows } = await pool.query(
-    `INSERT INTO zoom_reservations (
-       zoom_account_id, title, borrower_staff_id, borrower_name, start_at, end_at,
-       meeting_topic, note, created_by_staff_id, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
-     RETURNING zoom_reservation_id`,
-    [
-      zoomAccountId,
-      title,
-      currentUser.staffId ? String(currentUser.staffId) : null,
-      borrowerName,
-      startAt,
-      endAt,
-      meetingTopic || null,
-      note || null,
-      currentUser.staffId ? String(currentUser.staffId) : null
-    ]
-  );
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      `INSERT INTO zoom_reservations (
+         zoom_account_id, title, borrower_staff_id, borrower_name, start_at, end_at,
+         meeting_topic, note, created_by_staff_id, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+       RETURNING zoom_reservation_id`,
+      [
+        zoomAccountId,
+        title,
+        currentUser.staffId ? String(currentUser.staffId) : null,
+        borrowerName,
+        startAt,
+        endAt,
+        meetingTopic || null,
+        note || null,
+        currentUser.staffId ? String(currentUser.staffId) : null
+      ]
+    ));
+  } catch (err) {
+    if (err.code === '23P01') throw new Error('此 Zoom 帳號在該時段已被借用，請改選其他時段或帳號');
+    throw err;
+  }
   return { success: true, message: 'Zoom 帳號借用已建立', reservationId: rows[0].zoom_reservation_id };
 }
 

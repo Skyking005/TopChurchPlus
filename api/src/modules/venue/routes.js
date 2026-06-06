@@ -214,25 +214,31 @@ async function createVenueReservation(payload) {
   await assertVenueResourceBookable(hall, mainLocation);
   await assertVenueAvailable(hall, mainLocation, startAt, endAt);
 
-  const { rows } = await pool.query(
-    `INSERT INTO venue_reservations (
-       hall, main_location, title, requester_name, requester_staff_id, contact_phone,
-       start_at, end_at, note, created_by_staff_id, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
-     RETURNING reservation_id`,
-    [
-      hall,
-      mainLocation,
-      title,
-      requesterName,
-      currentUser.staffId ? String(currentUser.staffId) : null,
-      contactPhone || null,
-      startAt,
-      endAt,
-      note || null,
-      currentUser.staffId ? String(currentUser.staffId) : null
-    ]
-  );
+  let rows;
+  try {
+    ({ rows } = await pool.query(
+      `INSERT INTO venue_reservations (
+         hall, main_location, title, requester_name, requester_staff_id, contact_phone,
+         start_at, end_at, note, created_by_staff_id, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
+       RETURNING reservation_id`,
+      [
+        hall,
+        mainLocation,
+        title,
+        requesterName,
+        currentUser.staffId ? String(currentUser.staffId) : null,
+        contactPhone || null,
+        startAt,
+        endAt,
+        note || null,
+        currentUser.staffId ? String(currentUser.staffId) : null
+      ]
+    ));
+  } catch (err) {
+    if (err.code === '23P01') throw new Error('此場地在該時段已被借用，請改選其他時段或場地');
+    throw err;
+  }
   return { success: true, message: '場地借用已建立', reservationId: rows[0].reservation_id };
 }
 

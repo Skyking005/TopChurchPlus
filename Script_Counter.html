@@ -137,8 +137,22 @@ function startCounterQrcodeScanner() {
     () => {}
   ).catch(err => {
     counterQrcodeScanner = null;
-    showCounterQrcodeResult('danger', err.message || err);
+    showCounterQrcodeResult('danger', formatCounterQrcodeCameraError(err));
   });
+}
+
+function formatCounterQrcodeCameraError(err) {
+  const message = String((err && err.message) || err || '');
+  if (message.includes('NotAllowedError') || message.includes('Permission denied')) {
+    return '瀏覽器已拒絕攝影機權限。請點網址列左側的權限圖示，允許攝影機後重新開啟掃描；若使用外部網址，請確認是在 HTTPS 網址中開啟。';
+  }
+  if (message.includes('NotFoundError') || message.includes('Requested device not found')) {
+    return '找不到可用的攝影機，請確認鏡頭已連接，或改用手動輸入 QRCode 內容。';
+  }
+  if (message.includes('NotReadableError')) {
+    return '攝影機目前被其他程式占用，請關閉其他使用鏡頭的程式後再試。';
+  }
+  return message || '無法開啟攝影機，請確認瀏覽器權限與鏡頭狀態。';
 }
 
 function stopCounterQrcodeScanner() {
@@ -238,7 +252,7 @@ function renderCounterPins() {
   if (!body) return;
   body.innerHTML = '';
   if (!counterPinCodes.length) {
-    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-3">本週尚未建立 PIN Code</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-3">本週尚未建立 PIN Code</td></tr>';
     return;
   }
 
@@ -246,6 +260,7 @@ function renderCounterPins() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="badge bg-dark fs-6">${escapeHtml(pin.pinCode)}</span></td>
+      <td>${escapeHtml(pin.displayName || '')}</td>
       <td>${escapeHtml(formatFormsDateTime(pin.validUntil))}</td>
       <td>${escapeHtml(pin.usageCount || 0)}</td>
       <td>${pin.isActive ? '<span class="badge bg-success">啟用中</span>' : '<span class="badge bg-secondary">已停用</span>'}</td>
@@ -258,13 +273,20 @@ function renderCounterPins() {
 }
 
 function createCounterPin() {
+  const displayName = prompt('請輸入此 PIN 的使用者姓名或用途');
+  if (displayName === null) return;
+  const name = displayName.trim();
+  if (!name) {
+    alert('請填寫 PIN 使用者姓名或用途');
+    return;
+  }
   google.script.run
     .withSuccessHandler(res => {
       alert(`已建立 PIN Code：${res.pinCode}`);
       loadCounterPins();
     })
     .withFailureHandler(showError)
-    .createCounterPinCode({ currentUser });
+    .createCounterPinCode({ currentUser, displayName: name });
 }
 
 function deactivateCounterPin(pinId) {
@@ -280,13 +302,20 @@ function deactivateCounterPin(pinId) {
 
 function resetCounterPins() {
   if (!confirm('確定要停用本週所有 PIN Code 並建立新 PIN？')) return;
+  const displayName = prompt('請輸入新 PIN 的使用者姓名或用途', '重設 PIN');
+  if (displayName === null) return;
+  const name = displayName.trim();
+  if (!name) {
+    alert('請填寫 PIN 使用者姓名或用途');
+    return;
+  }
   google.script.run
     .withSuccessHandler(res => {
       alert(`${res.message}：${res.pinCode.pinCode}`);
       loadCounterPins();
     })
     .withFailureHandler(showError)
-    .resetCurrentWeekCounterPinCodes({ currentUser });
+    .resetCurrentWeekCounterPinCodes({ currentUser, displayName: name });
 }
 
 function markCounterTransactionPaid(transactionId) {

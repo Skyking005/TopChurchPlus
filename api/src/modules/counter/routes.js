@@ -9,7 +9,7 @@ function registerCounterRoutes(app) {
     try {
       const currentUser = parseUser(req);
       await assertFeatureEditable(currentUser, 'counter');
-      res.json(await createPinCode(currentUser));
+      res.json(await createPinCode(currentUser, '快速 PIN'));
     } catch (err) {
       next(err);
     }
@@ -29,7 +29,7 @@ function registerCounterRoutes(app) {
     try {
       const currentUser = req.body.currentUser || {};
       await assertFeatureEditable(currentUser, 'counter');
-      res.json(await createPinCode(currentUser));
+      res.json(await createPinCode(currentUser, req.body.displayName));
     } catch (err) {
       next(err);
     }
@@ -66,7 +66,7 @@ function registerCounterRoutes(app) {
            AND is_active`,
         [week.validFrom, week.validUntil]
       );
-      const pinCode = await createPinCode(currentUser);
+      const pinCode = await createPinCode(currentUser, req.body.displayName || '重設 PIN');
       res.json({ success: true, message: '本週 PIN Code 已重設', pinCode });
     } catch (err) {
       next(err);
@@ -164,29 +164,32 @@ async function getCurrentPinCodes() {
   return rows.map(toPinCodeResponse);
 }
 
-async function createPinCode(currentUser) {
+async function createPinCode(currentUser, displayName = '') {
   const week = getTaipeiSundayWeekRange();
   const pinCode = await generateUniquePinCode();
+  const normalizedDisplayName = String(displayName || '').trim();
+  if (!normalizedDisplayName) throw new Error('請填寫 PIN 使用者姓名或用途');
   const result = await pool.query(
     `INSERT INTO counter_pin_codes (
-       pin_code, valid_from, valid_until, created_by_staff_id
-     ) VALUES ($1,$2,$3,$4)
+       pin_code, valid_from, valid_until, created_by_staff_id, display_name
+     ) VALUES ($1,$2,$3,$4,$5)
      RETURNING *`,
     [
       pinCode,
       week.validFrom,
       week.validUntil,
-      currentUser.staffId ? String(currentUser.staffId) : null
+      currentUser.staffId ? String(currentUser.staffId) : null,
+      normalizedDisplayName
     ]
   );
   return toPinCodeResponse(result.rows[0]);
 }
 
 async function generateUniquePinCode() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const bytes = crypto.randomBytes(6);
-    const code = [...bytes].map(value => alphabet[value % alphabet.length]).join('');
+    const code = letters[bytes[0] % letters.length] + [...bytes.slice(1, 6)].map(value => String(value % 10)).join('');
     const exists = await pool.query('SELECT 1 FROM counter_pin_codes WHERE pin_code = $1 LIMIT 1', [code]);
     if (!exists.rowCount) return code;
   }
@@ -197,6 +200,7 @@ function toPinCodeResponse(row) {
   return {
     pinId: row.pin_id,
     pinCode: row.pin_code,
+    displayName: row.display_name || '',
     validFrom: row.valid_from,
     validUntil: row.valid_until,
     isActive: Boolean(row.is_active),

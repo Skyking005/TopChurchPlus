@@ -3,10 +3,14 @@ function doGet(e) {
   if (shortCode) {
     return renderShortLinkRedirect_(shortCode);
   }
+  return renderIndex_(e && e.parameter ? e.parameter : {});
+}
+
+function renderIndex_(params) {
   const template = HtmlService.createTemplateFromFile('Index');
-  template.publicFormId = e && e.parameter ? String(e.parameter.form || e.parameter.publicForm || '') : '';
-  template.publicResponseId = e && e.parameter ? String(e.parameter.response || '') : '';
-  template.publicEditToken = e && e.parameter ? String(e.parameter.token || '') : '';
+  template.publicFormId = String(params.form || params.publicForm || '');
+  template.publicResponseId = String(params.response || '');
+  template.publicEditToken = String(params.token || '');
   return template
     .evaluate()
     .setTitle('卓越行道會行政系統')
@@ -18,8 +22,12 @@ function renderShortLinkRedirect_(shortCode) {
     const result = resolveShortLink(shortCode);
     const targetUrl = result.targetUrl || '';
     if (!targetUrl) throw new Error('短連結沒有目的網址');
+    const publicParams = extractPublicFormParamsFromUrl_(targetUrl);
+    if (publicParams.form || publicParams.publicForm) {
+      return renderIndex_(publicParams);
+    }
     return HtmlService.createHtmlOutput(
-      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>正在開啟連結</title></head><body><p>正在開啟連結...</p><script>window.top.location.replace(${JSON.stringify(targetUrl)});</script></body></html>`
+      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="refresh" content="0;url=${escapeHtmlForOutput_(targetUrl)}"><title>正在開啟連結</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:32px;color:#1f2937}.box{max-width:640px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;padding:24px;background:#fff}.btn{display:inline-block;margin-top:12px;padding:10px 14px;border-radius:6px;background:#2563eb;color:#fff;text-decoration:none}</style></head><body><div class="box"><p>正在開啟連結...</p><a class="btn" href="${escapeHtmlForOutput_(targetUrl)}" target="_top">如果沒有自動開啟，請點此進入</a></div><script>try{window.top.location.href=${JSON.stringify(targetUrl)};}catch(e){window.location.href=${JSON.stringify(targetUrl)};}</script></body></html>`
     ).setTitle('正在開啟連結');
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
@@ -29,6 +37,15 @@ function renderShortLinkRedirect_(shortCode) {
       `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtmlForOutput_(title)}</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:32px;color:#1f2937}.box{max-width:640px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;padding:24px;background:#fff}.hint{color:#6b7280}</style></head><body><div class="box"><h3>${escapeHtmlForOutput_(title)}</h3><p>${escapeHtmlForOutput_(message)}</p><p class="hint">如需重新開啟，請洽表單或系統管理同工。</p></div></body></html>`
     ).setTitle(title);
   }
+}
+
+function extractPublicFormParamsFromUrl_(targetUrl) {
+  const result = {};
+  String(targetUrl || '').replace(/[?&]([^=&#]+)=([^&#]*)/g, (_, key, value) => {
+    result[decodeURIComponent(key)] = decodeURIComponent(String(value || '').replace(/\+/g, ' '));
+    return '';
+  });
+  return result;
 }
 
 function escapeHtmlForOutput_(value) {
@@ -65,8 +82,8 @@ function verifyLogin(payload) {
   return apiRequest('post', '/login/verify', payload);
 }
 
-function loginCounterPin(pinCode, deviceInfo) {
-  const payload = Object.assign({ pinCode }, deviceInfo || {});
+function loginCounterPin(pinCode, operatorName, deviceInfo) {
+  const payload = Object.assign({ pinCode, operatorName }, deviceInfo || {});
   return apiRequest('post', '/counter/pin-login', payload);
 }
 
@@ -586,7 +603,10 @@ function getCounterPinCodes(currentUser) {
 }
 
 function createCounterPinCode(payload) {
-  return apiRequest('post', '/counter/pin-codes', { currentUser: payload.currentUser });
+  return apiRequest('post', '/counter/pin-codes', {
+    currentUser: payload.currentUser,
+    displayName: payload.displayName
+  });
 }
 
 function deactivateCounterPinCode(payload) {
@@ -598,7 +618,10 @@ function deactivateCounterPinCode(payload) {
 }
 
 function resetCurrentWeekCounterPinCodes(payload) {
-  return apiRequest('post', '/counter/pin-codes/reset-current-week', { currentUser: payload.currentUser });
+  return apiRequest('post', '/counter/pin-codes/reset-current-week', {
+    currentUser: payload.currentUser,
+    displayName: payload.displayName
+  });
 }
 
 function getQrcodeEvents(filters, currentUser) {

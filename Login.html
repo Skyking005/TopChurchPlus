@@ -43,8 +43,9 @@
           <button class="btn btn-link px-0 mb-2" onclick="backToLoginEntry()">返回入口選擇</button>
           <div class="login-brand-wordmark mb-3" aria-label="卓越行道會 Top Church"></div>
           <h3 class="mb-3">志工櫃台</h3>
-          <p class="text-muted">請輸入本週櫃台 PIN Code</p>
-          <input id="counterPinCode" type="text" inputmode="text" maxlength="6" class="form-control form-control-lg text-center mb-3" placeholder="6 碼英數字">
+          <p class="text-muted">請輸入姓名與本週櫃台 PIN Code</p>
+          <input id="counterOperatorName" type="text" class="form-control mb-3" placeholder="櫃台使用者姓名">
+          <input id="counterPinCode" type="text" inputmode="text" maxlength="6" class="form-control form-control-lg text-center mb-3" placeholder="1 碼英文 + 5 碼數字">
           <button class="btn btn-primary w-100" onclick="handleCounterPinLogin()">進入櫃台工作台</button>
         </div>
 

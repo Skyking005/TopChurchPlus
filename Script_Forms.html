@@ -224,7 +224,20 @@ function setFormEditor(data) {
   document.getElementById('formFeeAmount').value = form.feeAmount || '';
   document.getElementById('formPaymentDescription').value = form.paymentDescription || '';
   toggleFormFeeFields();
+  handleFormVisibilityChange();
   renderFormQuestions();
+}
+
+function handleFormVisibilityChange() {
+  const visibility = document.getElementById('formVisibility')?.value || 'internal';
+  const requireLogin = document.getElementById('formRequireLogin');
+  if (!requireLogin) return;
+  if (visibility === 'public') {
+    requireLogin.checked = false;
+    requireLogin.disabled = true;
+  } else {
+    requireLogin.disabled = false;
+  }
 }
 
 function toggleFormFeeFields() {

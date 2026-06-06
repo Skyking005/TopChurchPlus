@@ -111,8 +111,10 @@ function registerAuthRoutes(app) {
   app.post('/counter/pin-login', async (req, res, next) => {
     try {
       const pinCode = String(req.body.pinCode || '').trim().toUpperCase();
+      const operatorName = String(req.body.operatorName || '').trim();
       const context = buildLoginContext(req);
-      if (!/^[A-Z0-9]{6}$/.test(pinCode)) throw new Error('PIN Code 格式錯誤');
+      if (!/^[A-Z][0-9]{5}$/.test(pinCode)) throw new Error('PIN Code 格式錯誤');
+      if (!operatorName) throw new Error('請填寫櫃台使用者姓名');
 
       const week = getTaipeiSundayWeekRange();
       const { rows } = await pool.query(
@@ -146,13 +148,13 @@ function registerAuthRoutes(app) {
         email: 'counter-pin',
         eventType: 'success',
         context,
-        metadata: { loginMode: 'counter_pin', pinId: pin.pin_id, weekStart: pin.valid_from }
+        metadata: { loginMode: 'counter_pin', pinId: pin.pin_id, pinName: pin.display_name || '', operatorName, weekStart: pin.valid_from }
       });
 
       res.json({
         staffId: null,
         email: '',
-        name: '志工櫃台',
+        name: operatorName,
         position: '',
         role: '義工',
         roles: ['義工'],
@@ -160,6 +162,8 @@ function registerAuthRoutes(app) {
         featureUsage: {},
         deviceType: 'desktop',
         workspaceMode: 'counter',
+        counterPinName: pin.display_name || '',
+        counterOperatorName: operatorName,
         pinValidUntil: pin.valid_until
       });
     } catch (err) {

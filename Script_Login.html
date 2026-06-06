@@ -98,8 +98,9 @@ function showCounterPinLogin() {
   document.getElementById('internalLoginPanel').classList.add('d-none');
   document.getElementById('counterPinLoginPanel').classList.remove('d-none');
   document.getElementById('loginError').textContent = '';
+  document.getElementById('counterOperatorName').value = '';
   document.getElementById('counterPinCode').value = '';
-  document.getElementById('counterPinCode').focus();
+  document.getElementById('counterOperatorName').focus();
 }
 
 function backToLoginEntry() {
@@ -115,12 +116,17 @@ function backToLoginEntry() {
 function handleCounterPinLogin() {
   const btn = event.target;
   const errorBox = document.getElementById('loginError');
+  const operatorName = document.getElementById('counterOperatorName').value.trim();
   const pinCode = document.getElementById('counterPinCode').value.trim().toUpperCase();
   errorBox.textContent = '';
   errorBox.classList.add('text-danger');
   errorBox.classList.remove('text-muted');
-  if (!/^[A-Z0-9]{6}$/.test(pinCode)) {
-    errorBox.textContent = '請輸入 6 碼英數字 PIN Code';
+  if (!operatorName) {
+    errorBox.textContent = '請填寫櫃台使用者姓名';
+    return;
+  }
+  if (!/^[A-Z][0-9]{5}$/.test(pinCode)) {
+    errorBox.textContent = 'PIN Code 格式需為 1 碼英文 + 5 碼數字';
     return;
   }
 
@@ -134,7 +140,7 @@ function handleCounterPinLogin() {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
     })
-    .loginCounterPin(pinCode, getLoginDeviceInfo());
+    .loginCounterPin(pinCode, operatorName, getLoginDeviceInfo());
 }
 
 function handleLoginVerification() {
