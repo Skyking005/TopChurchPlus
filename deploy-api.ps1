@@ -1,7 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$LocalApiRoot = Join-Path $ProjectRoot 'api'
 $LocalApiSrc = Join-Path $ProjectRoot 'api\src'
+$RemoteApiRoot = '\\192.168.3.2\docker\project-api'
 $RemoteApiSrc = '\\192.168.3.2\docker\project-api\src'
 $RemoteApiIndex = Join-Path $RemoteApiSrc 'index.js'
 $SshKey = Join-Path $env:USERPROFILE '.ssh\project_api_deploy'
@@ -31,6 +33,14 @@ Copy-Item -LiteralPath $RemoteApiIndex -Destination $BackupPath -Force
 Write-Host "Copying local API src to NAS..."
 Get-ChildItem -LiteralPath $LocalApiSrc -Force | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination $RemoteApiSrc -Recurse -Force
+}
+
+Write-Host "Copying API runtime files to NAS..."
+@('package.json', 'Dockerfile', 'docker-compose.yml') | ForEach-Object {
+  $localFile = Join-Path $LocalApiRoot $_
+  if (Test-Path -LiteralPath $localFile) {
+    Copy-Item -LiteralPath $localFile -Destination (Join-Path $RemoteApiRoot $_) -Force
+  }
 }
 
 Write-Host "Rebuilding API container on NAS..."
