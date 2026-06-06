@@ -1,21 +1,21 @@
 ﻿<script>
 const SYSTEM_FEATURES = [
-  { key: 'project', title: '專案管理系統', desc: '專案資料、會議記錄、權限與收支管理。', action: 'openProjectSystem' },
-  { key: 'finance', title: '財務管理系統', desc: '請購、預借、支出證明與請款流程。', action: 'openPurchaseSystem' },
-  { key: 'asset', title: '資產管理系統', desc: '固定資產清冊、位置、狀態與維護管理。', action: 'openAssetSystem' },
-  { key: 'system', title: '系統管理', desc: '系統參數、位置、使用者與權限設定。', action: 'openSystemManagement' },
-  { key: 'venue', title: '場地預約系統', desc: '可借用場地、預約與場地狀態管理。', action: 'openVenueSystem' },
-  { key: 'forms', title: '表單系統', desc: '問卷調查、活動報名與公開填寫表單。', action: 'openFormsSystem' },
-  { key: 'counter', title: '櫃台工作台', desc: '櫃台繳費、QT 領取與現場服務作業。', action: 'openCounterWorkbench' },
-  { key: 'qrcode', title: 'QRCode 活動管理', desc: '建立外部櫃台報到活動，並檢視出席狀況。', action: 'openQrcodeSystem' },
-  { key: 'qt', title: 'QT 管理系統', desc: 'QT 訂購、庫存、調撥與報表管理。', action: 'openQtSystem' },
-  { key: 'linebot', title: 'LINE BOT 管理系統', desc: 'LINE EDM、帳號連結與 BOT 設定管理。', action: 'openLineBotSystem' },
-  { key: 'pastoral', title: '牧養管理系統', desc: '會友、牧區、關懷與牧養資料管理。', action: 'openPastoralSystem' },
-  { key: 'education', title: '教育管理系統', desc: '課程、班表、講師與學員課程狀態管理。', action: 'openEducationSystem' },
-  { key: 'media', title: '媒體管理系統', desc: '媒體相關資料與作業管理。', action: 'openComingSoonSystem' },
-  { key: 'worship', title: '敬拜管理系統', desc: '敬拜團、服事排程與詩歌資料管理。', action: 'openComingSoonSystem' },
-  { key: 'attendance', title: '聚會統計系統', desc: '聚會人數、出席與統計報表管理。', action: 'openComingSoonSystem' },
-  { key: 'serving', title: '服事管理系統', desc: '服事團隊、班表與服事紀錄管理。', action: 'openComingSoonSystem' }
+  { key: 'project', icon: 'clipboard', title: '專案管理系統', desc: '建立與追蹤專案、會議記錄、專案權限、收支預算與文件匯出。', action: 'openProjectSystem' },
+  { key: 'finance', icon: 'wallet', title: '財務管理系統', desc: '處理採購申請、預借、支出憑證、請款、報價單附件與財務文件。', action: 'openPurchaseSystem' },
+  { key: 'asset', icon: 'package', title: '資產管理系統', desc: '管理固定資產清冊、設備位置、借用狀態、異動紀錄與資產來源。', action: 'openAssetSystem' },
+  { key: 'system', icon: 'settings', title: '系統管理', desc: '維護系統參數、位置、使用者、角色權限、短連結與底層設定。', action: 'openSystemManagement' },
+  { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
+  { key: 'forms', icon: 'form', title: '表單系統', desc: '建立問卷、活動報名與公開填寫表單，並檢視回覆與統計。', action: 'openFormsSystem' },
+  { key: 'counter', icon: 'counter', title: '櫃台工作台', desc: '提供志工櫃台使用，處理現場繳費、QT 領取與報名服務。', action: 'openCounterWorkbench' },
+  { key: 'qrcode', icon: 'qrcode', title: 'QRCode 活動管理', desc: '建立活動報到櫃台，搭配 Line QRCode 掃描並檢視出席名單。', action: 'openQrcodeSystem' },
+  { key: 'qt', icon: 'book', title: 'QT 管理系統', desc: '管理 QT 訂購、每月庫存、會堂調撥、領取狀態與相關報表。', action: 'openQtSystem' },
+  { key: 'linebot', icon: 'message', title: 'LINE BOT 管理系統', desc: '集中管理 LINE EDM、帳號綁定、Bot 模組、短連結與事件紀錄。', action: 'openLineBotSystem' },
+  { key: 'pastoral', icon: 'people', title: '牧養管理系統', desc: '管理會友資料、牧區架構、關懷紀錄、照片附件與牧養權限。', action: 'openPastoralSystem' },
+  { key: 'education', icon: 'school', title: '教育管理系統', desc: '管理課程、班級、講師班表、學員狀態與培育進程。', action: 'openEducationSystem' },
+  { key: 'media', icon: 'image', title: '媒體管理系統', desc: '媒體資料、素材申請、活動影像與媒體作業入口，功能建置中。', action: 'openComingSoonSystem' },
+  { key: 'worship', icon: 'music', title: '敬拜管理系統', desc: '敬拜團服事排程、詩歌資料、團員與練團作業入口，功能建置中。', action: 'openComingSoonSystem' },
+  { key: 'attendance', icon: 'chart', title: '聚會統計系統', desc: '聚會人數、出席紀錄、趨勢分析與統計報表入口，功能建置中。', action: 'openComingSoonSystem' },
+  { key: 'serving', icon: 'calendar', title: '服事管理系統', desc: '服事團隊、排班、出勤與服事紀錄管理入口，功能建置中。', action: 'openComingSoonSystem' }
 ];
 
 const ROLE_FEATURE_ACCESS = {
@@ -477,13 +477,42 @@ function renderFeatureMenu() {
     button.className = 'feature-option';
     button.onclick = () => window[feature.action](feature);
     button.innerHTML = `
-      <span class="feature-title">${escapeHtml(feature.title)}</span>
+      <span class="feature-card-head">
+        <span class="feature-icon" aria-hidden="true">${getFeatureIconSvg(feature.icon || feature.key)}</span>
+        <span class="feature-title">${escapeHtml(feature.title)}</span>
+      </span>
       <span class="feature-desc">${escapeHtml(feature.desc)}</span>
-      ${feature.usageCount > 0 ? `<span class="feature-hint">常用模組，近 180 天使用 ${escapeHtml(feature.usageCount)} 次</span>` : ''}
-      ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
+      <span class="feature-meta">
+        ${feature.usageCount > 0 ? `<span class="feature-hint">常用：近 180 天 ${escapeHtml(feature.usageCount)} 次</span>` : ''}
+        ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
+        ${feature.action === 'openComingSoonSystem' ? '<span class="feature-soon">建置中</span>' : ''}
+      </span>
     `;
     grid.appendChild(button);
   });
+}
+
+function getFeatureIconSvg(icon) {
+  const paths = {
+    clipboard: '<path d="M9 4h6l1 2h3v15H5V6h3l1-2Z"/><path d="M9 10h6M9 14h6M9 18h4"/>',
+    wallet: '<path d="M4 7h16v12H4z"/><path d="M4 9l3-4h10l3 4"/><path d="M16 13h4"/>',
+    package: '<path d="M4 8l8-4 8 4-8 4-8-4Z"/><path d="M4 8v8l8 4 8-4V8"/><path d="M12 12v8"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a8 8 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a8 8 0 0 0-1.7 1l-2.4-1-2 3.4L5.1 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 1.7 1l.3 3.1h5l.3-3.1a8 8 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1Z"/>',
+    map: '<path d="M4 6l5-2 6 2 5-2v14l-5 2-6-2-5 2V6Z"/><path d="M9 4v14M15 6v14"/>',
+    form: '<path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>',
+    counter: '<path d="M5 6h14v12H5z"/><path d="M8 10h3M13 10h3M8 14h8"/>',
+    qrcode: '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 14h2v2h-2zM18 14h2v6h-4v-2h2zM12 18h2v2h-2z"/>',
+    book: '<path d="M5 5h7a3 3 0 0 1 3 3v12H8a3 3 0 0 0-3 3V5Z"/><path d="M15 8a3 3 0 0 1 3-3h1v15h-4"/>',
+    message: '<path d="M4 5h16v11H8l-4 4V5Z"/><path d="M8 9h8M8 12h5"/>',
+    people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M14 18a5 5 0 0 1 7 2"/>',
+    school: '<path d="M3 9l9-5 9 5-9 5-9-5Z"/><path d="M6 11v5c3 3 9 3 12 0v-5"/><path d="M21 9v7"/>',
+    image: '<path d="M4 5h16v14H4z"/><circle cx="9" cy="10" r="2"/><path d="M4 17l5-5 4 4 3-3 4 4"/>',
+    music: '<path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/>',
+    chart: '<path d="M4 20h16"/><path d="M7 16V9M12 16V5M17 16v-7"/>',
+    calendar: '<path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 9h14"/><path d="M8 13h3M13 13h3M8 17h3"/>'
+  };
+  const path = paths[icon] || paths.clipboard;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">${path}</svg>`;
 }
 
 function getUserRoles(user) {
