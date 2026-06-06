@@ -10,3 +10,4 @@ database/education_import_from_sqlserver.generated.sql
 api/node_modules/
 固定資產原始資料/
 文書範本/
+測試資料/
