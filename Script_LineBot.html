@@ -162,6 +162,7 @@ function editLineBotChannel(channelId) {
   document.getElementById('lineBotChannelType').value = row.channelType || 'official';
   document.getElementById('lineBotWebhookUrl').value = row.webhookUrl || '';
   document.getElementById('lineBotLoginRedirectUri').value = row.loginRedirectUri || '';
+  document.getElementById('lineBotLiffPortal').value = row.liffIds?.portal || '';
   document.getElementById('lineBotLiffRollcall').value = row.liffIds?.rollcall || '';
   document.getElementById('lineBotLiffSpiritualLife').value = row.liffIds?.spiritualLife || '';
   document.getElementById('lineBotLiffSelfCheckIn').value = row.liffIds?.selfCheckIn || '';
@@ -198,6 +199,7 @@ function submitLineBotChannel() {
     loginClientSecret: document.getElementById('lineBotLoginClientSecret').value.trim(),
     loginRedirectUri: document.getElementById('lineBotLoginRedirectUri').value.trim(),
     liffIds: {
+      portal: document.getElementById('lineBotLiffPortal').value.trim(),
       rollcall: document.getElementById('lineBotLiffRollcall').value.trim(),
       spiritualLife: document.getElementById('lineBotLiffSpiritualLife').value.trim(),
       selfCheckIn: document.getElementById('lineBotLiffSelfCheckIn').value.trim(),

@@ -3,8 +3,10 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LocalApiRoot = Join-Path $ProjectRoot 'api'
 $LocalApiSrc = Join-Path $ProjectRoot 'api\src'
+$LocalApiPublic = Join-Path $ProjectRoot 'api\public'
 $RemoteApiRoot = '\\192.168.3.2\docker\project-api'
 $RemoteApiSrc = '\\192.168.3.2\docker\project-api\src'
+$RemoteApiPublic = '\\192.168.3.2\docker\project-api\public'
 $RemoteApiIndex = Join-Path $RemoteApiSrc 'index.js'
 $SshKey = Join-Path $env:USERPROFILE '.ssh\project_api_deploy'
 $NasUser = 'cetu'
@@ -33,6 +35,16 @@ Copy-Item -LiteralPath $RemoteApiIndex -Destination $BackupPath -Force
 Write-Host "Copying local API src to NAS..."
 Get-ChildItem -LiteralPath $LocalApiSrc -Force | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination $RemoteApiSrc -Recurse -Force
+}
+
+if (Test-Path -LiteralPath $LocalApiPublic) {
+  Write-Host "Copying local API public assets to NAS..."
+  if (-not (Test-Path -LiteralPath $RemoteApiPublic)) {
+    New-Item -ItemType Directory -Path $RemoteApiPublic -Force | Out-Null
+  }
+  Get-ChildItem -LiteralPath $LocalApiPublic -Force | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $RemoteApiPublic -Recurse -Force
+  }
 }
 
 Write-Host "Copying API runtime files to NAS..."

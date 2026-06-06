@@ -539,6 +539,7 @@ function normalizeLineBotChannel(payload) {
       loginClientSecret: normalizeText(payload.loginClientSecret),
       loginRedirectUri: normalizeText(payload.loginRedirectUri),
       liffIds: {
+        portal: normalizeText(liffIds.portal),
         rollcall: normalizeText(liffIds.rollcall),
         spiritualLife: normalizeText(liffIds.spiritualLife),
         selfCheckIn: normalizeText(liffIds.selfCheckIn),

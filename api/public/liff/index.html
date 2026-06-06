@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>卓越行道會 LINE 入口</title>
+  <link rel="stylesheet" href="/liff/assets/liff.css">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js" defer></script>
+  <script src="/liff/assets/liff-app.js" defer></script>
+</head>
+<body>
+  <main class="liff-shell">
+    <section class="liff-hero">
+      <div>
+        <p class="liff-eyebrow">TopChurchPlus</p>
+        <h1>卓越行道會 LINE 入口</h1>
+        <p id="liffStatusText" class="liff-status">正在啟動 LIFF...</p>
+      </div>
+      <img id="liffProfileImage" class="profile-image d-none" alt="LINE 使用者照片">
+    </section>
+
+    <section id="configWarning" class="notice notice-warning d-none">
+      尚未完成 LIFF ID 或 LINE Login Client ID 設定，請先到內部系統的 LINE BOT 管理系統完成 Channel 設定。
+    </section>
+
+    <section id="memberCard" class="panel d-none">
+      <div class="panel-title">我的資料</div>
+      <div id="memberSummary" class="member-summary"></div>
+    </section>
+
+    <section id="bindPanel" class="panel d-none">
+      <div class="panel-title">綁定會友資料</div>
+      <p class="panel-hint">第一次使用需要綁定會友資料。請填寫姓名，並擇一填寫生日或手機末三碼。</p>
+      <div class="form-grid">
+        <label>
+          <span>姓名</span>
+          <input id="bindName" autocomplete="name" placeholder="請輸入姓名">
+        </label>
+        <label>
+          <span>生日</span>
+          <input id="bindBirthday" type="date">
+        </label>
+        <label>
+          <span>手機末三碼</span>
+          <input id="bindMobileLast3" inputmode="numeric" maxlength="3" placeholder="例如 070">
+        </label>
+      </div>
+      <button id="bindSubmitBtn" type="button" class="primary-btn">完成綁定</button>
+      <div id="bindMessage" class="form-message"></div>
+    </section>
+
+    <section id="portalPanel" class="panel d-none">
+      <div class="panel-title">功能入口</div>
+      <div id="portalLinks" class="link-grid"></div>
+      <div id="moduleList" class="module-list"></div>
+    </section>
+  </main>
+</body>
+</html>
