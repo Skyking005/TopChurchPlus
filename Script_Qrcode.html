@@ -6,7 +6,7 @@ let qrcodeCanEdit = false;
 
 function openQrcodeSystem() {
   recordFeatureUsage('qrcode');
-  document.getElementById('mainTitle').textContent = 'QRCode報到系統';
+  document.getElementById('mainTitle').textContent = 'QRCode 活動管理';
   qrcodeCanEdit = getFeatureAccess('qrcode') === 'edit' && currentUser.deviceType !== 'mobile';
   hideAllMainViews();
   document.getElementById('qrcodeView').classList.remove('d-none');

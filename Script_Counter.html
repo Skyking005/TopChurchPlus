@@ -112,7 +112,7 @@ function updateCounterQrcodeSelectedEvent() {
   const event = counterQrcodeEvents.find(item => String(item.eventId) === String(eventId));
   const meta = document.getElementById('counterQrcodeEventMeta');
   if (!event) {
-    meta.textContent = '請先於內部 QRCode 報到系統建立並開放活動。';
+    meta.textContent = '請先於內部 QRCode 活動管理建立並開放活動。';
     return;
   }
   meta.textContent = `活動日期：${formatDateOnly(event.eventDate) || '未設定'}｜已報到：${event.checkinCount || 0}`;
