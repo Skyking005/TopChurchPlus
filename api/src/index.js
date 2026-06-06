@@ -3,6 +3,7 @@ require('dotenv').config();
 const { createApp } = require('./app');
 const { createApiKeyMiddleware } = require('./middleware/api-key');
 const { createErrorHandler } = require('./middleware/error-handler');
+const { createRequestContextMiddleware } = require('./middleware/request-context');
 const { registerAdminSupplyRoutes } = require('./modules/admin-supply/routes');
 const { registerAssetRoutes } = require('./modules/asset/routes');
 const { registerAuthRoutes } = require('./modules/auth/routes');
@@ -25,6 +26,7 @@ const { registerZoomRoutes } = require('./modules/zoom/routes');
 
 const app = createApp();
 
+app.use(createRequestContextMiddleware());
 app.use(createApiKeyMiddleware({ publicPaths: ['/health'] }));
 registerCoreRoutes(app);
 registerAuthRoutes(app);

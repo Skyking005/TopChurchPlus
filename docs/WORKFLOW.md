@@ -140,7 +140,7 @@ $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 - `api/src/modules/core/catalog.js` 已加入 feature key。
 - `Script_Login.html` 已加入功能卡片、fallback role access 與 icon。
 - `Index.html` 已 include `<Module>.html` 與 `Script_<Module>.html`。
-- `Script_Login.html` 的 `hideAllMainViews()` 與相關開啟函式會隱藏新 view。
+- `Script_Login.html` 的 `MAIN_VIEW_IDS` 已加入新 view，開啟模組時優先用 `showMainView('<viewId>')`。
 - `api/src/index.js` 已 register route。
 - `程式碼.gs` 已加入 Apps Script bridge。
 - migration 已包含資料表、索引、grant、`role_feature_permissions` seed。

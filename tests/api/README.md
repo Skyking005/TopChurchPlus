@@ -24,6 +24,7 @@ $env:TOPCHURCHPLUS_API_KEY = '<本機環境設定，不要提交到 Git>'
 目前已包含：
 
 - `smoke-health.ps1`：API health。
+- `smoke-error-context.ps1`：錯誤回應需包含 `requestId`，方便對照 Docker log。
 - `smoke-admin-supply.ps1`：行政物資選項、20 筆分頁清單、可選擇建立 Demo 物資與庫存異動。
 
 新增模組時，請建立 `smoke-<module>.ps1`，並把它加入 `run-smoke.ps1`。

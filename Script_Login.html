@@ -30,6 +30,27 @@ const ROLE_FEATURE_ACCESS = {
   '媒體同工': ['media', 'worship'],
   '義工': ['counter', 'qt', 'serving']
 };
+
+const MAIN_VIEW_IDS = [
+  'featureSelectionView',
+  'overviewView',
+  'detailView',
+  'purchaseView',
+  'adminSupplyView',
+  'assetView',
+  'venueView',
+  'zoomView',
+  'pastoralView',
+  'formsView',
+  'educationView',
+  'qtView',
+  'lineBotView',
+  'qrcodeView',
+  'counterWorkbenchView',
+  'systemView'
+];
+
+// Centralize top-level view switching so new modules only need to be added once.
 function handleLogin() {
   const btn = event.target;
   const email = document.getElementById('loginEmail').value.trim();
@@ -426,10 +447,16 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'adminSupplyView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  MAIN_VIEW_IDS.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
+}
+
+function showMainView(viewId) {
+  hideAllMainViews();
+  const el = document.getElementById(viewId);
+  if (el) el.classList.remove('d-none');
 }
 
 function loadInitialData() {
@@ -443,22 +470,7 @@ function loadInitialData() {
 function backToFeatureMenu() {
   document.getElementById('mainTitle').textContent = '系統功能選擇';
   renderFeatureMenu();
-  document.getElementById('featureSelectionView').classList.remove('d-none');
-  document.getElementById('purchaseView').classList.add('d-none');
-  document.getElementById('adminSupplyView').classList.add('d-none');
-  document.getElementById('assetView').classList.add('d-none');
-  document.getElementById('venueView').classList.add('d-none');
-  document.getElementById('zoomView').classList.add('d-none');
-  document.getElementById('pastoralView').classList.add('d-none');
-  document.getElementById('formsView').classList.add('d-none');
-  document.getElementById('educationView').classList.add('d-none');
-  document.getElementById('qtView').classList.add('d-none');
-  document.getElementById('lineBotView').classList.add('d-none');
-  document.getElementById('qrcodeView').classList.add('d-none');
-  document.getElementById('counterWorkbenchView').classList.add('d-none');
-  document.getElementById('overviewView').classList.add('d-none');
-  document.getElementById('detailView').classList.add('d-none');
-  document.getElementById('systemView').classList.add('d-none');
+  showMainView('featureSelectionView');
 }
 
 function renderFeatureMenu() {
@@ -597,22 +609,7 @@ function openProjectSystem() {
   recordFeatureUsage('project');
   const canEditFeature = getFeatureAccess('project') === 'edit';
   document.getElementById('mainTitle').textContent = '專案管理系統';
-  document.getElementById('featureSelectionView').classList.add('d-none');
-  document.getElementById('purchaseView').classList.add('d-none');
-  document.getElementById('adminSupplyView').classList.add('d-none');
-  document.getElementById('assetView').classList.add('d-none');
-  document.getElementById('venueView').classList.add('d-none');
-  document.getElementById('zoomView').classList.add('d-none');
-  document.getElementById('pastoralView').classList.add('d-none');
-  document.getElementById('formsView').classList.add('d-none');
-  document.getElementById('educationView').classList.add('d-none');
-  document.getElementById('qtView').classList.add('d-none');
-  document.getElementById('lineBotView').classList.add('d-none');
-  document.getElementById('qrcodeView').classList.add('d-none');
-  document.getElementById('counterWorkbenchView').classList.add('d-none');
-  document.getElementById('detailView').classList.add('d-none');
-  document.getElementById('systemView').classList.add('d-none');
-  document.getElementById('overviewView').classList.remove('d-none');
+  showMainView('overviewView');
   document.getElementById('addProjectBtn').classList.toggle('d-none', !canEditFeature || currentUser.deviceType === 'mobile');
   loadInitialData();
 }
@@ -621,22 +618,7 @@ function openPurchaseSystem() {
   recordFeatureUsage('finance');
   const canEditFeature = getFeatureAccess('finance') === 'edit';
   document.getElementById('mainTitle').textContent = '財務系統';
-  document.getElementById('featureSelectionView').classList.add('d-none');
-  document.getElementById('overviewView').classList.add('d-none');
-  document.getElementById('adminSupplyView').classList.add('d-none');
-  document.getElementById('assetView').classList.add('d-none');
-  document.getElementById('venueView').classList.add('d-none');
-  document.getElementById('zoomView').classList.add('d-none');
-  document.getElementById('pastoralView').classList.add('d-none');
-  document.getElementById('formsView').classList.add('d-none');
-  document.getElementById('educationView').classList.add('d-none');
-  document.getElementById('qtView').classList.add('d-none');
-  document.getElementById('lineBotView').classList.add('d-none');
-  document.getElementById('qrcodeView').classList.add('d-none');
-  document.getElementById('counterWorkbenchView').classList.add('d-none');
-  document.getElementById('detailView').classList.add('d-none');
-  document.getElementById('systemView').classList.add('d-none');
-  document.getElementById('purchaseView').classList.remove('d-none');
+  showMainView('purchaseView');
   document.getElementById('purchaseListView').classList.remove('d-none');
   document.getElementById('purchaseDetailView').classList.add('d-none');
   document.querySelectorAll('.purchase-input, #savePurchaseBtn').forEach(el => {
