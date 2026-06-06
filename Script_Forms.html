@@ -27,7 +27,7 @@ function openFormsSystem() {
   const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
   isPublicFormMode = false;
   document.getElementById('mainTitle').textContent = '表單系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -50,7 +50,7 @@ function openPublicFormFill(formId) {
   document.getElementById('loginView')?.classList.add('d-none');
   document.getElementById('mainView')?.classList.remove('d-none');
   document.querySelector('.topbar')?.classList.add('d-none');
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -80,7 +80,7 @@ function openPublicFormEdit(formId, responseId, token) {
   document.getElementById('loginView')?.classList.add('d-none');
   document.getElementById('mainView')?.classList.remove('d-none');
   document.querySelector('.topbar')?.classList.add('d-none');
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

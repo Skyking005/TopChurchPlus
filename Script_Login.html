@@ -16,7 +16,7 @@ const SYSTEM_FEATURES = [
   { key: 'education', icon: 'school', title: '教育管理系統', desc: '管理課程、班級、講師班表、學員狀態與培育進程。', action: 'openEducationSystem' },
   { key: 'media', icon: 'image', title: '媒體管理系統', desc: '媒體資料、素材申請、活動影像與媒體作業入口，功能建置中。', action: 'openComingSoonSystem' },
   { key: 'worship', icon: 'music', title: '敬拜管理系統', desc: '敬拜團服事排程、詩歌資料、團員與練團作業入口，功能建置中。', action: 'openComingSoonSystem' },
-  { key: 'attendance', icon: 'chart', title: '聚會統計系統', desc: '聚會人數、出席紀錄、趨勢分析與統計報表入口，功能建置中。', action: 'openComingSoonSystem' },
+  { key: 'attendance', icon: 'chart', title: '聚會統計系統', desc: '查看小家出席、主日與各類聚會統計，協助牧養同工追蹤近期聚會狀況。', action: 'openAttendanceSystem' },
   { key: 'serving', icon: 'calendar', title: '服事管理系統', desc: '服事團隊、排班、出勤與服事紀錄管理入口，功能建置中。', action: 'openComingSoonSystem' }
 ];
 
@@ -41,6 +41,7 @@ const MAIN_VIEW_IDS = [
   'venueView',
   'zoomView',
   'pastoralView',
+  'attendanceView',
   'formsView',
   'educationView',
   'qtView',
@@ -414,7 +415,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

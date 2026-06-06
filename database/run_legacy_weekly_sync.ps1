@@ -25,6 +25,7 @@ $tmpImportShare = Join-Path $NasSharePath "tmp_import"
 $pastoralImportScript = Join-Path $PSScriptRoot "import_pastoral_from_sqlserver.ps1"
 $safePastoralScript = Join-Path $PSScriptRoot "build_safe_pastoral_import.ps1"
 $educationImportScript = Join-Path $PSScriptRoot "import_education_from_sqlserver.ps1"
+$attendanceImportScript = Join-Path $PSScriptRoot "import_attendance_from_sqlserver.ps1"
 $qtImportScript = Join-Path $PSScriptRoot "import_qt_from_sqlserver.ps1"
 $compareScript = Join-Path $PSScriptRoot "compare_mssql_postgres_pastoral_education.ps1"
 
@@ -126,7 +127,15 @@ WHERE EXISTS (
   SELECT 1
   FROM dbo.QuietTimeOrder orders
   WHERE orders.QuietTimeOrder001 = item.QuietTimeOrderItem002
-);
+)
+UNION ALL SELECT 'WorshipWeekend', COUNT(*) FROM dbo.WorshipWeekend
+UNION ALL SELECT 'RollcallType', COUNT(*) FROM dbo.RollcallType
+UNION ALL
+SELECT 'NewcomerWorshipRecordValid', COUNT(*)
+FROM dbo.NewcomerWorshipRecord record
+WHERE EXISTS (SELECT 1 FROM dbo.WorshipWeekend event WHERE event.WorshipWeekend001 = record.NewcomerWorshipRecord002)
+  AND EXISTS (SELECT 1 FROM dbo.RollcallType type WHERE type.RollcallType001 = record.NewcomerWorshipRecord004)
+  AND EXISTS (SELECT 1 FROM dbo.Newcomer member WHERE member.Newcomer001 = record.NewcomerWorshipRecord003);
 "@
 
   $postgres = Invoke-PostgresScalarMap @"
@@ -140,7 +149,10 @@ UNION ALL SELECT 'QuietTimePrice', COUNT(*) FROM qt_price_plans
 UNION ALL SELECT 'QuietTimeOrderPaymentType', COUNT(*) FROM qt_payment_types
 UNION ALL SELECT 'QuietTimeInventoryDetail', COUNT(*) FROM qt_inventory_movements WHERE source_system = 'legacy_quiet_time'
 UNION ALL SELECT 'QuietTimeOrder', COUNT(*) FROM qt_orders
-UNION ALL SELECT 'QuietTimeOrderItemValid', COUNT(*) FROM qt_order_items;
+UNION ALL SELECT 'QuietTimeOrderItemValid', COUNT(*) FROM qt_order_items
+UNION ALL SELECT 'WorshipWeekend', COUNT(*) FROM attendance_events
+UNION ALL SELECT 'RollcallType', COUNT(*) FROM attendance_types
+UNION ALL SELECT 'NewcomerWorshipRecordValid', COUNT(*) FROM attendance_records WHERE source_system = 'legacy_mssql';
 "@
 
   $metricNames = @(
@@ -154,7 +166,10 @@ UNION ALL SELECT 'QuietTimeOrderItemValid', COUNT(*) FROM qt_order_items;
     "QuietTimeOrderPaymentType",
     "QuietTimeInventoryDetail",
     "QuietTimeOrder",
-    "QuietTimeOrderItemValid"
+    "QuietTimeOrderItemValid",
+    "WorshipWeekend",
+    "RollcallType",
+    "NewcomerWorshipRecordValid"
   )
 
   $hasMismatch = $false
@@ -211,6 +226,10 @@ try {
     Invoke-ExternalCommand "powershell.exe" @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".\database\import_education_from_sqlserver.ps1")
   }
 
+  Invoke-SyncStep "Generate attendance import SQL" {
+    Invoke-ExternalCommand "powershell.exe" @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ".\database\import_attendance_from_sqlserver.ps1")
+  }
+
   Invoke-SyncStep "Backup before pastoral education import" {
     $backupFile = "$NasProjectPath/backups/topchurchplus_before_weekly_pastoral_education_sync_$stamp.sql"
     Invoke-ExternalCommand "ssh" @("-i", $SshKey, "$NasUser@$NasHost", "cd $NasProjectPath && mkdir -p backups tmp_import && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer pg_dump -U $PgUser -d $PgDatabase > $backupFile")
@@ -223,10 +242,12 @@ try {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "pastoral_import\generated_pastoral_import.safe.sql") -Destination (Join-Path $tmpImportShare "pastoral_import.safe.sql") -Force
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "20260605_education_schema.sql") -Destination (Join-Path $tmpImportShare "education_schema.sql") -Force
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "education_import_from_sqlserver.generated.sql") -Destination (Join-Path $tmpImportShare "education_import.sql") -Force
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "20260606_attendance_schema.sql") -Destination (Join-Path $tmpImportShare "attendance_schema.sql") -Force
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "attendance_import_from_sqlserver.generated.sql") -Destination (Join-Path $tmpImportShare "attendance_import.sql") -Force
   }
 
   Invoke-SyncStep "Import pastoral education data" {
-    $remoteCommand = "cd $NasProjectPath && sudo /usr/local/bin/docker cp tmp_import/pastoral_schema.sql ${PgContainer}:/tmp/pastoral_schema.sql && sudo /usr/local/bin/docker cp tmp_import/pastoral_import.safe.sql ${PgContainer}:/tmp/pastoral_import.safe.sql && sudo /usr/local/bin/docker cp tmp_import/education_schema.sql ${PgContainer}:/tmp/education_schema.sql && sudo /usr/local/bin/docker cp tmp_import/education_import.sql ${PgContainer}:/tmp/education_import.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/pastoral_schema.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/pastoral_import.safe.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/education_schema.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/education_import.sql"
+    $remoteCommand = "cd $NasProjectPath && sudo /usr/local/bin/docker cp tmp_import/pastoral_schema.sql ${PgContainer}:/tmp/pastoral_schema.sql && sudo /usr/local/bin/docker cp tmp_import/pastoral_import.safe.sql ${PgContainer}:/tmp/pastoral_import.safe.sql && sudo /usr/local/bin/docker cp tmp_import/education_schema.sql ${PgContainer}:/tmp/education_schema.sql && sudo /usr/local/bin/docker cp tmp_import/education_import.sql ${PgContainer}:/tmp/education_import.sql && sudo /usr/local/bin/docker cp tmp_import/attendance_schema.sql ${PgContainer}:/tmp/attendance_schema.sql && sudo /usr/local/bin/docker cp tmp_import/attendance_import.sql ${PgContainer}:/tmp/attendance_import.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/pastoral_schema.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/pastoral_import.safe.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/education_schema.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/education_import.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/attendance_schema.sql && sudo /usr/local/bin/docker exec -e PGPASSWORD='$PgPassword' $PgContainer psql -U $PgUser -d $PgDatabase -v ON_ERROR_STOP=1 -q -f /tmp/attendance_import.sql"
     Invoke-ExternalCommand "ssh" @("-i", $SshKey, "$NasUser@$NasHost", $remoteCommand)
   }
 

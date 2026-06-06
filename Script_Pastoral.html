@@ -14,7 +14,7 @@ function openPastoralSystem() {
   recordFeatureUsage('pastoral');
   const canEditPastoral = getFeatureAccess('pastoral') === 'edit' && currentUser.deviceType !== 'mobile';
   document.getElementById('mainTitle').textContent = '牧養管理系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'attendanceView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -295,6 +295,7 @@ function renderActivePastoralDetail() {
   ]);
   renderPastoralMemberFiles(data.files || []);
   renderPastoralEducationStatus(data.educationEnrollments || []);
+  renderPastoralAttendanceStatus(data.recentAttendance || []);
   renderPastoralCareRecords(data.careRecords || []);
 }
 
@@ -766,6 +767,46 @@ function renderPastoralEducationStatus(records) {
     `;
     container.appendChild(item);
   });
+}
+
+function renderPastoralAttendanceStatus(records) {
+  const container = document.getElementById('pastoralAttendanceStatus');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!records.length) {
+    container.innerHTML = '<div class="text-muted">尚無最近聚會紀錄</div>';
+    return;
+  }
+  records.forEach(record => {
+    const item = document.createElement('div');
+    item.className = 'pastoral-care-item';
+    const events = (record.events || []).slice(0, 8);
+    item.innerHTML = `
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div>
+          <strong>${escapeHtml(record.typeName)}</strong>
+          <span class="text-muted small ms-2">最近 ${escapeHtml(record.totalEvents)} 次，出席 ${escapeHtml(record.attendedCount)} 次</span>
+        </div>
+        ${record.latestAttendanceDate ? `<span class="badge bg-success">最近：${escapeHtml(record.latestAttendanceDate)} ${escapeHtml(formatAttendanceModeLabel(record.latestAttendanceMode))}</span>` : '<span class="badge bg-secondary">最近未出席</span>'}
+      </div>
+      <div class="attendance-dots mt-2">
+        ${events.map(event => `
+          <span class="attendance-dot-wrap" title="${escapeAttr(event.eventDate)} ${event.attended ? formatAttendanceModeLabel(event.attendanceMode) : '未出席'}">
+            <span class="attendance-dot ${event.attended ? (event.attendanceMode === 'online' ? 'is-online' : 'is-present') : 'is-empty'}"></span>
+            <span>${escapeHtml(event.eventDate.slice(5))}</span>
+          </span>
+        `).join('')}
+      </div>
+      <div class="pastoral-care-meta">連續未出席：${escapeHtml(record.consecutiveAbsentCount)} 次</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function formatAttendanceModeLabel(mode) {
+  if (mode === 'online') return '線上';
+  if (mode === 'physical') return '實體';
+  return '';
 }
 
 function closePastoralDetail(memberId) {

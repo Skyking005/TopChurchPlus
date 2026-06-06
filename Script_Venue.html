@@ -9,7 +9,7 @@ function openVenueSystem() {
   recordFeatureUsage('venue');
   document.getElementById('mainTitle').textContent = '場地預約系統';
   venueCanEdit = getFeatureAccess('venue') === 'edit' && currentUser.deviceType !== 'mobile';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'zoomView', 'pastoralView', 'attendanceView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

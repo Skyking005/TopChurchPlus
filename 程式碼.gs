@@ -407,6 +407,46 @@ function getEducationCourseDetail(courseId, currentUser) {
   return apiRequest('get', `/education/courses/${encodeURIComponent(courseId)}`, null, null, currentUser);
 }
 
+function getAttendanceOptions(currentUser) {
+  return apiRequest('get', '/attendance/options', null, null, currentUser);
+}
+
+function getAttendanceSmallGroups(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/attendance/small-groups', null, {
+    startDate: filters.startDate || '',
+    endDate: filters.endDate || '',
+    typeId: filters.typeId || '',
+    churchId: filters.churchId || '',
+    groupId: filters.groupId || ''
+  }, currentUser);
+}
+
+function getAttendanceSmallGroupMembers(groupId, filters, currentUser) {
+  filters = filters || {};
+  return apiRequest(
+    'get',
+    `/attendance/small-groups/${encodeURIComponent(groupId)}/members`,
+    null,
+    {
+      startDate: filters.startDate || '',
+      endDate: filters.endDate || '',
+      typeId: filters.typeId || ''
+    },
+    currentUser
+  );
+}
+
+function getAttendanceMeetings(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/attendance/meetings', null, {
+    startDate: filters.startDate || '',
+    endDate: filters.endDate || '',
+    typeId: filters.typeId || '',
+    churchId: filters.churchId || ''
+  }, currentUser);
+}
+
 function saveEducationCourse(payload) {
   const courseId = payload.courseId || payload.course?.courseId || '';
   if (courseId) {

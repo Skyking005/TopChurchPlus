@@ -632,6 +632,76 @@
     margin-bottom: 12px;
   }
 
+  .attendance-detail-block {
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #f8fafc;
+    padding: 1rem;
+  }
+
+  .attendance-rate {
+    display: inline-flex;
+    min-width: 52px;
+    justify-content: center;
+    border-radius: 999px;
+    padding: .2rem .55rem;
+    font-weight: 700;
+    font-size: .82rem;
+  }
+
+  .attendance-rate.is-good {
+    color: #166534;
+    background: #dcfce7;
+  }
+
+  .attendance-rate.is-mid {
+    color: #854d0e;
+    background: #fef3c7;
+  }
+
+  .attendance-rate.is-low {
+    color: #991b1b;
+    background: #fee2e2;
+  }
+
+  .attendance-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+  }
+
+  .attendance-dot-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    color: #64748b;
+    font-size: .78rem;
+  }
+
+  .attendance-dot {
+    display: inline-block;
+    width: .72rem;
+    height: .72rem;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    background: #e2e8f0;
+  }
+
+  .attendance-dot.is-present {
+    border-color: #22c55e;
+    background: #22c55e;
+  }
+
+  .attendance-dot.is-online {
+    border-color: #3b82f6;
+    background: #3b82f6;
+  }
+
+  .attendance-dot.is-empty {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
+
   .detail-dl {
     display: grid;
     grid-template-columns: minmax(84px, 120px) 1fr;

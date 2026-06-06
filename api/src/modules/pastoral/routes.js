@@ -1,4 +1,5 @@
 const { pool, tx } = require('../../db');
+const { getMemberRecentAttendance } = require('../attendance/routes');
 const { recordDomainEvent } = require('../../shared/cross-system');
 const { normalizeFileInput, saveFileWithLink, toDataUrl } = require('../../shared/files');
 const { recordAuditLog } = require('../../shared/audit');
@@ -416,11 +417,13 @@ async function getPastoralMemberDetail(memberId, currentUser) {
   );
 
   const files = await getPastoralMemberFiles(memberId);
+  const recentAttendance = await getMemberRecentAttendance(memberId);
 
   return {
     member: toPastoralMemberDetail(member),
     careRecords: careRecords.rows.map(toPastoralCareRecord),
     educationEnrollments: educationEnrollments.rows.map(toPastoralEducationEnrollment),
+    recentAttendance,
     files
   };
 }

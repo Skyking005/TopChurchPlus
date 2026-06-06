@@ -1,0 +1,209 @@
+<script>
+let attendanceOptions = null;
+let attendanceCurrentTab = 'smallGroups';
+let attendanceSmallGroups = [];
+let attendanceMeetings = [];
+
+function openAttendanceSystem() {
+  recordFeatureUsage('attendance');
+  document.getElementById('mainTitle').textContent = '聚會統計系統';
+  showMainView('attendanceView');
+  switchAttendanceTab('smallGroups');
+  loadAttendanceSystem();
+}
+
+function loadAttendanceSystem() {
+  setListLoading(['attendanceSmallGroupTableBody', 'attendanceMeetingTableBody'], true);
+  google.script.run
+    .withSuccessHandler(options => {
+      attendanceOptions = options || { types: [], churches: [], groups: [] };
+      setupAttendanceOptions();
+      loadAttendanceCurrentTab();
+    })
+    .withFailureHandler(showError)
+    .getAttendanceOptions(currentUser);
+}
+
+function setupAttendanceOptions() {
+  setFieldValue('attendanceStartDate', attendanceOptions.defaultStartDate || '');
+  setFieldValue('attendanceEndDate', attendanceOptions.defaultEndDate || '');
+  fillAttendanceSelect('attendanceChurchFilter', attendanceOptions.churches || [], 'churchId', 'churchName', '全部會堂');
+  fillAttendanceSelect('attendanceGroupFilter', attendanceOptions.groups || [], 'groupId', 'groupPath', '全部牧區');
+  fillAttendanceSelect('attendanceTypeFilter', attendanceOptions.types || [], 'typeId', 'typeName', '全部類型');
+  const typeSelect = document.getElementById('attendanceTypeFilter');
+  if (typeSelect && !typeSelect.value) {
+    const defaultType = (attendanceOptions.types || []).find(item => item.typeId === 2) || (attendanceOptions.types || [])[0];
+    if (defaultType) typeSelect.value = defaultType.typeId;
+  }
+}
+
+function fillAttendanceSelect(id, items, valueKey, labelKey, allLabel) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>`;
+  items.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item[valueKey];
+    opt.textContent = item[labelKey] || item.name || item[valueKey];
+    select.appendChild(opt);
+  });
+}
+
+function switchAttendanceTab(tab) {
+  attendanceCurrentTab = tab;
+  document.getElementById('attendanceSmallGroupsPanel').classList.toggle('d-none', tab !== 'smallGroups');
+  document.getElementById('attendanceMeetingsPanel').classList.toggle('d-none', tab !== 'meetings');
+  document.getElementById('attendanceSmallGroupTabBtn').classList.toggle('active', tab === 'smallGroups');
+  document.getElementById('attendanceMeetingTabBtn').classList.toggle('active', tab === 'meetings');
+  const groupWrap = document.getElementById('attendanceGroupFilterWrap');
+  if (groupWrap) groupWrap.classList.toggle('d-none', tab !== 'smallGroups');
+  if (attendanceOptions) loadAttendanceCurrentTab();
+}
+
+function loadAttendanceCurrentTab() {
+  if (attendanceCurrentTab === 'meetings') {
+    loadAttendanceMeetings();
+  } else {
+    loadAttendanceSmallGroups();
+  }
+}
+
+function getAttendanceFilters() {
+  return {
+    startDate: document.getElementById('attendanceStartDate').value,
+    endDate: document.getElementById('attendanceEndDate').value,
+    churchId: document.getElementById('attendanceChurchFilter').value,
+    groupId: document.getElementById('attendanceGroupFilter').value,
+    typeId: document.getElementById('attendanceTypeFilter').value
+  };
+}
+
+function loadAttendanceSmallGroups() {
+  setListLoading('attendanceSmallGroupTableBody', true);
+  document.getElementById('attendanceSmallGroupDetail').classList.add('d-none');
+  google.script.run
+    .withSuccessHandler(result => {
+      attendanceSmallGroups = result.rows || [];
+      renderAttendanceSmallGroups();
+    })
+    .withFailureHandler(showError)
+    .getAttendanceSmallGroups(getAttendanceFilters(), currentUser);
+}
+
+function renderAttendanceSmallGroups() {
+  const body = document.getElementById('attendanceSmallGroupTableBody');
+  body.innerHTML = '';
+  if (!attendanceSmallGroups.length) {
+    body.innerHTML = '<tr><td colspan="9" class="text-muted text-center">查無小家統計資料</td></tr>';
+    return;
+  }
+  attendanceSmallGroups.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.churchName)}</td>
+      <td>${escapeHtml(row.groupPath)}</td>
+      <td>${escapeHtml(row.memberCount)}</td>
+      <td>${escapeHtml(row.totalEvents)}</td>
+      <td>${escapeHtml(row.attendanceCount)}</td>
+      <td>${escapeHtml(row.averageAttendance)}</td>
+      <td><span class="attendance-rate ${getAttendanceRateClass(row.attendanceRate)}">${escapeHtml(row.attendanceRate)}%</span></td>
+      <td>${escapeHtml(row.recentAbsentCount)}</td>
+      <td><button type="button" class="btn btn-sm btn-outline-primary" onclick="loadAttendanceSmallGroupMembers('${escapeAttr(row.groupId)}')">查看名單</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function loadAttendanceSmallGroupMembers(groupId) {
+  setListLoading('attendanceSmallGroupMemberBody', true, '成員出席載入中...');
+  google.script.run
+    .withSuccessHandler(result => renderAttendanceSmallGroupMembers(result))
+    .withFailureHandler(showError)
+    .getAttendanceSmallGroupMembers(groupId, getAttendanceFilters(), currentUser);
+}
+
+function renderAttendanceSmallGroupMembers(result) {
+  const detail = document.getElementById('attendanceSmallGroupDetail');
+  const head = document.getElementById('attendanceSmallGroupMemberHead');
+  const body = document.getElementById('attendanceSmallGroupMemberBody');
+  const events = result.events || [];
+  const members = result.members || [];
+  detail.classList.remove('d-none');
+  document.getElementById('attendanceSmallGroupDetailTitle').textContent = `${result.group?.groupPath || '小家'} 成員出席`;
+  document.getElementById('attendanceSmallGroupEventHint').textContent = events.length ? `最近 ${events.length} 次` : '';
+  head.innerHTML = `
+    <tr>
+      <th>姓名</th>
+      <th>電話</th>
+      <th>跟進同工</th>
+      ${events.map(event => `<th>${escapeHtml(event.eventDate.slice(5))}</th>`).join('')}
+    </tr>
+  `;
+  body.innerHTML = '';
+  if (!members.length) {
+    body.innerHTML = `<tr><td colspan="${3 + events.length}" class="text-muted text-center">此小家目前沒有成員</td></tr>`;
+    return;
+  }
+  members.forEach(member => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(member.memberName)}</td>
+      <td>${escapeHtml(member.mobilePhone)}</td>
+      <td>${escapeHtml(member.followupName)}</td>
+      ${events.map(event => {
+        const item = (member.attendances || []).find(record => String(record.eventId) === String(event.eventId));
+        return `<td>${renderAttendanceDot(item)}</td>`;
+      }).join('')}
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function loadAttendanceMeetings() {
+  setListLoading('attendanceMeetingTableBody', true);
+  google.script.run
+    .withSuccessHandler(result => {
+      attendanceMeetings = result.rows || [];
+      renderAttendanceMeetings(result.summary || {});
+    })
+    .withFailureHandler(showError)
+    .getAttendanceMeetings(getAttendanceFilters(), currentUser);
+}
+
+function renderAttendanceMeetings(summary) {
+  document.getElementById('attendanceTotalCount').textContent = summary.totalAttendance || 0;
+  document.getElementById('attendanceAverageCount').textContent = summary.averageAttendance || 0;
+  document.getElementById('attendanceMaxCount').textContent = summary.maxAttendance || 0;
+  const body = document.getElementById('attendanceMeetingTableBody');
+  body.innerHTML = '';
+  if (!attendanceMeetings.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center">查無聚會統計資料</td></tr>';
+    return;
+  }
+  attendanceMeetings.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.eventDate)}</td>
+      <td>${escapeHtml(row.typeName)}</td>
+      <td>${escapeHtml(row.churchName)}</td>
+      <td>${escapeHtml(row.physicalCount)}</td>
+      <td>${escapeHtml(row.onlineCount)}</td>
+      <td>${escapeHtml(row.totalCount)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderAttendanceDot(item) {
+  if (!item || !item.attended) return '<span class="attendance-dot is-empty" title="未出席"></span>';
+  const title = item.attendanceMode === 'online' ? '線上' : '實體';
+  return `<span class="attendance-dot ${item.attendanceMode === 'online' ? 'is-online' : 'is-present'}" title="${escapeHtml(title)}"></span>`;
+}
+
+function getAttendanceRateClass(rate) {
+  const value = Number(rate || 0);
+  if (value >= 75) return 'is-good';
+  if (value >= 50) return 'is-mid';
+  return 'is-low';
+}
+</script>

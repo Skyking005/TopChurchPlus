@@ -9,6 +9,7 @@
 - 牧養：`Newcomer`、`Shepherd`、`NewcomerTrack`、`ShepherdLeader` 與相關分類表。
 - 課程：`CourseClassification`、`Course`、`CourseMember`。
 - QT：`QuietTimePrice`、`QuietTimeOrderPaymentType`、`QuietTimeInventory*`、`QuietTimeOrder`、`QuietTimeOrderItem`。
+- 聚會點名：`WorshipWeekend`、`RollcallType`、`NewcomerWorshipRecord`。
 
 ## 重匯流程
 
@@ -20,7 +21,7 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File .\database\run_legacy_weekly_sync.ps1
 ```
 
-總控腳本會依序執行牧養匯出、牧養安全 SQL 產生、課程匯出、PostgreSQL 備份、牧養與課程匯入、QT 匯入，以及 MSSQL/PostgreSQL 筆數比對。執行紀錄會保存於 `logs\legacy_sync\`，每次同步都會產生一份新的 `.log`。
+總控腳本會依序執行牧養匯出、牧養安全 SQL 產生、課程匯出、聚會點名匯出、PostgreSQL 備份、牧養/課程/聚會點名匯入、QT 匯入，以及 MSSQL/PostgreSQL 筆數比對。執行紀錄會保存於 `logs\legacy_sync\`，每次同步都會產生一份新的 `.log`。
 
 若需要分段排查，可依照以下步驟手動執行。
 
@@ -53,6 +54,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\database\run_legacy_weekly
    ```
 
    QT 匯入會先備份 PostgreSQL。訂單、領取明細、付款方式以 MSSQL 為準重建；價格方案 upsert；舊系統庫存只重建 `source_system = 'legacy_quiet_time'` 的 initial stock，保留新系統人工庫存異動與 Demo 異動。
+
+6. 從 MSSQL 匯入最新聚會點名資料：
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\database\import_attendance_from_sqlserver.ps1
+   ```
+
+   點名匯入會重建 `attendance_events`、`attendance_types`、`attendance_records`，並只匯入有對應會友、聚會週次與點名類型的有效資料。牧養系統的會友詳情會使用這份資料顯示最近兩個月主日與小家狀況。
 
 6. 匯入後執行比對：
 
@@ -92,6 +101,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\database\run_legacy_weekly
 - 牧養資料：會友、牧區、關懷紀錄、分類、職分、職業、婚姻狀態。
 - 課程資料：課程分類、課程、修課紀錄。
 - QT 資料：訂購方案、付款方式、訂單、領取明細、舊系統庫存。
+- 聚會點名資料：聚會週次、點名類型、會友出席紀錄。
 
 每週同步會產生：
 
@@ -108,3 +118,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\database\run_legacy_weekly
 - `churches` 只 upsert，不 cascade 清除，避免影響其他子系統。
 - QT 領取明細只匯入有對應訂單的有效資料，避免孤兒明細破壞外鍵。
 - QT 舊庫存與新系統庫存異動分開管理，避免重匯時清掉新系統人工調整、調撥、Demo 測試紀錄。
+- 聚會點名紀錄只匯入有對應會友、聚會週次與點名類型的有效資料；統計查詢使用去重視圖，避免舊系統重複自然鍵讓出席人數膨脹。
