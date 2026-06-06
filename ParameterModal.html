@@ -11,6 +11,7 @@
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#userRoleManagePane" onclick="loadSystemUsers()">使用者權限設置</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#pastoralPermissionPane" onclick="loadPastoralPermissionOptions()">牧養資料權限</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#featurePermissionPane" onclick="loadFeaturePermissions()">權限管理</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#shortLinkManagePane" onclick="loadShortLinks()">短連結管理</button></li>
   </ul>
 
   <div class="tab-content">
@@ -92,6 +93,31 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div id="shortLinkManagePane" class="tab-pane fade">
+      <div class="card mb-3"><div class="card-body">
+        <div class="row g-3 align-items-end">
+          <input id="shortLinkId" type="hidden">
+          <div class="col-md-2"><label class="form-label">短碼</label><input id="shortLinkCode" class="form-control" placeholder="可空白自動產生"></div>
+          <div class="col-md-3"><label class="form-label">標題</label><input id="shortLinkTitle" class="form-control"></div>
+          <div class="col-md-5"><label class="form-label">目的網址</label><input id="shortLinkTargetUrl" class="form-control" placeholder="https://"></div>
+          <div class="col-md-2"><label class="form-label">狀態</label><select id="shortLinkStatus" class="form-select"><option value="active">啟用</option><option value="disabled">停用</option><option value="expired">過期</option></select></div>
+          <div class="col-md-2"><label class="form-label">來源系統</label><input id="shortLinkSourceSystem" class="form-control" value="manual"></div>
+          <div class="col-md-2"><label class="form-label">來源類型</label><input id="shortLinkSourceType" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">來源 ID</label><input id="shortLinkSourceId" class="form-control"></div>
+          <div class="col-md-3"><label class="form-label">到期時間</label><input id="shortLinkExpiresAt" type="datetime-local" class="form-control"></div>
+          <div class="col-md-2 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary w-50" onclick="resetShortLinkForm()">清空</button><button id="saveShortLinkBtn" type="button" class="btn btn-primary w-50" onclick="saveShortLinkFromUI()">儲存</button></div>
+          <div class="col-md-12"><label class="form-label">說明</label><input id="shortLinkDescription" class="form-control"></div>
+        </div>
+      </div></div>
+      <div class="row g-2 align-items-end mb-2">
+        <div class="col-md-4"><label class="form-label">搜尋</label><input id="shortLinkKeyword" class="form-control" placeholder="短碼、標題、網址" onkeydown="handleShortLinkSearchKey(event)"></div>
+        <div class="col-md-2"><label class="form-label">狀態</label><select id="shortLinkStatusFilter" class="form-select" onchange="loadShortLinks()"><option value="">全部</option><option value="active">啟用</option><option value="disabled">停用</option><option value="expired">過期</option></select></div>
+        <div class="col-md-2 d-grid"><button type="button" class="btn btn-outline-secondary" onclick="loadShortLinks()">搜尋</button></div>
+      </div>
+      <div id="shortLinkError" class="text-danger small mb-2"></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>短網址</th><th>標題</th><th>目的網址</th><th>來源</th><th>狀態</th><th class="text-end">點擊</th><th class="text-end">功能</th></tr></thead><tbody id="shortLinkTableBody"></tbody></table></div></div>
     </div>
   </div>
 </section>

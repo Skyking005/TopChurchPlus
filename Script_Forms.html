@@ -279,7 +279,7 @@ function copyPublicFormLink(formId, visibility, status, requireLogin) {
       const url = buildPublicFormUrlFallback(formId);
       prompt(`無法取得正式公開連結，請先使用此備用連結。\n${err.message || err}`, url);
     })
-    .getPublicFormUrl(formId);
+    .getPublicFormUrl(formId, currentUser);
 }
 
 function buildPublicFormUrlFallback(formId) {

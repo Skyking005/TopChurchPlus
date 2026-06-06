@@ -1,6 +1,10 @@
 const DOC_EXPORT_FOLDER_NAME = '卓越行道會專案文件';
 
 function doGet(e) {
+  const shortCode = e && e.parameter ? String(e.parameter.s || e.parameter.short || '') : '';
+  if (shortCode) {
+    return renderShortLinkRedirect_(shortCode);
+  }
   const template = HtmlService.createTemplateFromFile('Index');
   template.publicFormId = e && e.parameter ? String(e.parameter.form || e.parameter.publicForm || '') : '';
   template.publicResponseId = e && e.parameter ? String(e.parameter.response || '') : '';
@@ -9,6 +13,31 @@ function doGet(e) {
     .evaluate()
     .setTitle('卓越行道會行政系統')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function renderShortLinkRedirect_(shortCode) {
+  try {
+    const result = resolveShortLink(shortCode);
+    const targetUrl = result.targetUrl || '';
+    if (!targetUrl) throw new Error('短連結沒有目的網址');
+    return HtmlService.createHtmlOutput(
+      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>正在開啟連結</title></head><body><p>正在開啟連結...</p><script>window.top.location.replace(${JSON.stringify(targetUrl)});</script></body></html>`
+    ).setTitle('正在開啟連結');
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return HtmlService.createHtmlOutput(
+      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>短連結無法開啟</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:32px;color:#1f2937}.box{max-width:640px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;padding:24px;background:#fff}</style></head><body><div class="box"><h3>短連結無法開啟</h3><p>${escapeHtmlForOutput_(message)}</p></div></body></html>`
+    ).setTitle('短連結無法開啟');
+  }
+}
+
+function escapeHtmlForOutput_(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function include(filename) {
@@ -206,14 +235,86 @@ function updatePublicFormResponse(payload) {
   return result;
 }
 
-function getPublicFormUrl(formId) {
+function getPublicFormUrl(formId, currentUser) {
   const url = ScriptApp.getService().getUrl();
-  return `${url}?form=${encodeURIComponent(formId)}`;
+  const targetUrl = `${url}?form=${encodeURIComponent(formId)}`;
+  try {
+    const result = ensureShortLink({
+      currentUser,
+      link: {
+        targetUrl,
+        title: '公開表單連結',
+        sourceSystem: 'forms',
+        sourceType: 'public_form',
+        sourceId: formId,
+        status: 'active'
+      }
+    });
+    return `${url}?s=${encodeURIComponent(result.link.shortCode)}`;
+  } catch (err) {
+    return targetUrl;
+  }
 }
 
 function getPublicFormEditUrl(formId, responseId, token) {
   const url = ScriptApp.getService().getUrl();
   return `${url}?form=${encodeURIComponent(formId)}&response=${encodeURIComponent(responseId)}&token=${encodeURIComponent(token)}`;
+}
+
+function getShortLinks(filters, currentUser) {
+  filters = filters || {};
+  const result = apiRequest('get', '/short-links', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || '',
+    sourceSystem: filters.sourceSystem || ''
+  }, currentUser);
+  return appendShortLinkUrls_(result);
+}
+
+function saveShortLink(payload) {
+  const linkId = payload.linkId || payload.link?.linkId || '';
+  if (linkId) {
+    return appendShortLinkUrl_(apiRequest(
+      'put',
+      `/short-links/${encodeURIComponent(linkId)}`,
+      { currentUser: payload.currentUser, link: payload.link }
+    ));
+  }
+  return appendShortLinkUrl_(apiRequest('post', '/short-links', {
+    currentUser: payload.currentUser,
+    link: payload.link
+  }));
+}
+
+function ensureShortLink(payload) {
+  return appendShortLinkUrl_(apiRequest('post', '/short-links/ensure', {
+    currentUser: payload.currentUser,
+    link: payload.link
+  }));
+}
+
+function resolveShortLink(shortCode) {
+  return apiRequest('get', `/short-links/${encodeURIComponent(shortCode)}/resolve`);
+}
+
+function appendShortLinkUrls_(result) {
+  const rows = result && Array.isArray(result.rows) ? result.rows : [];
+  rows.forEach(row => {
+    row.shortUrl = buildShortUrl_(row.shortCode);
+  });
+  return result;
+}
+
+function appendShortLinkUrl_(result) {
+  if (result && result.link) {
+    result.link.shortUrl = buildShortUrl_(result.link.shortCode);
+  }
+  return result;
+}
+
+function buildShortUrl_(shortCode) {
+  const url = ScriptApp.getService().getUrl();
+  return `${url}?s=${encodeURIComponent(shortCode || '')}`;
 }
 
 function sendPublicFormEditLinkEmail_(formId, result) {

@@ -3,6 +3,7 @@
 let systemUsers = [];
 let featurePermissions = [];
 let systemPastoralOptions = null;
+let shortLinks = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -545,5 +546,146 @@ function saveFeaturePermissionsFromUI() {
       if (errorBox) errorBox.textContent = err.message || err;
     })
     .saveFeaturePermissions({ currentUser, permissions });
+}
+
+function loadShortLinks() {
+  const errorBox = document.getElementById('shortLinkError');
+  if (errorBox) errorBox.textContent = '';
+  setListLoading('shortLinkTableBody', true, '短連結載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      shortLinks = data?.rows || [];
+      renderShortLinks();
+    })
+    .withFailureHandler(err => {
+      if (errorBox) errorBox.textContent = err.message || err;
+    })
+    .getShortLinks({
+      keyword: document.getElementById('shortLinkKeyword')?.value || '',
+      status: document.getElementById('shortLinkStatusFilter')?.value || ''
+    }, currentUser);
+}
+
+function renderShortLinks() {
+  const body = document.getElementById('shortLinkTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!shortLinks.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚未建立短連結</td></tr>';
+    return;
+  }
+  shortLinks.forEach(link => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="fw-semibold">${escapeHtml(link.shortCode)}</div>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="copyShortLinkUrl('${escapeAttr(link.linkId)}')">複製</button>
+      </td>
+      <td>${escapeHtml(link.title || '')}<div class="text-muted small">${escapeHtml(link.description || '')}</div></td>
+      <td class="text-break" style="max-width: 360px;">${escapeHtml(link.targetUrl || '')}</td>
+      <td>${escapeHtml([link.sourceSystem, link.sourceType].filter(Boolean).join(' / '))}<div class="text-muted small">${escapeHtml(link.sourceId || '')}</div></td>
+      <td>${renderShortLinkStatusBadge(link.status)}</td>
+      <td class="text-end">${escapeHtml(link.clickCount || 0)}</td>
+      <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editShortLink('${escapeAttr(link.linkId)}')">編輯</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function resetShortLinkForm() {
+  document.getElementById('shortLinkId').value = '';
+  document.getElementById('shortLinkCode').value = '';
+  document.getElementById('shortLinkTitle').value = '';
+  document.getElementById('shortLinkTargetUrl').value = '';
+  document.getElementById('shortLinkStatus').value = 'active';
+  document.getElementById('shortLinkSourceSystem').value = 'manual';
+  document.getElementById('shortLinkSourceType').value = '';
+  document.getElementById('shortLinkSourceId').value = '';
+  document.getElementById('shortLinkExpiresAt').value = '';
+  document.getElementById('shortLinkDescription').value = '';
+  document.getElementById('shortLinkError').textContent = '';
+}
+
+function editShortLink(linkId) {
+  const link = shortLinks.find(item => String(item.linkId) === String(linkId));
+  if (!link) return;
+  document.getElementById('shortLinkId').value = link.linkId || '';
+  document.getElementById('shortLinkCode').value = link.shortCode || '';
+  document.getElementById('shortLinkTitle').value = link.title || '';
+  document.getElementById('shortLinkTargetUrl').value = link.targetUrl || '';
+  document.getElementById('shortLinkStatus').value = link.status || 'active';
+  document.getElementById('shortLinkSourceSystem').value = link.sourceSystem || 'manual';
+  document.getElementById('shortLinkSourceType').value = link.sourceType || '';
+  document.getElementById('shortLinkSourceId').value = link.sourceId || '';
+  document.getElementById('shortLinkExpiresAt').value = toDateTimeLocalInputValue(link.expiresAt);
+  document.getElementById('shortLinkDescription').value = link.description || '';
+}
+
+function saveShortLinkFromUI() {
+  const btn = document.getElementById('saveShortLinkBtn');
+  const errorBox = document.getElementById('shortLinkError');
+  const linkId = document.getElementById('shortLinkId').value;
+  const link = {
+    shortCode: document.getElementById('shortLinkCode').value.trim(),
+    title: document.getElementById('shortLinkTitle').value.trim(),
+    targetUrl: document.getElementById('shortLinkTargetUrl').value.trim(),
+    status: document.getElementById('shortLinkStatus').value,
+    sourceSystem: document.getElementById('shortLinkSourceSystem').value.trim() || 'manual',
+    sourceType: document.getElementById('shortLinkSourceType').value.trim(),
+    sourceId: document.getElementById('shortLinkSourceId').value.trim(),
+    expiresAt: document.getElementById('shortLinkExpiresAt').value,
+    description: document.getElementById('shortLinkDescription').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!link.targetUrl) {
+    errorBox.textContent = '請填寫目的網址';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(`${res.message}\n${res.link?.shortUrl || ''}`);
+      resetShortLinkForm();
+      loadShortLinks();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveShortLink({ currentUser, linkId, link });
+}
+
+function copyShortLinkUrl(linkId) {
+  const link = shortLinks.find(item => String(item.linkId) === String(linkId));
+  if (!link || !link.shortUrl) return;
+  copyTextToClipboard(link.shortUrl)
+    .then(() => alert('短連結已複製'))
+    .catch(() => prompt('請複製短連結', link.shortUrl));
+}
+
+function handleShortLinkSearchKey(event) {
+  if (event.key === 'Enter') loadShortLinks();
+}
+
+function renderShortLinkStatusBadge(status) {
+  const map = {
+    active: '<span class="badge bg-success">啟用</span>',
+    disabled: '<span class="badge bg-secondary">停用</span>',
+    expired: '<span class="badge bg-warning text-dark">過期</span>'
+  };
+  return map[status] || escapeHtml(status || '');
+}
+
+function toDateTimeLocalInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
 }
 </script>

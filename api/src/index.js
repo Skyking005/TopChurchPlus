@@ -15,6 +15,7 @@ const { registerLineBotRoutes } = require('./modules/linebot/routes');
 const { registerProjectRoutes } = require('./modules/project/routes');
 const { registerQrcodeRoutes } = require('./modules/qrcode/routes');
 const { registerQtRoutes } = require('./modules/qt/routes');
+const { registerShortLinkRoutes } = require('./modules/shortlinks/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
 const { registerWorkLogRoutes } = require('./modules/worklog/routes');
@@ -35,6 +36,7 @@ registerLineBotRoutes(app);
 registerProjectRoutes(app);
 registerQrcodeRoutes(app);
 registerQtRoutes(app);
+registerShortLinkRoutes(app);
 registerVenueRoutes(app);
 registerWorkLogRoutes(app);
 
