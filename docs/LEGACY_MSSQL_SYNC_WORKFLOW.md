@@ -14,6 +14,16 @@
 
 每次重匯前一定先備份 PostgreSQL。
 
+建議固定使用總控腳本執行完整同步，避免手動漏掉其中一步：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\database\run_legacy_weekly_sync.ps1
+```
+
+總控腳本會依序執行牧養匯出、牧養安全 SQL 產生、課程匯出、PostgreSQL 備份、牧養與課程匯入、QT 匯入，以及 MSSQL/PostgreSQL 筆數比對。執行紀錄會保存於 `logs\legacy_sync\`，每次同步都會產生一份新的 `.log`。
+
+若需要分段排查，可依照以下步驟手動執行。
+
 1. 從 MSSQL 產生最新牧養 SQL：
 
    ```powershell
@@ -72,6 +82,24 @@
 - 做一次 PostgreSQL 完整備份。
 - 執行最後一次 MSSQL 重匯。
 - 執行比對腳本通過後，才開放 TopChurchPlus 成為正式資料入口。
+
+## 每週自動同步
+
+目前採用每週完整重匯方式，適合舊系統與新系統並行測試期使用。預設排程建議設為每週一早上 06:00 執行，讓主日或週末異動可以在週初同步到 TopChurchPlus。
+
+每週同步範圍：
+
+- 牧養資料：會友、牧區、關懷紀錄、分類、職分、職業、婚姻狀態。
+- 課程資料：課程分類、課程、修課紀錄。
+- QT 資料：訂購方案、付款方式、訂單、領取明細、舊系統庫存。
+
+每週同步會產生：
+
+- PostgreSQL 備份檔，保存在 NAS 的 `/volume1/docker/project-api/backups/`。
+- 本機同步 log，保存在 `logs\legacy_sync\`。
+- MSSQL 與 PostgreSQL 筆數比對結果。
+
+若排程失敗，優先檢查最新的 `logs\legacy_sync\legacy_sync_*.log`，再檢查 NAS 備份目錄是否有產生當次備份。
 
 ## 設計原則
 
