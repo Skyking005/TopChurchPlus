@@ -8,6 +8,7 @@
 
 - 牧養：`Newcomer`、`Shepherd`、`NewcomerTrack`、`ShepherdLeader` 與相關分類表。
 - 課程：`CourseClassification`、`Course`、`CourseMember`。
+- QT：`QuietTimePrice`、`QuietTimeOrderPaymentType`、`QuietTimeInventory*`、`QuietTimeOrder`、`QuietTimeOrderItem`。
 
 ## 重匯流程
 
@@ -33,9 +34,17 @@
    powershell -NoProfile -ExecutionPolicy Bypass -File .\database\import_education_from_sqlserver.ps1
    ```
 
-4. 備份 PostgreSQL 後再匯入 NAS PostgreSQL。
+4. 備份 PostgreSQL 後，匯入牧養與課程資料到 NAS PostgreSQL。
 
-5. 匯入後執行比對：
+5. 從 MSSQL 匯入最新 QT 資料：
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\database\import_qt_from_sqlserver.ps1
+   ```
+
+   QT 匯入會先備份 PostgreSQL。訂單、領取明細、付款方式以 MSSQL 為準重建；價格方案 upsert；舊系統庫存只重建 `source_system = 'legacy_quiet_time'` 的 initial stock，保留新系統人工庫存異動與 Demo 異動。
+
+6. 匯入後執行比對：
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass -File .\database\compare_mssql_postgres_pastoral_education.ps1
@@ -48,11 +57,12 @@
 - 在舊系統仍可異動資料期間，固定每日或每次大量異動後執行重匯與比對腳本。
 - 若比對腳本失敗，先不要使用新系統該模組資料做正式判斷。
 - TopChurchPlus 若也開放編輯同一批資料，會有雙寫衝突風險；正式切換前建議牧養與課程以其中一邊為主。
+- QT 若舊系統與新系統同時開放訂購或領取，衝突風險更高；正式切換前建議 QT 訂單與領取仍以 MSSQL 為主，新系統先做查詢、報表與庫存預警。
 
 中期建議：
 
 - 在 MSSQL 建立 `LegacyChangeOutbox` 或類似異動佇列表。
-- 舊系統在 `Newcomer`、`Shepherd`、`Course*` 做新增、修改、刪除時，同步寫一筆 outbox。
+- 舊系統在 `Newcomer`、`Shepherd`、`Course*`、`QuietTime*` 做新增、修改、刪除時，同步寫一筆 outbox。
 - TopChurchPlus API 定時讀取 outbox，只同步異動過的資料列。
 - 每次同步寫入 `legacy_sync_runs`，記錄開始時間、結束時間、新增筆數、更新筆數、停用筆數、錯誤訊息。
 
@@ -68,3 +78,5 @@
 - 會友主檔不硬刪，MSSQL 不存在的會友先改為 `is_active = false`，保留其他模組對會友 ID 的關聯。
 - 課程修課紀錄以 `(member_id, course_id)` 去重，避免舊系統重複列造成新系統重複顯示。
 - `churches` 只 upsert，不 cascade 清除，避免影響其他子系統。
+- QT 領取明細只匯入有對應訂單的有效資料，避免孤兒明細破壞外鍵。
+- QT 舊庫存與新系統庫存異動分開管理，避免重匯時清掉新系統人工調整、調撥、Demo 測試紀錄。

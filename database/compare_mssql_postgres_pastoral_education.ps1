@@ -56,7 +56,19 @@ FROM (
   WHERE EXISTS (SELECT 1 FROM dbo.Newcomer n WHERE n.Newcomer001 = cm.CourseMember002)
     AND EXISTS (SELECT 1 FROM dbo.Course c WHERE c.Course001 = cm.CourseMember005)
   GROUP BY cm.CourseMember002, cm.CourseMember005
-) source_enrollments;
+) source_enrollments
+UNION ALL SELECT 'QuietTimePrice', COUNT(*) FROM dbo.QuietTimePrice
+UNION ALL SELECT 'QuietTimeOrderPaymentType', COUNT(*) FROM dbo.QuietTimeOrderPaymentType
+UNION ALL SELECT 'QuietTimeInventoryDetail', COUNT(*) FROM dbo.QuietTimeInventoryDetail
+UNION ALL SELECT 'QuietTimeOrder', COUNT(*) FROM dbo.QuietTimeOrder
+UNION ALL
+SELECT 'QuietTimeOrderItemValid', COUNT(*)
+FROM dbo.QuietTimeOrderItem item
+WHERE EXISTS (
+  SELECT 1
+  FROM dbo.QuietTimeOrder orders
+  WHERE orders.QuietTimeOrder001 = item.QuietTimeOrderItem002
+);
 "@
 
 $postgres = Invoke-PostgresScalarMap @"
@@ -65,7 +77,12 @@ UNION ALL SELECT 'Shepherd', COUNT(*) FROM pastoral_groups
 UNION ALL SELECT 'NewcomerTrack', COUNT(*) FROM pastoral_care_records
 UNION ALL SELECT 'CourseClassification', COUNT(*) FROM education_course_categories
 UNION ALL SELECT 'Course', COUNT(*) FROM education_courses
-UNION ALL SELECT 'CourseMemberValid', COUNT(*) FROM education_enrollments;
+UNION ALL SELECT 'CourseMemberValid', COUNT(*) FROM education_enrollments
+UNION ALL SELECT 'QuietTimePrice', COUNT(*) FROM qt_price_plans
+UNION ALL SELECT 'QuietTimeOrderPaymentType', COUNT(*) FROM qt_payment_types
+UNION ALL SELECT 'QuietTimeInventoryDetail', COUNT(*) FROM qt_inventory_movements WHERE source_system = 'legacy_quiet_time'
+UNION ALL SELECT 'QuietTimeOrder', COUNT(*) FROM qt_orders
+UNION ALL SELECT 'QuietTimeOrderItemValid', COUNT(*) FROM qt_order_items;
 "@
 
 $metricNames = @(
@@ -74,7 +91,12 @@ $metricNames = @(
   "NewcomerTrack",
   "CourseClassification",
   "Course",
-  "CourseMemberValid"
+  "CourseMemberValid",
+  "QuietTimePrice",
+  "QuietTimeOrderPaymentType",
+  "QuietTimeInventoryDetail",
+  "QuietTimeOrder",
+  "QuietTimeOrderItemValid"
 )
 
 $hasMismatch = $false
@@ -94,7 +116,7 @@ $rows = foreach ($metric in $metricNames) {
 $rows | Format-Table -AutoSize
 
 if ($hasMismatch) {
-  throw "MSSQL/PostgreSQL pastoral or education counts do not match."
+  throw "MSSQL/PostgreSQL legacy sync counts do not match."
 }
 
-Write-Output "MSSQL/PostgreSQL pastoral and education count check passed."
+Write-Output "MSSQL/PostgreSQL pastoral, education, and QT count check passed."

@@ -6,6 +6,7 @@ node_modules/
 .env.*
 database/pastoral_import/
 database/pastoral_permission_import/
+database/qt_import/
 database/education_import_from_sqlserver.generated.sql
 api/node_modules/
 固定資產原始資料/
