@@ -12,6 +12,7 @@
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#pastoralPermissionPane" onclick="loadPastoralPermissionOptions()">牧養資料權限</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#featurePermissionPane" onclick="loadFeaturePermissions()">權限管理</button></li>
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#shortLinkManagePane" onclick="loadShortLinks()">短連結管理</button></li>
+    <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#systemLogPane" onclick="loadSystemLogs()">系統日誌</button></li>
   </ul>
 
   <div class="tab-content">
@@ -118,6 +119,21 @@
       </div>
       <div id="shortLinkError" class="text-danger small mb-2"></div>
       <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>短網址</th><th>標題</th><th>目的網址</th><th>來源</th><th>狀態</th><th class="text-end">點擊</th><th class="text-end">功能</th></tr></thead><tbody id="shortLinkTableBody"></tbody></table></div></div>
+    </div>
+
+    <div id="systemLogPane" class="tab-pane fade">
+      <div class="card mb-3"><div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-2"><label class="form-label">日誌類型</label><select id="systemLogType" class="form-select" onchange="loadSystemLogs()"><option value="audit">稽核紀錄</option><option value="login">登入紀錄</option><option value="usage">使用紀錄</option></select></div>
+          <div class="col-md-2"><label class="form-label">系統</label><select id="systemLogSystemKey" class="form-select" onchange="loadSystemLogs()"></select></div>
+          <div class="col-md-3"><label class="form-label">使用者</label><select id="systemLogStaffId" class="form-select" onchange="loadSystemLogs()"></select></div>
+          <div class="col-md-3"><label class="form-label">關鍵字</label><input id="systemLogKeyword" class="form-control" placeholder="姓名、動作、單號、Email" onkeydown="handleSystemLogSearchKey(event)"></div>
+          <div class="col-md-1"><label class="form-label">筆數</label><select id="systemLogLimit" class="form-select" onchange="loadSystemLogs()"><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option></select></div>
+          <div class="col-md-1 d-grid"><button type="button" class="btn btn-outline-secondary" onclick="loadSystemLogs()">搜尋</button></div>
+        </div>
+      </div></div>
+      <div id="systemLogError" class="text-danger small mb-2"></div>
+      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>時間</th><th>類型</th><th>使用者</th><th>系統</th><th>動作</th><th>對象</th><th>來源</th><th>摘要</th></tr></thead><tbody id="systemLogTableBody"></tbody></table></div></div>
     </div>
   </div>
 </section>

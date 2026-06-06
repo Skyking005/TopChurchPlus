@@ -889,6 +889,17 @@ function saveFeaturePermissions(payload) {
   return apiRequest('put', '/system/feature-permissions', payload);
 }
 
+function getSystemLogs(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/system/logs', null, {
+    type: filters.type || 'audit',
+    keyword: filters.keyword || '',
+    systemKey: filters.systemKey || '',
+    staffId: filters.staffId || '',
+    limit: filters.limit || 100
+  }, currentUser);
+}
+
 function exportPurchaseDoc(payload) {
   const purchaseId = payload.purchaseId;
   const docType = payload.docType;

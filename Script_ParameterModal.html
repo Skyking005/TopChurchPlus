@@ -4,6 +4,7 @@ let systemUsers = [];
 let featurePermissions = [];
 let systemPastoralOptions = null;
 let shortLinks = [];
+let systemLogs = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -49,6 +50,7 @@ function setupSystemManagement() {
   renderParameterTypeOptions();
   renderSystemPositionOptions();
   renderSystemDepartmentOptions();
+  renderSystemLogOptions();
   loadParameterItems();
 }
 
@@ -687,5 +689,144 @@ function toDateTimeLocalInputValue(value) {
   const hh = String(date.getHours()).padStart(2, '0');
   const min = String(date.getMinutes()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
+function renderSystemLogOptions() {
+  const systemSelect = document.getElementById('systemLogSystemKey');
+  if (systemSelect) {
+    const selectedSystem = systemSelect.value;
+    systemSelect.innerHTML = '<option value="">全部系統</option>';
+    getSystemFeatureOptions().forEach(feature => {
+      const opt = document.createElement('option');
+      opt.value = feature.key;
+      opt.textContent = feature.title;
+      systemSelect.appendChild(opt);
+    });
+    systemSelect.value = selectedSystem;
+  }
+
+  const staffSelect = document.getElementById('systemLogStaffId');
+  if (staffSelect) {
+    const selectedStaffId = staffSelect.value;
+    const users = systemUsers.length ? systemUsers : (initialData?.accounts || []);
+    staffSelect.innerHTML = '<option value="">全部使用者</option>';
+    users.forEach(user => {
+      const opt = document.createElement('option');
+      opt.value = user.staffId;
+      opt.textContent = [user.name, user.position].filter(Boolean).join(' ');
+      staffSelect.appendChild(opt);
+    });
+    staffSelect.value = selectedStaffId;
+  }
+}
+
+function loadSystemLogs() {
+  renderSystemLogOptions();
+  const errorBox = document.getElementById('systemLogError');
+  if (errorBox) errorBox.textContent = '';
+  setListLoading('systemLogTableBody', true, '系統日誌載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      systemLogs = data?.rows || [];
+      renderSystemLogs();
+    })
+    .withFailureHandler(err => {
+      if (errorBox) errorBox.textContent = err.message || err;
+      setListLoading('systemLogTableBody', false);
+    })
+    .getSystemLogs({
+      type: document.getElementById('systemLogType')?.value || 'audit',
+      keyword: document.getElementById('systemLogKeyword')?.value || '',
+      systemKey: document.getElementById('systemLogSystemKey')?.value || '',
+      staffId: document.getElementById('systemLogStaffId')?.value || '',
+      limit: document.getElementById('systemLogLimit')?.value || 100
+    }, currentUser);
+}
+
+function renderSystemLogs() {
+  const body = document.getElementById('systemLogTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!systemLogs.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">目前沒有符合條件的系統日誌</td></tr>';
+    return;
+  }
+  systemLogs.forEach(log => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="text-nowrap">${escapeHtml(formatSystemLogDateTime(log.createdAt))}</td>
+      <td>${escapeHtml(formatSystemLogType(log.type))}</td>
+      <td>${escapeHtml(log.staffName || log.staffId || log.email || '')}</td>
+      <td>${escapeHtml(formatSystemLogFeature(log.systemKey))}</td>
+      <td>${escapeHtml(formatSystemLogAction(log))}</td>
+      <td>${escapeHtml(formatSystemLogEntity(log))}</td>
+      <td>${escapeHtml(formatSystemLogSource(log))}</td>
+      <td class="text-break" style="min-width: 240px;">${escapeHtml(formatSystemLogMetadata(log.metadata))}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function handleSystemLogSearchKey(event) {
+  if (event.key === 'Enter') loadSystemLogs();
+}
+
+function formatSystemLogType(type) {
+  const map = { audit: '稽核', login: '登入', usage: '使用' };
+  return map[type] || type || '';
+}
+
+function formatSystemLogFeature(featureKey) {
+  if (!featureKey) return '';
+  const feature = getSystemFeatureOptions().find(item => item.key === featureKey);
+  return feature ? feature.title : featureKey;
+}
+
+function formatSystemLogAction(log) {
+  if (log.type === 'login') return formatLoginEventType(log.action);
+  if (log.type === 'usage') return log.action === 'open' ? '開啟功能' : log.action;
+  return log.action || '';
+}
+
+function formatLoginEventType(action) {
+  const map = {
+    success: '登入成功',
+    challenge_required: '需要驗證',
+    challenge_success: '驗證成功',
+    challenge_failed: '驗證失敗',
+    failed: '登入失敗'
+  };
+  return map[action] || action || '';
+}
+
+function formatSystemLogEntity(log) {
+  return [log.entityType, log.entityId].filter(Boolean).join(' / ');
+}
+
+function formatSystemLogSource(log) {
+  if (log.type === 'login') {
+    return [log.deviceType, log.deviceLabel, log.ipAddress].filter(Boolean).join(' / ');
+  }
+  return [log.ipAddress, log.apiIp].filter(Boolean).join(' / ');
+}
+
+function formatSystemLogMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object' || !Object.keys(metadata).length) return '';
+  return Object.entries(metadata)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`)
+    .join('；');
+}
+
+function formatSystemLogDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${min}`;
 }
 </script>

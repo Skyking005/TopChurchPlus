@@ -129,6 +129,15 @@ function registerSystemRoutes(app) {
     }
   });
 
+  app.get('/system/logs', async (req, res, next) => {
+    try {
+      assertSuperAdmin(parseUser(req));
+      res.json(await getSystemLogs(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/params/:type', async (req, res, next) => {
     try {
       assertSuperAdmin(parseUser(req));
@@ -317,6 +326,147 @@ async function saveFeaturePermissions(permissions) {
       );
     }
   });
+}
+
+async function getSystemLogs(query) {
+  const logType = String(query.type || 'audit').trim();
+  const keyword = String(query.keyword || '').trim().toLowerCase();
+  const systemKey = String(query.systemKey || '').trim();
+  const staffId = String(query.staffId || '').trim();
+  const limit = Math.min(Math.max(Number(query.limit || 100), 1), 200);
+
+  if (logType === 'login') return getLoginLogs({ keyword, staffId, limit });
+  if (logType === 'usage') return getUsageLogs({ keyword, systemKey, staffId, limit });
+  return getAuditLogs({ keyword, systemKey, staffId, limit });
+}
+
+async function getAuditLogs({ keyword, systemKey, staffId, limit }) {
+  const values = [];
+  const where = [];
+  if (systemKey) {
+    values.push(systemKey);
+    where.push(`al.system_key = $${values.length}`);
+  }
+  if (staffId) {
+    values.push(staffId);
+    where.push(`al.staff_id = $${values.length}`);
+  }
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(coalesce(a.name, '')) LIKE $${values.length}
+      OR lower(coalesce(al.staff_id, '')) LIKE $${values.length}
+      OR lower(al.system_key) LIKE $${values.length}
+      OR lower(al.entity_type) LIKE $${values.length}
+      OR lower(al.entity_id) LIKE $${values.length}
+      OR lower(al.action) LIKE $${values.length}
+    )`);
+  }
+  values.push(limit);
+  const { rows } = await pool.query(
+    `SELECT al.audit_id AS id, al.created_at, al.staff_id, a.name AS staff_name, a.position,
+            al.system_key, al.entity_type, al.entity_id, al.action, al.ip_address, al.user_agent,
+            al.metadata
+     FROM audit_logs al
+     LEFT JOIN accounts a ON a.staff_id = al.staff_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY al.created_at DESC
+     LIMIT $${values.length}`,
+    values
+  );
+  return { rows: rows.map(row => toSystemLog('audit', row)) };
+}
+
+async function getLoginLogs({ keyword, staffId, limit }) {
+  const values = [];
+  const where = [];
+  if (staffId) {
+    values.push(staffId);
+    where.push(`le.staff_id = $${values.length}`);
+  }
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(coalesce(a.name, '')) LIKE $${values.length}
+      OR lower(coalesce(le.staff_id, '')) LIKE $${values.length}
+      OR lower(le.email) LIKE $${values.length}
+      OR lower(le.event_type) LIKE $${values.length}
+      OR lower(coalesce(le.device_label, '')) LIKE $${values.length}
+      OR lower(coalesce(le.device_type, '')) LIKE $${values.length}
+    )`);
+  }
+  values.push(limit);
+  const { rows } = await pool.query(
+    `SELECT le.id, le.created_at, le.staff_id, a.name AS staff_name, a.position,
+            le.event_type AS action, le.email, le.device_label, le.device_type,
+            le.client_ip::text AS ip_address, le.api_ip::text AS api_ip, le.user_agent, le.metadata
+     FROM login_events le
+     LEFT JOIN accounts a ON a.staff_id = le.staff_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY le.created_at DESC
+     LIMIT $${values.length}`,
+    values
+  );
+  return { rows: rows.map(row => toSystemLog('login', row)) };
+}
+
+async function getUsageLogs({ keyword, systemKey, staffId, limit }) {
+  const values = [];
+  const where = [];
+  if (systemKey) {
+    values.push(systemKey);
+    where.push(`sul.feature_key = $${values.length}`);
+  }
+  if (staffId) {
+    values.push(staffId);
+    where.push(`sul.staff_id = $${values.length}`);
+  }
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(coalesce(a.name, '')) LIKE $${values.length}
+      OR lower(coalesce(sul.staff_id, '')) LIKE $${values.length}
+      OR lower(sul.feature_key) LIKE $${values.length}
+      OR lower(sul.action) LIKE $${values.length}
+    )`);
+  }
+  values.push(limit);
+  const { rows } = await pool.query(
+    `SELECT sul.id, sul.created_at, sul.staff_id, a.name AS staff_name, a.position,
+            sul.feature_key AS system_key, sul.action, sul.metadata
+     FROM system_usage_logs sul
+     LEFT JOIN accounts a ON a.staff_id = sul.staff_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY sul.created_at DESC
+     LIMIT $${values.length}`,
+    values
+  );
+  return { rows: rows.map(row => toSystemLog('usage', row)) };
+}
+
+function toSystemLog(type, row) {
+  return {
+    type,
+    id: row.id,
+    createdAt: row.created_at,
+    staffId: row.staff_id || '',
+    staffName: formatStaffName(row),
+    systemKey: row.system_key || '',
+    entityType: row.entity_type || '',
+    entityId: row.entity_id || '',
+    action: row.action || '',
+    ipAddress: row.ip_address || '',
+    apiIp: row.api_ip || '',
+    userAgent: row.user_agent || '',
+    email: row.email || '',
+    deviceLabel: row.device_label || '',
+    deviceType: row.device_type || '',
+    metadata: row.metadata || {}
+  };
+}
+
+function formatStaffName(row) {
+  return [row.staff_name, row.position].filter(Boolean).join(' ');
 }
 
 async function recordUsage(user, featureKey, action = 'open', metadata = {}) {
