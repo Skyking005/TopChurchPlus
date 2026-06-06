@@ -8,6 +8,8 @@
 - If mojibake is found, stop and report it before making functional edits. Do not continue compiling, formatting, or rewriting the affected file as if the garbled text were valid source.
 - Do not use PowerShell `Get-Content` / `Set-Content` or broad rewrite commands to rewrite Chinese files. Prefer `apply_patch` for focused edits.
 - Do not batch-format the whole project unless explicitly requested.
+- When sending API requests that contain Traditional Chinese JSON from PowerShell, do not use raw `Invoke-RestMethod -Body $json`. Use `tools/invoke-json-utf8.cmd` or .NET `HttpClient` with explicit `application/json; charset=utf-8` so demo/test data is not saved as mojibake such as `????`.
+- After any manual API write containing Chinese text, read the saved row back and confirm the Chinese text is readable before leaving demo data in the database.
 
 ## Editing Scope
 

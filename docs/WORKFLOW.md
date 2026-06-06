@@ -7,6 +7,8 @@
 - 手動修改優先使用 `apply_patch`，避免批次重寫中文檔。
 - 每次任務只改與本次需求相關的檔案。
 - 資料庫結構調整需先提出欄位、用途、索引與 MSSQL 對應，再確認後執行。
+- 送出含中文的 API JSON 測試資料時，使用 `tools/invoke-json-utf8.cmd`，不要直接用 `Invoke-RestMethod -Body $json`。
+- 寫入含中文的 Demo 或測試資料後，必須查回資料確認中文可讀，再結束任務。
 
 ## 常用工具
 
@@ -28,6 +30,35 @@
 $env:TOPCHURCHPLUS_API_BASE_URL = 'http://192.168.3.2:3000'
 $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 .\tools\check-api.cmd
+```
+
+送出含中文 JSON 的 API 測試資料時，請先將 payload 存成 UTF-8 檔案，再用 `-BodyFile`。不要把完整 JSON 直接放在命令列參數中，Windows `.cmd` 轉交時可能拆壞引號。
+
+```powershell
+$body = @{
+  currentUser = $currentUser
+  link = @{
+    targetUrl = 'https://www.topchurch.com.tw/'
+    title = '中文測試資料'
+  }
+} | ConvertTo-Json -Depth 8 -Compress
+
+Set-Content -LiteralPath .\tmp\payload.json -Value $body -Encoding utf8
+
+.\tools\invoke-json-utf8.cmd `
+  -Method POST `
+  -Uri 'http://192.168.3.2:3000/short-links' `
+  -BodyFile .\tmp\payload.json `
+  -CurrentUserBase64 $currentUserBase64
+```
+
+GET 或沒有 body 的請求可以直接呼叫：
+
+```powershell
+.\tools\invoke-json-utf8.cmd `
+  -Method GET `
+  -Uri 'http://192.168.3.2:3000/short-links' `
+  -CurrentUserBase64 $currentUserBase64
 ```
 
 一鍵檢查並部署 NAS API 與 Google Apps Script：
