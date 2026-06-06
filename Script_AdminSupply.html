@@ -1,0 +1,373 @@
+<script>
+let adminSupplyOptions = { churches: [], categories: [], units: [] };
+let adminSupplyItems = [];
+let adminSupplyMovements = [];
+let adminSupplyPage = 1;
+let adminSupplyTotal = 0;
+let adminSupplyCanEdit = false;
+let adminSupplyItemModalInstance = null;
+let adminSupplyMovementModalInstance = null;
+
+const ADMIN_SUPPLY_PAGE_SIZE = 20;
+const ADMIN_SUPPLY_MOVEMENT_TYPES = [
+  { value: 'in', label: '入庫' },
+  { value: 'out', label: '領用' },
+  { value: 'transfer', label: '調撥' },
+  { value: 'adjust', label: '盤點調整' },
+  { value: 'discard', label: '報廢/耗損' },
+  { value: 'return', label: '退回' }
+];
+
+function openAdminSupplySystem() {
+  recordFeatureUsage('admin_supply');
+  adminSupplyCanEdit = getFeatureAccess('admin_supply') === 'edit' && currentUser.deviceType !== 'mobile';
+  document.getElementById('mainTitle').textContent = '行政物資管理系統';
+  hideAllMainViews();
+  document.getElementById('adminSupplyView').classList.remove('d-none');
+  document.getElementById('adminSupplyAddItemBtn').classList.toggle('d-none', !adminSupplyCanEdit);
+  document.getElementById('adminSupplyMovementBtn').classList.toggle('d-none', !adminSupplyCanEdit);
+  switchAdminSupplyTab('items');
+  loadAdminSupplyOptions(() => {
+    renderAdminSupplyFilters();
+    loadAdminSupplyItems();
+  });
+}
+
+function switchAdminSupplyTab(tab) {
+  document.querySelectorAll('[data-admin-supply-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.adminSupplyTab === tab);
+  });
+  document.getElementById('adminSupplyItemPanel').classList.toggle('d-none', tab !== 'items');
+  document.getElementById('adminSupplyMovementPanel').classList.toggle('d-none', tab !== 'movements');
+  if (tab === 'movements') loadAdminSupplyMovements();
+}
+
+function loadAdminSupplyOptions(callback) {
+  google.script.run
+    .withSuccessHandler(options => {
+      adminSupplyOptions = options || { churches: [], categories: [], units: [] };
+      renderAdminSupplyOptionControls();
+      if (callback) callback();
+    })
+    .withFailureHandler(showError)
+    .getAdminSupplyOptions(currentUser);
+}
+
+function renderAdminSupplyFilters() {
+  const category = document.getElementById('adminSupplyCategoryFilter');
+  category.innerHTML = '<option value="">全部類別</option>';
+  (adminSupplyOptions.categories || []).forEach(value => category.appendChild(createOption(value, value)));
+  renderAdminSupplyMovementTypeOptions('adminSupplyMovementTypeFilter', true);
+  renderAdminSupplyMovementTypeOptions('adminSupplyMovementType', false);
+}
+
+function renderAdminSupplyOptionControls() {
+  const categoryList = document.getElementById('adminSupplyCategoryList');
+  const unitList = document.getElementById('adminSupplyUnitList');
+  categoryList.innerHTML = '';
+  unitList.innerHTML = '';
+  (adminSupplyOptions.categories || []).forEach(value => categoryList.appendChild(createOption(value, value)));
+  (adminSupplyOptions.units || []).forEach(value => unitList.appendChild(createOption(value, value)));
+  renderAdminSupplyChurchSelect('adminSupplyMovementFromChurch', true);
+  renderAdminSupplyChurchSelect('adminSupplyMovementToChurch', true);
+}
+
+function renderAdminSupplyMovementTypeOptions(selectId, includeAll) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部類型</option>' : '';
+  ADMIN_SUPPLY_MOVEMENT_TYPES.forEach(type => select.appendChild(createOption(type.label, type.value)));
+}
+
+function renderAdminSupplyChurchSelect(selectId, includeBlank) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.innerHTML = includeBlank ? '<option value="">請選擇</option>' : '';
+  (adminSupplyOptions.churches || []).forEach(church => {
+    select.appendChild(createOption(church.churchName, church.churchId));
+  });
+}
+
+function resetAdminSupplyPageAndLoad() {
+  adminSupplyPage = 1;
+  loadAdminSupplyItems();
+}
+
+function handleAdminSupplySearchKey(event) {
+  if (event.key === 'Enter') resetAdminSupplyPageAndLoad();
+}
+
+function loadAdminSupplyItems() {
+  setListLoading('adminSupplyTableBody', true, '行政物資載入中...');
+  document.getElementById('adminSupplyError').textContent = '';
+  google.script.run
+    .withSuccessHandler(data => {
+      adminSupplyItems = data?.rows || [];
+      adminSupplyTotal = Number(data?.total || 0);
+      renderAdminSupplyItems();
+      renderAdminSupplyMovementSupplyOptions();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('adminSupplyError').textContent = err.message || err;
+      adminSupplyItems = [];
+      renderAdminSupplyItems();
+    })
+    .getAdminSupplyItems({
+      keyword: document.getElementById('adminSupplyKeyword').value,
+      category: document.getElementById('adminSupplyCategoryFilter').value,
+      status: document.getElementById('adminSupplyStatusFilter').value,
+      page: adminSupplyPage,
+      pageSize: ADMIN_SUPPLY_PAGE_SIZE
+    }, currentUser);
+}
+
+function renderAdminSupplyItems() {
+  renderAdminSupplyTableHead();
+  const body = document.getElementById('adminSupplyTableBody');
+  body.innerHTML = '';
+  if (!adminSupplyItems.length) {
+    body.innerHTML = `<tr><td colspan="${6 + (adminSupplyOptions.churches || []).length}" class="text-center text-muted py-4">目前沒有行政物資資料</td></tr>`;
+    renderAdminSupplyPager();
+    return;
+  }
+  adminSupplyItems.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><button type="button" class="btn btn-link p-0" onclick="openAdminSupplyItemEditor('${escapeAttr(item.supplyId)}')">${escapeHtml(item.supplyCode)}</button></td>
+      <td>
+        <div class="fw-semibold">${escapeHtml(item.name)}</div>
+        ${item.isLowStock ? '<span class="badge bg-danger-subtle text-danger">低庫存</span>' : ''}
+        ${!item.isActive ? '<span class="badge bg-secondary ms-1">停用</span>' : ''}
+      </td>
+      <td>${escapeHtml(item.category || '')}</td>
+      <td>${escapeHtml(item.unit || '')}</td>
+      <td class="text-end">${formatAdminSupplyQuantity(item.totalQuantity)}</td>
+      ${(adminSupplyOptions.churches || []).map(church => renderAdminSupplyStockCell(item, church)).join('')}
+      <td class="text-end">
+        ${adminSupplyCanEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openAdminSupplyMovementModal('${escapeAttr(item.supplyId)}')">異動</button>` : ''}
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+  renderAdminSupplyPager();
+}
+
+function renderAdminSupplyTableHead() {
+  const head = document.getElementById('adminSupplyTableHead');
+  head.innerHTML = `
+    <tr>
+      <th>物資編號</th>
+      <th>物資名稱</th>
+      <th>類別</th>
+      <th>單位</th>
+      <th class="text-end">總數量</th>
+      ${(adminSupplyOptions.churches || []).map(church => `<th class="text-end">${escapeHtml(church.churchName)}</th>`).join('')}
+      <th class="text-end">功能</th>
+    </tr>
+  `;
+}
+
+function renderAdminSupplyStockCell(item, church) {
+  const stock = (item.stocks || []).find(row => String(row.churchId) === String(church.churchId)) || { quantity: 0 };
+  const cls = stock.isLowStock ? 'text-danger fw-semibold' : '';
+  return `<td class="text-end ${cls}">${formatAdminSupplyQuantity(stock.quantity)}</td>`;
+}
+
+function renderAdminSupplyPager() {
+  const totalPages = Math.max(Math.ceil(adminSupplyTotal / ADMIN_SUPPLY_PAGE_SIZE), 1);
+  document.getElementById('adminSupplyPager').textContent = `第 ${adminSupplyPage} / ${totalPages} 頁，共 ${adminSupplyTotal} 筆`;
+}
+
+function prevAdminSupplyPage() {
+  if (adminSupplyPage <= 1) return;
+  adminSupplyPage -= 1;
+  loadAdminSupplyItems();
+}
+
+function nextAdminSupplyPage() {
+  const totalPages = Math.max(Math.ceil(adminSupplyTotal / ADMIN_SUPPLY_PAGE_SIZE), 1);
+  if (adminSupplyPage >= totalPages) return;
+  adminSupplyPage += 1;
+  loadAdminSupplyItems();
+}
+
+function openAdminSupplyItemEditor(supplyId = '') {
+  if (!adminSupplyCanEdit) return;
+  const item = adminSupplyItems.find(row => String(row.supplyId) === String(supplyId)) || {};
+  document.getElementById('adminSupplyItemId').value = item.supplyId || '';
+  document.getElementById('adminSupplyItemCode').value = item.supplyCode || '';
+  document.getElementById('adminSupplyItemName').value = item.name || '';
+  document.getElementById('adminSupplyItemCategory').value = item.category || '';
+  document.getElementById('adminSupplyItemUnit').value = item.unit || '';
+  document.getElementById('adminSupplyItemMinStock').value = item.minStock || 0;
+  document.getElementById('adminSupplyItemActive').checked = item.isActive !== false;
+  document.getElementById('adminSupplyItemNote').value = item.note || '';
+  document.getElementById('adminSupplyItemError').textContent = '';
+  adminSupplyItemModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('adminSupplyItemModal'));
+  adminSupplyItemModalInstance.show();
+}
+
+function submitAdminSupplyItem() {
+  const btn = document.getElementById('adminSupplySaveItemBtn');
+  const errorBox = document.getElementById('adminSupplyItemError');
+  const item = {
+    supplyId: document.getElementById('adminSupplyItemId').value,
+    supplyCode: document.getElementById('adminSupplyItemCode').value.trim(),
+    name: document.getElementById('adminSupplyItemName').value.trim(),
+    category: document.getElementById('adminSupplyItemCategory').value.trim(),
+    unit: document.getElementById('adminSupplyItemUnit').value.trim(),
+    minStock: document.getElementById('adminSupplyItemMinStock').value || 0,
+    isActive: document.getElementById('adminSupplyItemActive').checked,
+    note: document.getElementById('adminSupplyItemNote').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!item.name) {
+    errorBox.textContent = '請填寫物資名稱';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (adminSupplyItemModalInstance) adminSupplyItemModalInstance.hide();
+      alert(res.message);
+      loadAdminSupplyOptions(() => {
+        renderAdminSupplyFilters();
+        loadAdminSupplyItems();
+      });
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveAdminSupplyItem({ currentUser, item });
+}
+
+function renderAdminSupplyMovementSupplyOptions() {
+  ['adminSupplyMovementSupply', 'adminSupplyMovementSupplyFilter'].forEach((id, index) => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const current = select.value;
+    select.innerHTML = index === 1 ? '<option value="">全部物資</option>' : '<option value="">請選擇物資</option>';
+    adminSupplyItems.forEach(item => {
+      select.appendChild(createOption(`${item.supplyCode} ${item.name}`, item.supplyId));
+    });
+    if (current && adminSupplyItems.some(item => item.supplyId === current)) select.value = current;
+  });
+}
+
+function openAdminSupplyMovementModal(supplyId = '') {
+  if (!adminSupplyCanEdit) return;
+  renderAdminSupplyMovementSupplyOptions();
+  document.getElementById('adminSupplyMovementSupply').value = supplyId || '';
+  document.getElementById('adminSupplyMovementType').value = 'in';
+  document.getElementById('adminSupplyMovementFromChurch').value = '';
+  document.getElementById('adminSupplyMovementToChurch').value = '';
+  document.getElementById('adminSupplyMovementQuantity').value = '';
+  document.getElementById('adminSupplyMovementReason').value = '';
+  document.getElementById('adminSupplyMovementNote').value = '';
+  document.getElementById('adminSupplyMovementModalError').textContent = '';
+  updateAdminSupplyMovementFields();
+  adminSupplyMovementModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('adminSupplyMovementModal'));
+  adminSupplyMovementModalInstance.show();
+}
+
+function updateAdminSupplyMovementFields() {
+  const type = document.getElementById('adminSupplyMovementType').value;
+  const showFrom = ['out', 'transfer', 'discard'].includes(type);
+  const showTo = ['in', 'transfer', 'adjust', 'return'].includes(type);
+  document.querySelectorAll('.admin-supply-from-field').forEach(el => el.classList.toggle('d-none', !showFrom));
+  document.querySelectorAll('.admin-supply-to-field').forEach(el => el.classList.toggle('d-none', !showTo));
+}
+
+function submitAdminSupplyMovement() {
+  const btn = document.getElementById('adminSupplySaveMovementBtn');
+  const errorBox = document.getElementById('adminSupplyMovementModalError');
+  const movement = {
+    supplyId: document.getElementById('adminSupplyMovementSupply').value,
+    movementType: document.getElementById('adminSupplyMovementType').value,
+    fromChurchId: document.getElementById('adminSupplyMovementFromChurch').value,
+    toChurchId: document.getElementById('adminSupplyMovementToChurch').value,
+    quantity: document.getElementById('adminSupplyMovementQuantity').value,
+    reason: document.getElementById('adminSupplyMovementReason').value.trim(),
+    note: document.getElementById('adminSupplyMovementNote').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!movement.supplyId) {
+    errorBox.textContent = '請選擇物資';
+    return;
+  }
+  if (!movement.quantity || Number(movement.quantity) <= 0) {
+    errorBox.textContent = '請填寫大於 0 的數量';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (adminSupplyMovementModalInstance) adminSupplyMovementModalInstance.hide();
+      alert(res.message);
+      loadAdminSupplyItems();
+      loadAdminSupplyMovements();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .createAdminSupplyMovement({ currentUser, movement });
+}
+
+function loadAdminSupplyMovements() {
+  setListLoading('adminSupplyMovementTableBody', true, '異動紀錄載入中...');
+  document.getElementById('adminSupplyMovementError').textContent = '';
+  google.script.run
+    .withSuccessHandler(rows => {
+      adminSupplyMovements = rows || [];
+      renderAdminSupplyMovements();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('adminSupplyMovementError').textContent = err.message || err;
+      adminSupplyMovements = [];
+      renderAdminSupplyMovements();
+    })
+    .getAdminSupplyMovements({
+      supplyId: document.getElementById('adminSupplyMovementSupplyFilter').value,
+      movementType: document.getElementById('adminSupplyMovementTypeFilter').value,
+      limit: document.getElementById('adminSupplyMovementLimit').value
+    }, currentUser);
+}
+
+function renderAdminSupplyMovements() {
+  const body = document.getElementById('adminSupplyMovementTableBody');
+  body.innerHTML = '';
+  if (!adminSupplyMovements.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">目前沒有異動紀錄</td></tr>';
+    return;
+  }
+  adminSupplyMovements.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(formatFormsDateTime(row.createdAt))}</td>
+      <td>${escapeHtml(row.supplyCode)} ${escapeHtml(row.supplyName)}</td>
+      <td>${escapeHtml(row.movementTypeLabel)}</td>
+      <td>${escapeHtml(row.fromChurchName || '-')}</td>
+      <td>${escapeHtml(row.toChurchName || '-')}</td>
+      <td class="text-end">${formatAdminSupplyQuantity(row.quantity)} ${escapeHtml(row.unit || '')}</td>
+      <td>${escapeHtml(row.reason || '')}</td>
+      <td>${escapeHtml(row.handledByName || '')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function createOption(text, value) {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = text;
+  return option;
+}
+
+function formatAdminSupplyQuantity(value) {
+  return Number(value || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+}
+</script>

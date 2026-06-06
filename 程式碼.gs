@@ -869,6 +869,52 @@ function getAssetDetail(assetId, currentUser) {
   return apiRequest('get', `/assets/${encodeURIComponent(assetId)}`, null, null, currentUser);
 }
 
+function getAdminSupplyOptions(currentUser) {
+  return apiRequest('get', '/admin-supplies/options', null, null, currentUser);
+}
+
+function getAdminSupplyItems(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/admin-supplies/items', null, {
+    keyword: filters.keyword || '',
+    category: filters.category || '',
+    status: filters.status || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function saveAdminSupplyItem(payload) {
+  const item = payload.item || {};
+  if (item.supplyId) {
+    return apiRequest(
+      'put',
+      `/admin-supplies/items/${encodeURIComponent(item.supplyId)}`,
+      { currentUser: payload.currentUser, item }
+    );
+  }
+  return apiRequest('post', '/admin-supplies/items', {
+    currentUser: payload.currentUser,
+    item
+  });
+}
+
+function getAdminSupplyMovements(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/admin-supplies/movements', null, {
+    supplyId: filters.supplyId || '',
+    movementType: filters.movementType || '',
+    limit: filters.limit || 100
+  }, currentUser);
+}
+
+function createAdminSupplyMovement(payload) {
+  return apiRequest('post', '/admin-supplies/movements', {
+    currentUser: payload.currentUser,
+    movement: payload.movement
+  });
+}
+
 function saveAsset(payload) {
   const assetId = payload.asset && payload.asset.assetId;
   if (assetId) {

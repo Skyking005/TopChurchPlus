@@ -2,6 +2,7 @@
 const SYSTEM_FEATURES = [
   { key: 'project', icon: 'clipboard', title: '專案管理系統', desc: '建立與追蹤專案、會議記錄、專案權限、收支預算與文件匯出。', action: 'openProjectSystem' },
   { key: 'finance', icon: 'wallet', title: '財務管理系統', desc: '處理採購申請、預借、支出憑證、請款、報價單附件與財務文件。', action: 'openPurchaseSystem' },
+  { key: 'admin_supply', icon: 'package', title: '行政物資管理系統', desc: '管理行政消耗品、各會堂庫存、入庫、領用、調撥與低庫存提醒。', action: 'openAdminSupplySystem' },
   { key: 'asset', icon: 'package', title: '資產管理系統', desc: '管理固定資產清冊、設備位置、借用狀態、異動紀錄與資產來源。', action: 'openAssetSystem' },
   { key: 'system', icon: 'settings', title: '系統管理', desc: '維護系統參數、位置、使用者、角色權限、短連結與底層設定。', action: 'openSystemManagement' },
   { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
@@ -20,9 +21,9 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'admin_supply', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
@@ -425,7 +426,7 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'adminSupplyView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -444,6 +445,7 @@ function backToFeatureMenu() {
   renderFeatureMenu();
   document.getElementById('featureSelectionView').classList.remove('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
+  document.getElementById('adminSupplyView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('zoomView').classList.add('d-none');
@@ -597,6 +599,7 @@ function openProjectSystem() {
   document.getElementById('mainTitle').textContent = '專案管理系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('purchaseView').classList.add('d-none');
+  document.getElementById('adminSupplyView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('zoomView').classList.add('d-none');
@@ -620,6 +623,7 @@ function openPurchaseSystem() {
   document.getElementById('mainTitle').textContent = '財務系統';
   document.getElementById('featureSelectionView').classList.add('d-none');
   document.getElementById('overviewView').classList.add('d-none');
+  document.getElementById('adminSupplyView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
   document.getElementById('zoomView').classList.add('d-none');

@@ -20,6 +20,7 @@ const PARAM_CATEGORIES = {
 const SYSTEM_FEATURES = [
   'project',
   'finance',
+  'admin_supply',
   'asset',
   'venue',
   'zoom',

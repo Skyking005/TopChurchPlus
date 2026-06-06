@@ -1,0 +1,208 @@
+<section id="adminSupplyView" class="d-none">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h5 class="mb-1">行政物資管理</h5>
+      <div class="text-muted small">維護行政消耗品、各分堂庫存、入庫、領用、調撥與低庫存提醒。</div>
+    </div>
+    <div class="d-flex gap-2">
+      <button id="adminSupplyAddItemBtn" type="button" class="btn btn-success" onclick="openAdminSupplyItemEditor()">新增物資</button>
+      <button id="adminSupplyMovementBtn" type="button" class="btn btn-primary" onclick="openAdminSupplyMovementModal()">庫存異動</button>
+    </div>
+  </div>
+
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button type="button" class="nav-link active" data-admin-supply-tab="items" onclick="switchAdminSupplyTab('items')">物資清單</button>
+    </li>
+    <li class="nav-item">
+      <button type="button" class="nav-link" data-admin-supply-tab="movements" onclick="switchAdminSupplyTab('movements')">異動紀錄</button>
+    </li>
+  </ul>
+
+  <div id="adminSupplyItemPanel">
+    <div class="filter-panel mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label">關鍵字</label>
+          <input id="adminSupplyKeyword" class="form-control" placeholder="物資編號、名稱、備註" onkeydown="handleAdminSupplySearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">類別</label>
+          <select id="adminSupplyCategoryFilter" class="form-select" onchange="resetAdminSupplyPageAndLoad()"></select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">狀態</label>
+          <select id="adminSupplyStatusFilter" class="form-select" onchange="resetAdminSupplyPageAndLoad()">
+            <option value="">全部</option>
+            <option value="active">啟用</option>
+            <option value="inactive">停用</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button type="button" class="btn btn-outline-primary" onclick="resetAdminSupplyPageAndLoad()">搜尋</button>
+        </div>
+      </div>
+    </div>
+    <div id="adminSupplyError" class="text-danger small mb-2"></div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead id="adminSupplyTableHead"></thead>
+          <tbody id="adminSupplyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="pagination-area">
+      <button class="btn btn-outline-secondary btn-sm" onclick="prevAdminSupplyPage()">上一頁</button>
+      <span id="adminSupplyPager"></span>
+      <button class="btn btn-outline-secondary btn-sm" onclick="nextAdminSupplyPage()">下一頁</button>
+    </div>
+  </div>
+
+  <div id="adminSupplyMovementPanel" class="d-none">
+    <div class="filter-panel mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-5">
+          <label class="form-label">物資</label>
+          <select id="adminSupplyMovementSupplyFilter" class="form-select" onchange="loadAdminSupplyMovements()"></select>
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">異動類型</label>
+          <select id="adminSupplyMovementTypeFilter" class="form-select" onchange="loadAdminSupplyMovements()"></select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">筆數</label>
+          <select id="adminSupplyMovementLimit" class="form-select" onchange="loadAdminSupplyMovements()">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button type="button" class="btn btn-outline-primary" onclick="loadAdminSupplyMovements()">重新整理</button>
+        </div>
+      </div>
+    </div>
+    <div id="adminSupplyMovementError" class="text-danger small mb-2"></div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>物資</th>
+              <th>類型</th>
+              <th>來源</th>
+              <th>目的</th>
+              <th class="text-end">數量</th>
+              <th>原因</th>
+              <th>經手人</th>
+            </tr>
+          </thead>
+          <tbody id="adminSupplyMovementTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="adminSupplyItemModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">物資品項</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input id="adminSupplyItemId" type="hidden">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">物資編號</label>
+              <input id="adminSupplyItemCode" class="form-control" placeholder="空白時系統產生">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">物資名稱</label>
+              <input id="adminSupplyItemName" class="form-control">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">類別</label>
+              <input id="adminSupplyItemCategory" class="form-control" list="adminSupplyCategoryList">
+              <datalist id="adminSupplyCategoryList"></datalist>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">單位</label>
+              <input id="adminSupplyItemUnit" class="form-control" list="adminSupplyUnitList">
+              <datalist id="adminSupplyUnitList"></datalist>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">最低安全庫存</label>
+              <input id="adminSupplyItemMinStock" type="number" min="0" step="0.01" class="form-control text-end">
+            </div>
+            <div class="col-md-12">
+              <div class="form-check">
+                <input id="adminSupplyItemActive" type="checkbox" class="form-check-input" checked>
+                <label class="form-check-label" for="adminSupplyItemActive">啟用</label>
+              </div>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">備註</label>
+              <textarea id="adminSupplyItemNote" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div id="adminSupplyItemError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button id="adminSupplySaveItemBtn" type="button" class="btn btn-primary" onclick="submitAdminSupplyItem()">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="adminSupplyMovementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">庫存異動</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">物資</label>
+              <select id="adminSupplyMovementSupply" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">異動類型</label>
+              <select id="adminSupplyMovementType" class="form-select" onchange="updateAdminSupplyMovementFields()"></select>
+            </div>
+            <div class="col-md-6 admin-supply-from-field">
+              <label class="form-label">來源會堂</label>
+              <select id="adminSupplyMovementFromChurch" class="form-select"></select>
+            </div>
+            <div class="col-md-6 admin-supply-to-field">
+              <label class="form-label">目的/調整會堂</label>
+              <select id="adminSupplyMovementToChurch" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">數量</label>
+              <input id="adminSupplyMovementQuantity" type="number" min="0.01" step="0.01" class="form-control text-end">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">原因</label>
+              <input id="adminSupplyMovementReason" class="form-control" placeholder="例：例行補貨、活動領用、分堂調撥">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">備註</label>
+              <textarea id="adminSupplyMovementNote" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div id="adminSupplyMovementModalError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button id="adminSupplySaveMovementBtn" type="button" class="btn btn-primary" onclick="submitAdminSupplyMovement()">儲存異動</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
