@@ -1049,6 +1049,42 @@ function exportPaymentRequestDoc(payload) {
   return createFinanceDocumentFromSpec(docName, spec);
 }
 
+function exportPaymentRequestDocx(payload) {
+  const paymentId = payload.paymentId;
+  if (!paymentId) throw new Error('缺少請款編號');
+
+  const props = PropertiesService.getScriptProperties();
+  const baseUrl = props.getProperty('API_BASE_URL');
+  const apiKey = props.getProperty('API_KEY');
+  if (!baseUrl || !apiKey) {
+    throw new Error('尚未設定 API_BASE_URL / API_KEY，請先執行 setApiConfig。');
+  }
+
+  const url = `${baseUrl}/documents/finance/payment-requests/${encodeURIComponent(paymentId)}.docx`;
+  const response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: {
+      'x-api-key': apiKey,
+      'x-current-user': Utilities.base64EncodeWebSafe(JSON.stringify(payload.currentUser || {}))
+    },
+    muteHttpExceptions: true
+  });
+
+  if (response.getResponseCode() >= 300) {
+    throw new Error(response.getContentText() || `API 錯誤：${response.getResponseCode()}`);
+  }
+
+  const blob = response.getBlob();
+  const fileName = `${paymentId}_請款申請單.docx`;
+  return {
+    success: true,
+    fileName,
+    mimeType: blob.getContentType(),
+    dataUrl: `data:${blob.getContentType()};base64,${Utilities.base64Encode(blob.getBytes())}`,
+    message: '已建立請款申請單 DOCX'
+  };
+}
+
 function createFinanceDocumentFromSpec(docName, spec) {
   const doc = DocumentApp.create(docName);
   const body = doc.getBody();

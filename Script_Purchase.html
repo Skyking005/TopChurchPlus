@@ -711,11 +711,14 @@ function exportPaymentDocument(docType, paymentId, proofId = '', btn = null) {
 
   const button = btn;
   if (button) setButtonLoading(button, true, '匯出中...');
+  const serverFunction = docType === 'payment' ? 'exportPaymentRequestDocx' : 'exportPaymentRequestDoc';
 
-  google.script.run
+  const runner = google.script.run
     .withSuccessHandler(res => {
       if (button) setButtonLoading(button, false);
-      if (res && res.url) {
+      if (res && res.dataUrl) {
+        downloadDataUrl(res.dataUrl, res.fileName || `${paymentId}_請款申請單.docx`);
+      } else if (res && res.url) {
         window.open(res.url, '_blank');
       } else {
         alert('已建立文件，但未取得連結');
@@ -724,13 +727,22 @@ function exportPaymentDocument(docType, paymentId, proofId = '', btn = null) {
     .withFailureHandler(err => {
       if (button) setButtonLoading(button, false);
       showError(err);
-    })
-    .exportPaymentRequestDoc({
-      currentUser,
-      paymentId,
-      docType,
-      proofId
     });
+  runner[serverFunction]({
+    currentUser,
+    paymentId,
+    docType,
+    proofId
+  });
+}
+
+function downloadDataUrl(dataUrl, fileName) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = fileName || 'document.docx';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function openAdvanceModal() {
