@@ -274,6 +274,7 @@ function renderPaymentExpenseProofs(data) {
       <div class="d-flex justify-content-between align-items-start gap-2">
         <div>
           <div class="fw-bold">${escapeHtml(proofId)}</div>
+          <div class="text-muted">類型：${escapeHtml(proof['支出憑證類型'] || '一般支出憑證')}</div>
           <div class="text-muted">申請日期：${escapeHtml(proof['申請日期'] || '')}</div>
           <div class="text-muted">實付金額：${formatMoney(proof['實付金額'] || 0)}</div>
           <div class="small">${escapeHtml(proof['不能取得單據原因'] || '')}</div>
@@ -653,6 +654,7 @@ function renderSimpleSubList(containerId, rows, idKey, amountKey, docType) {
       <div class="d-flex justify-content-between align-items-start gap-2">
         <div>
           <div class="fw-bold">${escapeHtml(docId)}</div>
+          ${docType === 'expenseProof' ? `<div class="text-muted">類型：${escapeHtml(row['支出憑證類型'] || '一般支出憑證')}</div>` : ''}
           <div class="text-muted">${amountKey}：${formatMoney(row[amountKey] || 0)}</div>
         </div>
         <div class="d-flex gap-2 flex-wrap justify-content-end">
@@ -824,6 +826,7 @@ function openExpenseProofModal() {
   document.getElementById('proofPaymentId').value = '';
   document.getElementById('proofHall').value = document.getElementById('purchaseHall').value;
   document.getElementById('proofRequestDate').value = todayString();
+  document.getElementById('proofVoucherType').value = '一般支出憑證';
   document.getElementById('proofPaidAmount').value = '0';
   document.getElementById('proofNoReceiptReason').value = '';
   document.getElementById('proofRecipientName').value = '';
@@ -846,6 +849,7 @@ function openExpenseProofForPayment(paymentId) {
       document.getElementById('proofPaymentId').value = payment['請款編號'] || paymentId;
       document.getElementById('proofHall').value = payment['請款會堂'] || '';
       document.getElementById('proofRequestDate').value = todayString();
+      document.getElementById('proofVoucherType').value = '一般支出憑證';
       document.getElementById('proofPaidAmount').value = '0';
       document.getElementById('proofNoReceiptReason').value = '';
       document.getElementById('proofRecipientName').value = '';
@@ -887,6 +891,7 @@ function fillExpenseProofModal(proof) {
   document.getElementById('proofPaymentId').value = proof['請款編號'] || '';
   document.getElementById('proofHall').value = proof['請款會堂'] || '';
   document.getElementById('proofRequestDate').value = proof['申請日期'] || todayString();
+  document.getElementById('proofVoucherType').value = proof['支出憑證類型'] || '一般支出憑證';
   document.getElementById('proofPaidAmount').value = formatMoney(proof['實付金額'] || 0);
   document.getElementById('proofNoReceiptReason').value = proof['不能取得單據原因'] || '';
   document.getElementById('proofRecipientName').value = proof['姓名'] || '';
@@ -934,6 +939,7 @@ function submitExpenseProof() {
   const proof = {
     '請款會堂': document.getElementById('proofHall').value,
     '申請日期': document.getElementById('proofRequestDate').value,
+    '支出憑證類型': document.getElementById('proofVoucherType').value,
     '實付金額': Number(document.getElementById('proofPaidAmount').value.replaceAll(',', '') || 0),
     '不能取得單據原因': document.getElementById('proofNoReceiptReason').value.trim(),
     '姓名': document.getElementById('proofRecipientName').value.trim(),

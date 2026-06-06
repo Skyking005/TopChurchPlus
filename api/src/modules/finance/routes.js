@@ -364,14 +364,15 @@ async function saveExpenseProof(purchaseId, payload) {
     const paidAmount = items.reduce((sum, row) => sum + Number(row['費用'] || 0), 0);
     await client.query(
       `INSERT INTO purchase_expense_proofs (
-        proof_id, purchase_id, hall, request_date, paid_amount, no_receipt_reason,
+        proof_id, purchase_id, hall, request_date, voucher_type, paid_amount, no_receipt_reason,
         recipient_name, recipient_identity_no, recipient_address
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         proofId,
         purchaseId,
         proof['請款會堂'] || '',
         proof['申請日期'] || new Date(),
+        normalizeExpenseVoucherType(proof['支出憑證類型']),
         Number(proof['實付金額'] || paidAmount),
         proof['不能取得單據原因'] || '',
         proof['姓名'] || '',
@@ -403,15 +404,16 @@ async function saveExpenseProofForPayment(paymentId, payload) {
     const paidAmount = items.reduce((sum, row) => sum + Number(row['費用'] || 0), 0);
     await client.query(
       `INSERT INTO purchase_expense_proofs (
-        proof_id, purchase_id, payment_id, hall, request_date, paid_amount, no_receipt_reason,
+        proof_id, purchase_id, payment_id, hall, request_date, voucher_type, paid_amount, no_receipt_reason,
         recipient_name, recipient_identity_no, recipient_address
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         proofId,
         payment.purchase_id || null,
         paymentId,
         proof['請款會堂'] || payment.hall || '',
         proof['申請日期'] || new Date(),
+        normalizeExpenseVoucherType(proof['支出憑證類型']),
         Number(proof['實付金額'] || paidAmount),
         proof['不能取得單據原因'] || '',
         proof['姓名'] || '',
@@ -445,16 +447,18 @@ async function updateExpenseProof(proofId, payload) {
        SET hall = $1,
            request_date = $2,
            paid_amount = $3,
-           no_receipt_reason = $4,
-           recipient_name = $5,
-           recipient_identity_no = $6,
-           recipient_address = $7,
+           voucher_type = $4,
+           no_receipt_reason = $5,
+           recipient_name = $6,
+           recipient_identity_no = $7,
+           recipient_address = $8,
            updated_at = now()
-       WHERE proof_id = $8`,
+       WHERE proof_id = $9`,
       [
         proof['請款會堂'] || existing.hall || '',
         proof['申請日期'] || new Date(),
         Number(proof['實付金額'] || paidAmount),
+        normalizeExpenseVoucherType(proof['支出憑證類型']),
         proof['不能取得單據原因'] || '',
         proof['姓名'] || '',
         proof['身分證字號'] || '',
@@ -592,6 +596,11 @@ function normalizePurchaseType(purchase) {
   return value;
 }
 
+function normalizeExpenseVoucherType(value) {
+  const text = String(value || '').trim();
+  return text === '鐘點費支出憑證' ? '鐘點費支出憑證' : '一般支出憑證';
+}
+
 function toPurchaseListItem(row) {
   return {
     purchaseId: row.purchase_id,
@@ -658,6 +667,7 @@ function toExpenseProof(row, items) {
     '請款編號': row.payment_id,
     '請款會堂': row.hall,
     '申請日期': formatDate(row.request_date),
+    '支出憑證類型': normalizeExpenseVoucherType(row.voucher_type),
     '實付金額': Number(row.paid_amount || 0),
     '不能取得單據原因': row.no_receipt_reason,
     '姓名': row.recipient_name,

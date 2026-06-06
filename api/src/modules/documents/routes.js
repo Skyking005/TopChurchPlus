@@ -384,6 +384,7 @@ function buildPurchaseDocSpec(docType, docId, detail) {
 
   if (docType === 'expenseProof') {
     const proof = findDocRow(detail.expenseProofs, '支出證明編號', docId);
+    if (proof['支出憑證類型'] === '鐘點費支出憑證') return buildHourlyExpenseProofDocSpec(proof);
     return {
       title: '支出證明申請單',
       sections: [
@@ -396,6 +397,7 @@ function buildPurchaseDocSpec(docType, docId, detail) {
             ['請款編號', proof['請款編號']],
             ['請款會堂', proof['請款會堂']],
             ['申請日期', proof['申請日期']],
+            ['支出憑證類型', proof['支出憑證類型']],
             ['實付金額', proof['實付金額']],
             ['不能取得單據原因', proof['不能取得單據原因']]
           ]
@@ -454,6 +456,50 @@ function buildPurchaseDocSpec(docType, docId, detail) {
   }
 
   throw new Error('未知的採購單據類型');
+}
+
+function buildHourlyExpenseProofDocSpec(proof) {
+  return {
+    title: '卓越行道會 支出憑證',
+    sections: [
+      {
+        title: '一、憑證基本資料',
+        type: 'keyValue',
+        rows: [
+          ['支出證明編號', proof['支出證明編號']],
+          ['請購編號', proof['請購編號']],
+          ['請款編號', proof['請款編號']],
+          ['請款會堂', proof['請款會堂']],
+          ['申請日期', proof['申請日期']],
+          ['支出憑證類型', proof['支出憑證類型']],
+          ['實付金額', proof['實付金額']]
+        ]
+      },
+      {
+        title: '二、受領人資料',
+        type: 'keyValue',
+        rows: [
+          ['姓名', proof['姓名']],
+          ['身分證字號', proof['身分證字號']],
+          ['地址', proof['地址']]
+        ]
+      },
+      {
+        title: '三、鐘點費支出明細',
+        type: 'rows',
+        headers: ['項次', '項目', '費用'],
+        rows: proof.items || []
+      },
+      {
+        title: '四、說明',
+        type: 'keyValue',
+        rows: [
+          ['申報用途', '鐘點費支出憑證'],
+          ['備註', proof['不能取得單據原因']]
+        ]
+      }
+    ]
+  };
 }
 
 function findDocRow(rows, key, value) {
@@ -557,6 +603,7 @@ function toExpenseProof(row, items) {
     '請款編號': row.payment_id,
     '請款會堂': row.hall,
     '申請日期': formatDate(row.request_date),
+    '支出憑證類型': normalizeExpenseVoucherType(row.voucher_type),
     '實付金額': Number(row.paid_amount || 0),
     '不能取得單據原因': row.no_receipt_reason,
     '姓名': row.recipient_name,
@@ -568,6 +615,11 @@ function toExpenseProof(row, items) {
       '費用': Number(item.amount || 0)
     }))
   };
+}
+
+function normalizeExpenseVoucherType(value) {
+  const text = String(value || '').trim();
+  return text === '鐘點費支出憑證' ? '鐘點費支出憑證' : '一般支出憑證';
 }
 
 function toPaymentRequest(row, items) {

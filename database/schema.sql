@@ -190,6 +190,7 @@ CREATE TABLE IF NOT EXISTS purchase_expense_proofs (
   purchase_id TEXT NOT NULL REFERENCES purchases(purchase_id) ON DELETE CASCADE,
   hall TEXT,
   request_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  voucher_type TEXT NOT NULL DEFAULT '一般支出憑證' CHECK (voucher_type IN ('一般支出憑證', '鐘點費支出憑證')),
   paid_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
   no_receipt_reason TEXT,
   recipient_name TEXT,
