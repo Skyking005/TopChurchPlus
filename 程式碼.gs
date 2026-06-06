@@ -668,6 +668,21 @@ function saveVenueResourceBookable(payload) {
   });
 }
 
+function saveVenueReservation(payload) {
+  return apiRequest('post', '/venues/reservations', {
+    currentUser: payload.currentUser,
+    reservation: payload.reservation
+  });
+}
+
+function cancelVenueReservation(payload) {
+  return apiRequest(
+    'patch',
+    `/venues/reservations/${encodeURIComponent(payload.reservationId)}/cancel`,
+    { currentUser: payload.currentUser }
+  );
+}
+
 function getVenueAvailability(filters, currentUser) {
   filters = filters || {};
   const startAt = filters.startAt || new Date().toISOString();
@@ -742,6 +757,29 @@ function getVenueAvailability(filters, currentUser) {
     startAt,
     endAt
   };
+}
+
+function getZoomAvailability(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/zoom/availability', null, {
+    startAt: filters.startAt || new Date().toISOString(),
+    endAt: filters.endAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+  }, currentUser);
+}
+
+function saveZoomReservation(payload) {
+  return apiRequest('post', '/zoom/reservations', {
+    currentUser: payload.currentUser,
+    reservation: payload.reservation
+  });
+}
+
+function cancelZoomReservation(payload) {
+  return apiRequest(
+    'patch',
+    `/zoom/reservations/${encodeURIComponent(payload.reservationId)}/cancel`,
+    { currentUser: payload.currentUser }
+  );
 }
 
 function getProjects(filters, currentUser) {

@@ -867,6 +867,49 @@
     line-height: 1.5;
   }
 
+  .resource-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .resource-calendar-column {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    min-height: 180px;
+    overflow: hidden;
+  }
+
+  .resource-calendar-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+    background: #f8fafc;
+  }
+
+  .resource-calendar-body {
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+
+  .resource-empty-slot {
+    border: 1px dashed #b6c2d2;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    color: var(--muted);
+    background: #fbfdff;
+  }
+
+  .resource-reservation-card {
+    border: 1px solid #c7d2fe;
+    border-left: 4px solid #4f46e5;
+    border-radius: 8px;
+    padding: 10px;
+    background: #eef2ff;
+  }
+
   .qt-toolbar {
     background: #c7dfca;
     padding: 18px 16px;

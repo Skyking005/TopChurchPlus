@@ -41,6 +41,24 @@ function registerVenueRoutes(app) {
     }
   });
 
+  app.post('/venues/reservations', async (req, res, next) => {
+    try {
+      await assertFeatureEditable(req.body.currentUser, 'venue');
+      res.json(await createVenueReservation(req.body));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.patch('/venues/reservations/:reservationId/cancel', async (req, res, next) => {
+    try {
+      await assertFeatureEditable(req.body.currentUser, 'venue');
+      res.json(await cancelVenueReservation(req.params.reservationId));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/venues/availability', async (req, res, next) => {
     try {
       await assertFeatureReadable(parseUser(req), 'venue');
@@ -48,7 +66,13 @@ function registerVenueRoutes(app) {
         getVenueResources({ ...req.query, bookableOnly: '1' }),
         getVenueReservations(req.query)
       ]);
-      res.json({ resources, reservations });
+      const resourceRows = resources.map(resource => ({
+        ...resource,
+        reservations: reservations.filter(item =>
+          item.hall === resource.hall && item.mainLocation === resource.mainLocation
+        )
+      }));
+      res.json({ resources: resourceRows, reservations });
     } catch (err) {
       next(err);
     }
@@ -174,6 +198,82 @@ async function getVenueReservations(query = {}) {
     values
   );
   return rows.map(toVenueReservation);
+}
+
+async function createVenueReservation(payload) {
+  const currentUser = payload.currentUser || {};
+  const reservation = payload.reservation || {};
+  const hall = normalizeRequired(reservation.hall, '請選擇會堂');
+  const mainLocation = normalizeRequired(reservation.mainLocation, '請選擇場地');
+  const title = normalizeRequired(reservation.title, '請填寫借用主題');
+  const requesterName = normalizeRequired(reservation.requesterName || currentUser.name, '請填寫借用人');
+  const contactPhone = String(reservation.contactPhone || '').trim();
+  const note = String(reservation.note || '').trim();
+  const { startAt, endAt } = normalizeRange(reservation.startAt, reservation.endAt);
+
+  await assertVenueResourceBookable(hall, mainLocation);
+  await assertVenueAvailable(hall, mainLocation, startAt, endAt);
+
+  const { rows } = await pool.query(
+    `INSERT INTO venue_reservations (
+       hall, main_location, title, requester_name, requester_staff_id, contact_phone,
+       start_at, end_at, note, created_by_staff_id, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,now())
+     RETURNING reservation_id`,
+    [
+      hall,
+      mainLocation,
+      title,
+      requesterName,
+      currentUser.staffId ? String(currentUser.staffId) : null,
+      contactPhone || null,
+      startAt,
+      endAt,
+      note || null,
+      currentUser.staffId ? String(currentUser.staffId) : null
+    ]
+  );
+  return { success: true, message: '場地借用已建立', reservationId: rows[0].reservation_id };
+}
+
+async function cancelVenueReservation(reservationId) {
+  const result = await pool.query(
+    `UPDATE venue_reservations
+     SET status = 'cancelled', updated_at = now()
+     WHERE reservation_id = $1
+       AND status NOT IN ('cancelled', 'rejected')`,
+    [reservationId]
+  );
+  if (!result.rowCount) throw new Error('找不到可取消的場地借用資料');
+  return { success: true, message: '場地借用已取消' };
+}
+
+async function assertVenueResourceBookable(hall, mainLocation) {
+  const { rows } = await pool.query(
+    `SELECT 1
+     FROM asset_locations
+     WHERE hall = $1
+       AND main_location = $2
+       AND is_bookable
+     LIMIT 1`,
+    [hall, mainLocation]
+  );
+  if (!rows[0]) throw new Error('此場地目前不可借用');
+}
+
+async function assertVenueAvailable(hall, mainLocation, startAt, endAt) {
+  const { rows } = await pool.query(
+    `SELECT title, start_at, end_at
+     FROM venue_reservations
+     WHERE hall = $1
+       AND main_location = $2
+       AND status NOT IN ('cancelled', 'rejected')
+       AND start_at < $4
+       AND end_at > $3
+     LIMIT 1`,
+    [hall, mainLocation, startAt, endAt]
+  );
+  if (rows[0]) throw new Error(`此場地已被借用：${rows[0].title}`);
 }
 
 function normalizeRange(startAt, endAt) {

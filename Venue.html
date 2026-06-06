@@ -41,30 +41,15 @@
       </div>
       <div class="col-12 text-end">
         <button type="button" class="btn btn-primary" onclick="loadVenueAvailability()">查詢使用狀況</button>
+        <button id="openVenueReservationBtn" type="button" class="btn btn-outline-primary" onclick="openVenueReservationModal()">新增借用</button>
       </div>
     </div>
     </div>
 
     <div id="venueError" class="text-danger small mb-2"></div>
 
-    <div class="table-responsive d-none d-md-block">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th>會堂</th>
-            <th>主要位置</th>
-            <th>位置數</th>
-            <th>狀態</th>
-            <th>行事曆</th>
-            <th>占用時段</th>
-            <th class="text-end">功能</th>
-          </tr>
-        </thead>
-        <tbody id="venueResourceTableBody"></tbody>
-      </table>
-    </div>
-
-    <div id="mobileVenueResourceList" class="d-md-none mobile-card-list"></div>
+    <div id="venueResourceTableBody" class="resource-calendar-grid"></div>
+    <div id="mobileVenueResourceList" class="d-none"></div>
   </div>
 
   <div id="venueManagementPanel" class="d-none">
@@ -120,6 +105,54 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
           <button id="saveVenueCalendarBtn" type="button" class="btn btn-primary" onclick="submitVenueCalendar()">儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="venueReservationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">新增場地借用</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">可借用場地</label>
+              <select id="venueReservationResource" class="form-select"></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">借用主題</label>
+              <input id="venueReservationTitle" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">開始</label>
+              <input id="venueReservationStartAt" type="datetime-local" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">結束</label>
+              <input id="venueReservationEndAt" type="datetime-local" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">借用人</label>
+              <input id="venueReservationRequester" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">聯絡電話</label>
+              <input id="venueReservationPhone" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label">備註</label>
+              <textarea id="venueReservationNote" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+          <div id="venueReservationError" class="text-danger small mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button id="saveVenueReservationBtn" type="button" class="btn btn-primary" onclick="submitVenueReservation()">儲存借用</button>
         </div>
       </div>
     </div>

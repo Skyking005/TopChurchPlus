@@ -22,6 +22,7 @@ const SYSTEM_FEATURES = [
   'finance',
   'asset',
   'venue',
+  'zoom',
   'forms',
   'counter',
   'qrcode',

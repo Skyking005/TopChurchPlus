@@ -5,6 +5,7 @@ const SYSTEM_FEATURES = [
   { key: 'asset', icon: 'package', title: '資產管理系統', desc: '管理固定資產清冊、設備位置、借用狀態、異動紀錄與資產來源。', action: 'openAssetSystem' },
   { key: 'system', icon: 'settings', title: '系統管理', desc: '維護系統參數、位置、使用者、角色權限、短連結與底層設定。', action: 'openSystemManagement' },
   { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
+  { key: 'zoom', icon: 'video', title: 'Zoom帳號管理系統', desc: '以行事曆方式查看與借用教會 Zoom 帳號，避免會議時段衝突。', action: 'openZoomSystem' },
   { key: 'forms', icon: 'form', title: '表單系統', desc: '建立問卷、活動報名與公開填寫表單，並檢視回覆與統計。', action: 'openFormsSystem' },
   { key: 'counter', icon: 'counter', title: '櫃台工作台', desc: '提供志工櫃台使用，處理現場繳費、QT 領取與報名服務。', action: 'openCounterWorkbench' },
   { key: 'qrcode', icon: 'qrcode', title: 'QRCode 活動管理', desc: '建立活動報到櫃台，搭配 Line QRCode 掃描並檢視出席名單。', action: 'openQrcodeSystem' },
@@ -19,9 +20,9 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
-  '管理員': ['project', 'finance', 'asset', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'venue', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'finance', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '管理員': ['project', 'finance', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'finance', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
@@ -385,7 +386,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -418,7 +419,7 @@ function resetAppToLogin() {
 }
 
 function hideAllMainViews() {
-  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -439,6 +440,7 @@ function backToFeatureMenu() {
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
+  document.getElementById('zoomView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
@@ -509,7 +511,8 @@ function getFeatureIconSvg(icon) {
     image: '<path d="M4 5h16v14H4z"/><circle cx="9" cy="10" r="2"/><path d="M4 17l5-5 4 4 3-3 4 4"/>',
     music: '<path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/>',
     chart: '<path d="M4 20h16"/><path d="M7 16V9M12 16V5M17 16v-7"/>',
-    calendar: '<path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 9h14"/><path d="M8 13h3M13 13h3M8 17h3"/>'
+    calendar: '<path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 9h14"/><path d="M8 13h3M13 13h3M8 17h3"/>',
+    video: '<path d="M4 7h11v10H4z"/><path d="M15 11l5-3v8l-5-3z"/>'
   };
   const path = paths[icon] || paths.clipboard;
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">${path}</svg>`;
@@ -590,6 +593,7 @@ function openProjectSystem() {
   document.getElementById('purchaseView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
+  document.getElementById('zoomView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
@@ -612,6 +616,7 @@ function openPurchaseSystem() {
   document.getElementById('overviewView').classList.add('d-none');
   document.getElementById('assetView').classList.add('d-none');
   document.getElementById('venueView').classList.add('d-none');
+  document.getElementById('zoomView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');

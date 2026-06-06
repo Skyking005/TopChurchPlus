@@ -2,18 +2,20 @@
 let venueResources = [];
 let venueAvailability = null;
 let venueCalendarModalInstance = null;
+let venueReservationModalInstance = null;
 let venueCanEdit = false;
 
 function openVenueSystem() {
   recordFeatureUsage('venue');
   document.getElementById('mainTitle').textContent = '場地預約系統';
   venueCanEdit = getFeatureAccess('venue') === 'edit' && currentUser.deviceType !== 'mobile';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'zoomView', 'pastoralView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
   document.getElementById('venueView').classList.remove('d-none');
   document.getElementById('venueManagementTab').classList.toggle('d-none', !venueCanEdit);
+  document.getElementById('openVenueReservationBtn').classList.toggle('d-none', !venueCanEdit);
   setupVenueDefaults();
   switchVenueTab('availability');
   loadVenueResources(() => loadVenueAvailability());
@@ -139,42 +141,38 @@ function collectVenueAvailabilityFilters() {
 }
 
 function renderVenueResources(resources) {
-  const tbody = document.getElementById('venueResourceTableBody');
+  const grid = document.getElementById('venueResourceTableBody');
   const mobile = document.getElementById('mobileVenueResourceList');
-  tbody.innerHTML = '';
+  grid.innerHTML = '';
   mobile.innerHTML = '';
 
   if (!resources.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">查無場地資料</td></tr>';
+    grid.innerHTML = '<div class="list-loading-box text-muted">查無場地資料</div>';
     mobile.innerHTML = '<div class="list-loading-box text-muted">查無場地資料</div>';
     return;
   }
 
   resources.forEach(resource => {
     const view = getVenueResourceView(resource);
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${escapeHtml(resource.hall)}</td>
-      <td>${escapeHtml(resource.mainLocation)}</td>
-      <td>${escapeHtml(resource.locationCount)}</td>
-      <td><span class="venue-status-badge ${view.statusClass}">${escapeHtml(view.status)}</span></td>
-      <td>${escapeHtml(view.calendarText)}</td>
-      <td>${view.eventsHtml}</td>
-      <td class="text-end">${renderVenueActions(resource)}</td>
+    const column = document.createElement('div');
+    column.className = 'resource-calendar-column';
+    column.innerHTML = `
+      <div class="resource-calendar-header">
+        <div class="d-flex justify-content-between gap-2 align-items-start">
+          <div>
+            <div class="fw-semibold">${escapeHtml(resource.mainLocation)}</div>
+            <div class="small text-muted">${escapeHtml(resource.hall)} / ${escapeHtml(resource.locationCount)} 個位置</div>
+          </div>
+          <span class="venue-status-badge ${view.statusClass}">${escapeHtml(view.status)}</span>
+        </div>
+        <div class="small text-muted text-break mt-1">${escapeHtml(view.calendarText)}</div>
+      </div>
+      <div class="resource-calendar-body">
+        ${view.eventsHtml}
+        <div class="mt-2">${renderVenueActions(resource)}</div>
+      </div>
     `;
-    tbody.appendChild(row);
-
-    const card = document.createElement('div');
-    card.className = 'project-card-mobile';
-    card.innerHTML = `
-      <h6>${escapeHtml(resource.mainLocation)}</h6>
-      <div class="project-meta">${escapeHtml(resource.hall)} / ${escapeHtml(resource.locationCount)} 個位置</div>
-      <div class="project-meta"><span class="venue-status-badge ${view.statusClass}">${escapeHtml(view.status)}</span></div>
-      <div class="project-meta">${escapeHtml(view.calendarText)}</div>
-      <div class="mt-2">${view.eventsHtml}</div>
-      <div class="mt-2">${renderVenueActions(resource)}</div>
-    `;
-    mobile.appendChild(card);
+    grid.appendChild(column);
   });
 }
 
@@ -262,11 +260,13 @@ function getVenueResourceView(resource) {
 }
 
 function renderVenueEvents(events) {
-  if (!events || !events.length) return '<span class="text-muted">無占用時段</span>';
+  if (!events || !events.length) return '<div class="resource-empty-slot">此時段可借用</div>';
   return events.slice(0, 3).map(event => `
-    <div class="venue-event-line">
-      ${escapeHtml(formatVenueTime(event.startAt))}-${escapeHtml(formatVenueTime(event.endAt))}
-      ${escapeHtml(event.title || '未命名')}
+    <div class="resource-reservation-card">
+      <div class="fw-semibold">${escapeHtml(formatResourceTimeRange(event.startAt, event.endAt))}</div>
+      <div>${escapeHtml(event.title || '未命名')}</div>
+      <div class="small text-muted">${escapeHtml(event.requesterName || event.source || '')}</div>
+      ${venueCanEdit && event.source !== 'google_calendar' && event.reservationId ? `<button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="cancelVenueReservationFromUI('${escapeAttr(event.reservationId)}')">取消借用</button>` : ''}
     </div>
   `).join('') + (events.length > 3 ? `<div class="text-muted small">另有 ${events.length - 3} 筆</div>` : '');
 }
@@ -276,6 +276,87 @@ function renderVenueActions(resource) {
   const hall = encodeURIComponent(resource.hall || '');
   const mainLocation = encodeURIComponent(resource.mainLocation || '');
   return `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openVenueCalendarModal('${hall}','${mainLocation}')">行事曆</button>`;
+}
+
+function openVenueReservationModal() {
+  if (!venueCanEdit) return;
+  const filters = collectVenueAvailabilityFilters();
+  document.getElementById('venueReservationStartAt').value = toResourceDateTimeLocal(filters.startAt);
+  document.getElementById('venueReservationEndAt').value = toResourceDateTimeLocal(filters.endAt);
+  document.getElementById('venueReservationTitle').value = '';
+  document.getElementById('venueReservationRequester').value = currentUser?.name || '';
+  document.getElementById('venueReservationPhone').value = '';
+  document.getElementById('venueReservationNote').value = '';
+  document.getElementById('venueReservationError').textContent = '';
+  renderVenueReservationResourceOptions(filters.startAt, filters.endAt);
+  venueReservationModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('venueReservationModal'));
+  venueReservationModalInstance.show();
+}
+
+function renderVenueReservationResourceOptions(startAt, endAt) {
+  const select = document.getElementById('venueReservationResource');
+  select.innerHTML = '';
+  (venueAvailability?.resources || []).forEach(resource => {
+    const busy = isVenueResourceBusy(resource, startAt, endAt);
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({ hall: resource.hall, mainLocation: resource.mainLocation });
+    opt.disabled = busy;
+    opt.textContent = `${resource.hall} / ${resource.mainLocation}${busy ? '（已被借用）' : ''}`;
+    select.appendChild(opt);
+  });
+}
+
+function isVenueResourceBusy(resource, startAt, endAt) {
+  const start = new Date(startAt).getTime();
+  const end = new Date(endAt).getTime();
+  return (resource.events || resource.reservations || []).some(event =>
+    new Date(event.startAt).getTime() < end &&
+    new Date(event.endAt).getTime() > start
+  );
+}
+
+function submitVenueReservation() {
+  const btn = document.getElementById('saveVenueReservationBtn');
+  const errorBox = document.getElementById('venueReservationError');
+  errorBox.textContent = '';
+  const rawResource = document.getElementById('venueReservationResource').value;
+  if (!rawResource) { errorBox.textContent = '此時段沒有可借用場地'; return; }
+  const resource = JSON.parse(rawResource);
+  const reservation = {
+    hall: resource.hall,
+    mainLocation: resource.mainLocation,
+    title: document.getElementById('venueReservationTitle').value.trim(),
+    requesterName: document.getElementById('venueReservationRequester').value.trim(),
+    contactPhone: document.getElementById('venueReservationPhone').value.trim(),
+    startAt: new Date(document.getElementById('venueReservationStartAt').value).toISOString(),
+    endAt: new Date(document.getElementById('venueReservationEndAt').value).toISOString(),
+    note: document.getElementById('venueReservationNote').value.trim()
+  };
+  if (!reservation.title) { errorBox.textContent = '請填寫借用主題'; return; }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (venueReservationModalInstance) venueReservationModalInstance.hide();
+      alert(res.message);
+      loadVenueAvailability();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveVenueReservation({ currentUser, reservation });
+}
+
+function cancelVenueReservationFromUI(reservationId) {
+  if (!confirm('確定要取消此場地借用？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadVenueAvailability();
+    })
+    .withFailureHandler(showError)
+    .cancelVenueReservation({ currentUser, reservationId });
 }
 
 function openVenueCalendarModal(encodedHall, encodedMainLocation) {

@@ -20,6 +20,7 @@ const { registerShortLinkRoutes } = require('./modules/shortlinks/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
 const { registerWorkLogRoutes } = require('./modules/worklog/routes');
+const { registerZoomRoutes } = require('./modules/zoom/routes');
 
 const app = createApp();
 
@@ -41,6 +42,7 @@ registerQtRoutes(app);
 registerShortLinkRoutes(app);
 registerVenueRoutes(app);
 registerWorkLogRoutes(app);
+registerZoomRoutes(app);
 
 app.use(createErrorHandler());
 

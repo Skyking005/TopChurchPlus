@@ -1,0 +1,173 @@
+<script>
+let zoomAvailability = { accounts: [], reservations: [] };
+let zoomReservationModalInstance = null;
+let zoomCanEdit = false;
+
+function openZoomSystem() {
+  recordFeatureUsage('zoom');
+  document.getElementById('mainTitle').textContent = 'Zoom 帳號管理系統';
+  zoomCanEdit = getFeatureAccess('zoom') === 'edit' && currentUser.deviceType !== 'mobile';
+  hideAllMainViews();
+  document.getElementById('zoomView').classList.remove('d-none');
+  document.getElementById('openZoomReservationBtn').classList.toggle('d-none', !zoomCanEdit);
+  setupZoomDefaults();
+  loadZoomAvailability();
+}
+
+function setupZoomDefaults() {
+  const dateInput = document.getElementById('zoomDate');
+  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+}
+
+function loadZoomAvailability() {
+  const errorBox = document.getElementById('zoomError');
+  if (errorBox) errorBox.textContent = '';
+  let filters;
+  try {
+    filters = collectZoomRange();
+  } catch (err) {
+    if (errorBox) errorBox.textContent = err.message || err;
+    return;
+  }
+  document.getElementById('zoomCalendarGrid').innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>Zoom 借用資料載入中...</div>';
+  google.script.run
+    .withSuccessHandler(data => {
+      zoomAvailability = data || { accounts: [], reservations: [] };
+      renderZoomCalendar();
+    })
+    .withFailureHandler(err => {
+      if (errorBox) errorBox.textContent = err.message || err;
+      zoomAvailability = { accounts: [], reservations: [] };
+      renderZoomCalendar();
+    })
+    .getZoomAvailability(filters, currentUser);
+}
+
+function collectZoomRange() {
+  const date = document.getElementById('zoomDate').value;
+  const startTime = document.getElementById('zoomStartTime').value || '00:00';
+  const endTime = document.getElementById('zoomEndTime').value || '23:59';
+  if (!date) throw new Error('請選擇日期');
+  const start = new Date(`${date}T${startTime}:00`);
+  const end = new Date(`${date}T${endTime}:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('時間格式錯誤');
+  if (end <= start) throw new Error('結束時間必須晚於開始時間');
+  return { startAt: start.toISOString(), endAt: end.toISOString() };
+}
+
+function renderZoomCalendar() {
+  const grid = document.getElementById('zoomCalendarGrid');
+  const accounts = zoomAvailability.accounts || [];
+  const reservations = zoomAvailability.reservations || [];
+  grid.innerHTML = '';
+  if (!accounts.length) {
+    grid.innerHTML = '<div class="list-loading-box text-muted">目前沒有 Zoom 帳號資料</div>';
+    return;
+  }
+  accounts.forEach(account => {
+    const accountReservations = reservations.filter(item => item.zoomAccountId === account.zoomAccountId);
+    const column = document.createElement('div');
+    column.className = 'resource-calendar-column';
+    column.innerHTML = `
+      <div class="resource-calendar-header">
+        <div class="fw-semibold">${escapeHtml(account.displayName)}</div>
+        <div class="small text-muted text-break">${escapeHtml(account.email)}</div>
+      </div>
+      <div class="resource-calendar-body">
+        ${accountReservations.length ? accountReservations.map(renderZoomReservationCard).join('') : '<div class="resource-empty-slot">此時段可借用</div>'}
+      </div>
+    `;
+    grid.appendChild(column);
+  });
+}
+
+function renderZoomReservationCard(item) {
+  return `
+    <div class="resource-reservation-card">
+      <div class="fw-semibold">${escapeHtml(formatResourceTimeRange(item.startAt, item.endAt))}</div>
+      <div>${escapeHtml(item.title || '')}</div>
+      <div class="small text-muted">${escapeHtml(item.borrowerName || '')}</div>
+      ${item.meetingTopic ? `<div class="small">${escapeHtml(item.meetingTopic)}</div>` : ''}
+      ${zoomCanEdit ? `<button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="cancelZoomReservationFromUI('${escapeAttr(item.reservationId)}')">取消借用</button>` : ''}
+    </div>
+  `;
+}
+
+function openZoomReservationModal() {
+  if (!zoomCanEdit) return;
+  const range = collectZoomRange();
+  document.getElementById('zoomReservationStartAt').value = toResourceDateTimeLocal(range.startAt);
+  document.getElementById('zoomReservationEndAt').value = toResourceDateTimeLocal(range.endAt);
+  document.getElementById('zoomReservationTitle').value = '';
+  document.getElementById('zoomReservationBorrower').value = currentUser?.name || '';
+  document.getElementById('zoomReservationNote').value = '';
+  document.getElementById('zoomReservationError').textContent = '';
+  renderZoomReservationAccountOptions(range.startAt, range.endAt);
+  zoomReservationModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('zoomReservationModal'));
+  zoomReservationModalInstance.show();
+}
+
+function renderZoomReservationAccountOptions(startAt, endAt) {
+  const select = document.getElementById('zoomReservationAccount');
+  const accounts = zoomAvailability.accounts || [];
+  select.innerHTML = '';
+  accounts.forEach(account => {
+    const busy = isZoomAccountBusy(account.zoomAccountId, startAt, endAt);
+    const opt = document.createElement('option');
+    opt.value = account.zoomAccountId;
+    opt.disabled = busy;
+    opt.textContent = `${account.displayName} / ${account.email}${busy ? '（已被借用）' : ''}`;
+    select.appendChild(opt);
+  });
+}
+
+function isZoomAccountBusy(zoomAccountId, startAt, endAt) {
+  const start = new Date(startAt).getTime();
+  const end = new Date(endAt).getTime();
+  return (zoomAvailability.reservations || []).some(item =>
+    item.zoomAccountId === zoomAccountId &&
+    new Date(item.startAt).getTime() < end &&
+    new Date(item.endAt).getTime() > start
+  );
+}
+
+function submitZoomReservation() {
+  const btn = document.getElementById('saveZoomReservationBtn');
+  const errorBox = document.getElementById('zoomReservationError');
+  const reservation = {
+    zoomAccountId: document.getElementById('zoomReservationAccount').value,
+    title: document.getElementById('zoomReservationTitle').value.trim(),
+    borrowerName: document.getElementById('zoomReservationBorrower').value.trim(),
+    startAt: new Date(document.getElementById('zoomReservationStartAt').value).toISOString(),
+    endAt: new Date(document.getElementById('zoomReservationEndAt').value).toISOString(),
+    meetingTopic: document.getElementById('zoomReservationNote').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!reservation.zoomAccountId) { errorBox.textContent = '此時段沒有可借用帳號'; return; }
+  if (!reservation.title) { errorBox.textContent = '請填寫借用主題'; return; }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      if (zoomReservationModalInstance) zoomReservationModalInstance.hide();
+      alert(res.message);
+      loadZoomAvailability();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveZoomReservation({ currentUser, reservation });
+}
+
+function cancelZoomReservationFromUI(reservationId) {
+  if (!confirm('確定要取消此 Zoom 借用？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadZoomAvailability();
+    })
+    .withFailureHandler(showError)
+    .cancelZoomReservation({ currentUser, reservationId });
+}
+</script>
