@@ -56,3 +56,5 @@
 - After editing, run the smallest relevant validation available.
 - If tests or commands cannot run because tooling is missing, report that clearly.
 - When checking files with Chinese content, verify that the edited area still displays readable Traditional Chinese.
+- For new modules, prefer `tools/new-module.cmd` to create the first scaffold, then manually wire reviewed changes into `Index.html`, `Script_Login.html`, `程式碼.gs`, `api/src/index.js`, and `api/src/modules/core/catalog.js`.
+- For API changes, add or update `tests/api/smoke-<module>.ps1` and run `tests/api/run-smoke.cmd` when the deployed API is available. Use `-WriteDemo` only when retained Demo data is expected.

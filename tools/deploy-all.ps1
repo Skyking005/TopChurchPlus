@@ -2,7 +2,9 @@ param(
   [switch]$SkipChecks,
   [switch]$SkipApiDeploy,
   [switch]$SkipAppsScriptPush,
-  [switch]$SkipHealth
+  [switch]$SkipHealth,
+  [switch]$RunSmoke,
+  [switch]$WriteSmokeDemo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,6 +31,11 @@ if (-not $SkipAppsScriptPush) {
   if ($LASTEXITCODE -ne 0) {
     throw "push-to-google.cmd failed with exit code $LASTEXITCODE"
   }
+}
+
+if ($RunSmoke) {
+  Write-Host 'Running API smoke tests...'
+  & "$ProjectRoot\tests\api\run-smoke.ps1" -WriteDemo:$WriteSmokeDemo
 }
 
 Write-Host 'Deploy workflow completed.'

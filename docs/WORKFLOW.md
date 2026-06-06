@@ -67,10 +67,56 @@ GET 或沒有 body 的請求可以直接呼叫：
 .\tools\deploy-all.cmd
 ```
 
+部署後同步跑 API smoke test：
+
+```powershell
+.\tools\deploy-all.cmd -RunSmoke
+```
+
+部署後同步建立並保留 Demo 測試資料：
+
+```powershell
+.\tools\deploy-all.cmd -RunSmoke -WriteSmokeDemo
+```
+
 如果只想跑部署、不跑 health：
 
 ```powershell
 .\tools\deploy-all.cmd -SkipHealth
+```
+
+建立新模組骨架：
+
+```powershell
+.\tools\new-module.cmd `
+  -ModuleName admin-supply `
+  -FeatureKey admin_supply `
+  -Title '行政物資管理系統' `
+  -Description '管理行政消耗品、各會堂庫存與庫存異動。'
+```
+
+此工具會建立：
+
+- `<Module>.html`
+- `Script_<Module>.html`
+- `api/src/modules/<module>/routes.js`
+- `database/<yyyymmdd>_<module>.sql`
+- `tmp/<Module>_bridge.gs.txt`
+
+工具只產生骨架，不會自動修改 `Index.html`、`程式碼.gs`、`api/src/index.js` 或權限選單；這些仍需人工 review 後用 `apply_patch` 接線。
+
+API smoke test：
+
+```powershell
+$env:TOPCHURCHPLUS_API_BASE_URL = 'http://192.168.3.2:3000'
+$env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
+.\tests\api\run-smoke.cmd
+```
+
+若需要保留 Demo 資料：
+
+```powershell
+.\tests\api\run-smoke.cmd -WriteDemo
 ```
 
 ## 建議任務流程
@@ -78,11 +124,28 @@ GET 或沒有 body 的請求可以直接呼叫：
 1. 讀取 `AGENTS.md`。
 2. 檢查目前分支與工作區狀態。
 3. 修改前確認相關中文區塊可讀。
-4. 小範圍修改。
-5. 執行最小驗證。
-6. 需要時執行 `.\tools\deploy-all.cmd`。
-7. Commit 訊息寫清楚本次完成內容、驗證結果與部署資訊。
-8. Push 到 GitHub。
+4. 判斷任務類型：前端、API、資料庫、文件產出、外部公開頁、權限設定。
+5. 新模組優先用 `.\tools\new-module.cmd` 產生骨架，再人工接線。
+6. 小範圍修改。
+7. 若有 API 異動，新增或更新 `tests/api/smoke-<module>.ps1`。
+8. 執行最小驗證；可用 `.\tests\api\run-smoke.cmd` 跑可重複 API 測試。
+9. 需要時執行 `.\tools\deploy-all.cmd`，或 `.\tools\deploy-all.cmd -RunSmoke`。
+10. Commit 訊息寫清楚本次完成內容、驗證結果、DB 備份與部署資訊。
+11. Push 到 GitHub。
+
+## 新模組接線檢查表
+
+新功能模組至少確認：
+
+- `api/src/modules/core/catalog.js` 已加入 feature key。
+- `Script_Login.html` 已加入功能卡片、fallback role access 與 icon。
+- `Index.html` 已 include `<Module>.html` 與 `Script_<Module>.html`。
+- `Script_Login.html` 的 `hideAllMainViews()` 與相關開啟函式會隱藏新 view。
+- `api/src/index.js` 已 register route。
+- `程式碼.gs` 已加入 Apps Script bridge。
+- migration 已包含資料表、索引、grant、`role_feature_permissions` seed。
+- 若有中文寫入 API，smoke test 會寫入後再讀回確認中文可讀。
+- Demo 資料命名使用 `Codex` 或 `DEMO` 前綴，方便日後辨識。
 
 ## Git 注意事項
 
