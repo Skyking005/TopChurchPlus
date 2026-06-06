@@ -247,6 +247,7 @@ async function getPastoralMembers(query, currentUser) {
        pm.baptized_date,
        follow_account.name AS followup_name,
        follow_account.position AS followup_position,
+       g.name AS group_name,
        g.path AS group_path
      ${fromSql}
      ORDER BY pm.id DESC
@@ -886,11 +887,11 @@ function toPastoralMemberListItem(row) {
     maritalStatusName: row.marital_status_name || '',
     mobilePhone: row.mobile_phone || '',
     address: [row.city, row.district, row.address_line].filter(Boolean).join(' '),
+    groupName: row.group_name || '',
     groupPath: row.group_path || '',
     lightStatus: formatLightStatus(row.light_status),
     faithStatus: formatFaithStatus(row),
     followupName: [row.followup_name, row.followup_position].filter(Boolean).join(' '),
-    communityText: row.group_path || '無社區資料',
     lineBound: Boolean(row.line_user_id)
   };
 }

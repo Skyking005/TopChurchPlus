@@ -133,7 +133,7 @@ function renderPastoralMemberTable() {
       <td>${escapeHtml(member.birthday)}</td>
       <td>${escapeHtml(member.mobilePhone)}</td>
       <td>${escapeHtml(member.address)}</td>
-      <td>${escapeHtml(member.communityText)}</td>
+      <td>${escapeHtml(member.groupName || '未分配')}</td>
     `;
     body.appendChild(tr);
   });
@@ -148,7 +148,7 @@ function renderPastoralMemberCards() {
     card.innerHTML = `
       <h6><button type="button" class="project-link" onclick="openPastoralMember('${escapeAttr(member.memberId)}')">${escapeHtml(member.name)}</button></h6>
       <div class="project-meta">${escapeHtml(member.churchName)} / ${escapeHtml(member.categoryName)} / ${escapeHtml(member.faithStatus)}</div>
-      <div class="project-meta">${escapeHtml(member.communityText)}</div>
+      <div class="project-meta">牧區：${escapeHtml(member.groupName || '未分配')}</div>
       <div class="project-meta">${escapeHtml(member.mobilePhone || '無電話')} <span class="pastoral-light ${getPastoralLightClass(member.lightStatus)}">${escapeHtml(member.lightStatus)}</span></div>
     `;
     container.appendChild(card);
