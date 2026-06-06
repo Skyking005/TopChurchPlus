@@ -105,11 +105,14 @@ function openPublicFormEdit(formId, responseId, token) {
 function renderPublicFormUnavailable(err, targetLabel) {
   const message = String((err && err.message) || err || '');
   const isStopped = message.includes('已停止') || message.includes('已關閉') || message.includes('已封存');
+  const isExpired = message.includes('已過期') || message.includes('過期');
   document.getElementById('submitFormResponseBtn').classList.add('d-none');
-  document.getElementById('formFillTitle').textContent = isStopped ? '表單已停止' : `無法開啟${targetLabel}`;
+  document.getElementById('formFillTitle').textContent = isExpired
+    ? `${targetLabel}已過期`
+    : (isStopped ? '表單已停止' : `無法開啟${targetLabel}`);
   document.getElementById('formFillDescription').textContent = '';
   document.getElementById('formFillQuestions').innerHTML = `
-    <div class="alert ${isStopped ? 'alert-warning' : 'alert-danger'} mb-0">
+    <div class="alert ${isStopped || isExpired ? 'alert-warning' : 'alert-danger'} mb-0">
       ${escapeHtml(message || `無法開啟${targetLabel}`)}
     </div>
   `;

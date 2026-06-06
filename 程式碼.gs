@@ -25,9 +25,11 @@ function renderShortLinkRedirect_(shortCode) {
     ).setTitle('正在開啟連結');
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
+    const isExpired = message.indexOf('已過期') >= 0 || message.indexOf('過期') >= 0;
+    const title = isExpired ? '短連結已過期' : '短連結無法開啟';
     return HtmlService.createHtmlOutput(
-      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>短連結無法開啟</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:32px;color:#1f2937}.box{max-width:640px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;padding:24px;background:#fff}</style></head><body><div class="box"><h3>短連結無法開啟</h3><p>${escapeHtmlForOutput_(message)}</p></div></body></html>`
-    ).setTitle('短連結無法開啟');
+      `<!DOCTYPE html><html><head><base target="_top"><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtmlForOutput_(title)}</title><style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:32px;color:#1f2937}.box{max-width:640px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;padding:24px;background:#fff}.hint{color:#6b7280}</style></head><body><div class="box"><h3>${escapeHtmlForOutput_(title)}</h3><p>${escapeHtmlForOutput_(message)}</p><p class="hint">如需重新開啟，請洽表單或系統管理同工。</p></div></body></html>`
+    ).setTitle(title);
   }
 }
 
