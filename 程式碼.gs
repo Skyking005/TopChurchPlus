@@ -82,8 +82,8 @@ function verifyLogin(payload) {
   return apiRequest('post', '/login/verify', payload);
 }
 
-function loginCounterPin(pinCode, operatorName, deviceInfo) {
-  const payload = Object.assign({ pinCode, operatorName }, deviceInfo || {});
+function loginCounterPin(pinCode, deviceInfo) {
+  const payload = Object.assign({ pinCode }, deviceInfo || {});
   return apiRequest('post', '/counter/pin-login', payload);
 }
 
@@ -630,12 +630,15 @@ function markCounterTransactionPaid(payload) {
   return apiRequest(
     'patch',
     `/counter/transactions/${encodeURIComponent(payload.transactionId)}/paid`,
-    { currentUser: payload.currentUser }
+    {
+      currentUser: payload.currentUser,
+      churchId: payload.churchId || ''
+    }
   );
 }
 
-function getCurrentCounterPinCode(currentUser) {
-  return apiRequest('get', '/counter/pin-code/current', null, null, currentUser);
+function getCounterOptions(currentUser) {
+  return apiRequest('get', '/counter/options', null, null, currentUser);
 }
 
 function getCounterPinCodes(currentUser) {
@@ -645,7 +648,36 @@ function getCounterPinCodes(currentUser) {
 function createCounterPinCode(payload) {
   return apiRequest('post', '/counter/pin-codes', {
     currentUser: payload.currentUser,
-    displayName: payload.displayName
+    pin: payload.pin || {}
+  });
+}
+
+function updateCounterPinCode(payload) {
+  return apiRequest(
+    'put',
+    `/counter/pin-codes/${encodeURIComponent(payload.pinId)}`,
+    {
+      currentUser: payload.currentUser,
+      pin: payload.pin || {}
+    }
+  );
+}
+
+function saveCounterPinCode(payload) {
+  if (payload.pinId) {
+    return updateCounterPinCode(payload);
+  }
+  return createCounterPinCode(payload);
+}
+
+function getCurrentCounterPinCode(currentUser) {
+  return apiRequest('get', '/counter/pin-codes', null, null, currentUser);
+}
+
+function resetCurrentWeekCounterPinCodes(payload) {
+  return apiRequest('post', '/counter/pin-codes/reset-current-week', {
+    currentUser: payload.currentUser,
+    pin: payload.pin || {}
   });
 }
 
@@ -655,13 +687,6 @@ function deactivateCounterPinCode(payload) {
     `/counter/pin-codes/${encodeURIComponent(payload.pinId)}/deactivate`,
     { currentUser: payload.currentUser }
   );
-}
-
-function resetCurrentWeekCounterPinCodes(payload) {
-  return apiRequest('post', '/counter/pin-codes/reset-current-week', {
-    currentUser: payload.currentUser,
-    displayName: payload.displayName
-  });
 }
 
 function getQrcodeEvents(filters, currentUser) {

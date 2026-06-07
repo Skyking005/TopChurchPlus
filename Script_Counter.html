@@ -5,6 +5,8 @@ let counterQrcodeEvents = [];
 let counterQrcodeScanner = null;
 let counterQrcodeLastPayload = '';
 let counterQrcodeLastScanAt = 0;
+let counterOptions = { churches: [], accounts: [], statuses: [] };
+let counterPinModalInstance = null;
 
 function openCounterWorkbench() {
   recordFeatureUsage('counter');
@@ -12,14 +14,50 @@ function openCounterWorkbench() {
   hideAllMainViews();
   document.getElementById('counterWorkbenchView').classList.remove('d-none');
   toggleCounterPinManagement();
-  switchCounterTab('payments');
-  refreshCounterWorkbench();
+  loadCounterOptions(() => {
+    renderCounterCurrentChurch();
+    switchCounterTab('payments');
+    refreshCounterWorkbench();
+  });
 }
 
 function refreshCounterWorkbench() {
   loadCounterTransactions();
   loadCounterQrcodeEvents();
   if (canManageCounterPins()) loadCounterPins();
+}
+
+function loadCounterOptions(callback) {
+  google.script.run
+    .withSuccessHandler(options => {
+      counterOptions = options || { churches: [], accounts: [], statuses: [] };
+      renderCounterPinOptionControls();
+      if (callback) callback();
+    })
+    .withFailureHandler(showError)
+    .getCounterOptions(currentUser);
+}
+
+function renderCounterCurrentChurch() {
+  const select = document.getElementById('counterCurrentChurch');
+  if (!select) return;
+  const currentValue = String(currentUser?.counterChurchId || select.value || '');
+  select.innerHTML = '';
+  (counterOptions.churches || []).forEach(church => {
+    select.appendChild(createOption(church.churchName, church.churchId));
+  });
+  if (currentValue && [...select.options].some(option => String(option.value) === currentValue)) {
+    select.value = currentValue;
+  }
+  updateCounterCurrentChurch();
+}
+
+function updateCounterCurrentChurch() {
+  const select = document.getElementById('counterCurrentChurch');
+  if (!select || !currentUser) return;
+  currentUser.counterChurchId = select.value ? Number(select.value) : null;
+  currentUser.counterChurchName = select.options[select.selectedIndex]?.textContent || '';
+  updateUserInfo(currentUser);
 }
 
 function switchCounterTab(tab) {
@@ -252,7 +290,7 @@ function renderCounterPins() {
   if (!body) return;
   body.innerHTML = '';
   if (!counterPinCodes.length) {
-    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-3">本週尚未建立 PIN Code</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-3">目前尚未建立 PIN Code</td></tr>';
     return;
   }
 
@@ -260,11 +298,12 @@ function renderCounterPins() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class="badge bg-dark fs-6">${escapeHtml(pin.pinCode)}</span></td>
-      <td>${escapeHtml(pin.displayName || '')}</td>
-      <td>${escapeHtml(formatFormsDateTime(pin.validUntil))}</td>
+      <td>${escapeHtml(pin.assignedName || pin.displayName || '')}${pin.assignedPosition ? ` <span class="text-muted small">${escapeHtml(pin.assignedPosition)}</span>` : ''}</td>
+      <td>${escapeHtml(pin.churchName || '')}</td>
       <td>${escapeHtml(pin.usageCount || 0)}</td>
-      <td>${pin.isActive ? '<span class="badge bg-success">啟用中</span>' : '<span class="badge bg-secondary">已停用</span>'}</td>
+      <td>${pin.status === 'active' && pin.isActive ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
       <td class="text-end">
+        <button type="button" class="btn btn-sm btn-outline-primary" onclick="editCounterPin('${escapeAttr(pin.pinId)}')">編輯</button>
         ${pin.isActive ? `<button type="button" class="btn btn-sm btn-outline-danger" onclick="deactivateCounterPin('${escapeAttr(pin.pinId)}')">停用</button>` : ''}
       </td>
     `;
@@ -273,20 +312,79 @@ function renderCounterPins() {
 }
 
 function createCounterPin() {
-  const displayName = prompt('請輸入此 PIN 的使用者姓名或用途');
-  if (displayName === null) return;
-  const name = displayName.trim();
-  if (!name) {
-    alert('請填寫 PIN 使用者姓名或用途');
+  openCounterPinModal(null);
+}
+
+function editCounterPin(pinId) {
+  const pin = counterPinCodes.find(item => String(item.pinId) === String(pinId));
+  if (!pin) return;
+  openCounterPinModal(pin);
+}
+
+function openCounterPinModal(pin) {
+  document.getElementById('counterPinId').value = pin?.pinId || '';
+  document.getElementById('counterPinStatus').value = pin?.status || 'active';
+  renderCounterPinOptionControls();
+  document.getElementById('counterPinStaff').value = pin?.assignedStaffId || '';
+  document.getElementById('counterPinChurch').value = pin?.churchId || currentUser?.counterChurchId || '';
+  document.getElementById('counterPinModalError').textContent = '';
+  counterPinModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('counterPinModal'));
+  counterPinModalInstance.show();
+}
+
+function renderCounterPinOptionControls() {
+  const staffSelect = document.getElementById('counterPinStaff');
+  const churchSelect = document.getElementById('counterPinChurch');
+  if (staffSelect) {
+    const current = staffSelect.value;
+    staffSelect.innerHTML = '<option value="">請選擇使用者</option>';
+    (counterOptions.accounts || []).forEach(account => {
+      staffSelect.appendChild(createOption(account.label || account.name, account.staffId));
+    });
+    if (current && [...staffSelect.options].some(option => option.value === current)) staffSelect.value = current;
+  }
+  if (churchSelect) {
+    const current = churchSelect.value;
+    churchSelect.innerHTML = '<option value="">請選擇會堂</option>';
+    (counterOptions.churches || []).forEach(church => {
+      churchSelect.appendChild(createOption(church.churchName, church.churchId));
+    });
+    if (current && [...churchSelect.options].some(option => String(option.value) === String(current))) churchSelect.value = current;
+  }
+}
+
+function submitCounterPin() {
+  const btn = document.getElementById('counterPinSaveBtn');
+  const errorBox = document.getElementById('counterPinModalError');
+  const pinId = document.getElementById('counterPinId').value;
+  const pin = {
+    assignedStaffId: document.getElementById('counterPinStaff').value,
+    churchId: document.getElementById('counterPinChurch').value,
+    status: document.getElementById('counterPinStatus').value
+  };
+  errorBox.textContent = '';
+  if (!pin.assignedStaffId) {
+    errorBox.textContent = '請選擇使用者';
     return;
   }
+  if (!pin.churchId) {
+    errorBox.textContent = '請選擇所屬會堂';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
   google.script.run
     .withSuccessHandler(res => {
-      alert(`已建立 PIN Code：${res.pinCode}`);
+      setButtonLoading(btn, false);
+      if (counterPinModalInstance) counterPinModalInstance.hide();
+      const code = res.pinCode?.pinCode ? `：${res.pinCode.pinCode}` : '';
+      alert(`${res.message || 'PIN Code 已儲存'}${code}`);
       loadCounterPins();
     })
-    .withFailureHandler(showError)
-    .createCounterPinCode({ currentUser, displayName: name });
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveCounterPinCode({ currentUser, pinId, pin });
 }
 
 function deactivateCounterPin(pinId) {
@@ -300,25 +398,12 @@ function deactivateCounterPin(pinId) {
     .deactivateCounterPinCode({ pinId, currentUser });
 }
 
-function resetCounterPins() {
-  if (!confirm('確定要停用本週所有 PIN Code 並建立新 PIN？')) return;
-  const displayName = prompt('請輸入新 PIN 的使用者姓名或用途', '重設 PIN');
-  if (displayName === null) return;
-  const name = displayName.trim();
-  if (!name) {
-    alert('請填寫 PIN 使用者姓名或用途');
+function markCounterTransactionPaid(transactionId) {
+  updateCounterCurrentChurch();
+  if (!currentUser?.counterChurchId) {
+    alert('請先選擇目前會堂');
     return;
   }
-  google.script.run
-    .withSuccessHandler(res => {
-      alert(`${res.message}：${res.pinCode.pinCode}`);
-      loadCounterPins();
-    })
-    .withFailureHandler(showError)
-    .resetCurrentWeekCounterPinCodes({ currentUser, displayName: name });
-}
-
-function markCounterTransactionPaid(transactionId) {
   if (!confirm('確認已完成收款？')) return;
   google.script.run
     .withSuccessHandler(res => {
@@ -326,7 +411,7 @@ function markCounterTransactionPaid(transactionId) {
       loadCounterTransactions();
     })
     .withFailureHandler(showError)
-    .markCounterTransactionPaid({ transactionId, currentUser });
+    .markCounterTransactionPaid({ transactionId, currentUser, churchId: currentUser.counterChurchId });
 }
 
 function formatCounterSource(row) {

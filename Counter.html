@@ -5,7 +5,13 @@
         <h5 class="mb-1">櫃台工作台</h5>
         <div class="text-muted small">外部櫃台工作站，處理繳費、QT 領取與 QRCode 活動報到。</div>
       </div>
-      <button type="button" class="btn btn-outline-primary" onclick="refreshCounterWorkbench()">重新整理</button>
+      <div class="d-flex flex-wrap align-items-end gap-2">
+        <div>
+          <label class="form-label small mb-1">目前會堂</label>
+          <select id="counterCurrentChurch" class="form-select form-select-sm" onchange="updateCounterCurrentChurch()"></select>
+        </div>
+        <button type="button" class="btn btn-outline-primary" onclick="refreshCounterWorkbench()">重新整理</button>
+      </div>
     </div>
 
     <ul class="nav nav-tabs mb-3" id="counterWorkbenchTabs">
@@ -81,12 +87,11 @@
     <div id="counterPinManagementPanel" class="counter-panel d-none">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
         <div>
-          <h6 class="mb-1">本週櫃台 PIN Code</h6>
-          <div class="text-muted small">可建立多組啟用中的 PIN，讓不同櫃台電腦進入志工工作台。</div>
+          <h6 class="mb-1">櫃台 PIN Code</h6>
+          <div class="text-muted small">設定 PIN 對應的使用者、所屬會堂與啟用狀態。</div>
         </div>
-        <div class="btn-group">
+        <div>
           <button type="button" class="btn btn-outline-primary btn-sm" onclick="createCounterPin()">新增 PIN</button>
-          <button type="button" class="btn btn-outline-danger btn-sm" onclick="resetCounterPins()">重設本週 PIN</button>
         </div>
       </div>
       <div class="table-responsive">
@@ -94,8 +99,8 @@
           <thead>
             <tr>
               <th>PIN Code</th>
-              <th>姓名/用途</th>
-              <th>有效期限</th>
+              <th>使用者</th>
+              <th>所屬會堂</th>
               <th>使用次數</th>
               <th>狀態</th>
               <th class="text-end">操作</th>
@@ -103,6 +108,40 @@
           </thead>
           <tbody id="counterPinTableBody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="counterPinModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">櫃台 PIN Code</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input id="counterPinId" type="hidden">
+          <div class="mb-3">
+            <label class="form-label">使用者</label>
+            <select id="counterPinStaff" class="form-select"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">所屬會堂</label>
+            <select id="counterPinChurch" class="form-select"></select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">狀態</label>
+            <select id="counterPinStatus" class="form-select">
+              <option value="active">啟用</option>
+              <option value="inactive">停用</option>
+            </select>
+          </div>
+          <div id="counterPinModalError" class="text-danger small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+          <button id="counterPinSaveBtn" type="button" class="btn btn-primary" onclick="submitCounterPin()">儲存</button>
+        </div>
       </div>
     </div>
   </div>

@@ -123,9 +123,8 @@ function showCounterPinLogin() {
   document.getElementById('internalLoginPanel').classList.add('d-none');
   document.getElementById('counterPinLoginPanel').classList.remove('d-none');
   document.getElementById('loginError').textContent = '';
-  document.getElementById('counterOperatorName').value = '';
   document.getElementById('counterPinCode').value = '';
-  document.getElementById('counterOperatorName').focus();
+  document.getElementById('counterPinCode').focus();
 }
 
 function backToLoginEntry() {
@@ -141,15 +140,10 @@ function backToLoginEntry() {
 function handleCounterPinLogin() {
   const btn = event.target;
   const errorBox = document.getElementById('loginError');
-  const operatorName = document.getElementById('counterOperatorName').value.trim();
   const pinCode = document.getElementById('counterPinCode').value.trim().toUpperCase();
   errorBox.textContent = '';
   errorBox.classList.add('text-danger');
   errorBox.classList.remove('text-muted');
-  if (!operatorName) {
-    errorBox.textContent = '請填寫櫃台使用者姓名';
-    return;
-  }
   if (!/^[A-Z][0-9]{5}$/.test(pinCode)) {
     errorBox.textContent = 'PIN Code 格式需為 1 碼英文 + 5 碼數字';
     return;
@@ -165,7 +159,7 @@ function handleCounterPinLogin() {
       setButtonLoading(btn, false);
       errorBox.textContent = err.message || err;
     })
-    .loginCounterPin(pinCode, operatorName, getLoginDeviceInfo());
+    .loginCounterPin(pinCode, getLoginDeviceInfo());
 }
 
 function handleLoginVerification() {
@@ -413,11 +407,12 @@ function updateUserInfo(user) {
   const displayName = [user.name, user.position].filter(Boolean).join(' ');
   const roles = getUserRoles(user).join('、') || '未設定身分';
   const deviceLabel = user.deviceType === 'mobile' ? '手機瀏覽模式' : '電腦完整模式';
-  info.textContent = `${displayName}｜${roles}｜${deviceLabel}`;
+  const counterChurch = user.workspaceMode === 'counter' && user.counterChurchName ? `｜${user.counterChurchName}` : '';
+  info.textContent = `${displayName}｜${roles}${counterChurch}｜${deviceLabel}`;
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'adminSupplyView', 'assetView', 'venueView', 'zoomView', 'sundayMessageView', 'pastoralView', 'attendanceView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

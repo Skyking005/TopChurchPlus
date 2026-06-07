@@ -113,19 +113,18 @@ function registerAuthRoutes(app) {
   app.post('/counter/pin-login', async (req, res, next) => {
     try {
       const pinCode = String(req.body.pinCode || '').trim().toUpperCase();
-      const operatorName = String(req.body.operatorName || '').trim();
       const context = buildLoginContext(req);
       if (!/^[A-Z][0-9]{5}$/.test(pinCode)) throw new Error('PIN Code 格式錯誤');
-      if (!operatorName) throw new Error('請填寫櫃台使用者姓名');
 
-      const week = getTaipeiSundayWeekRange();
       const { rows } = await pool.query(
-        `SELECT *
-         FROM counter_pin_codes
-         WHERE pin_code = $1
-           AND is_active
-           AND valid_from <= now()
-           AND valid_until > now()
+        `SELECT p.*, a.name AS assigned_name, a.position AS assigned_position, a.email AS assigned_email,
+                c.name AS church_name
+         FROM counter_pin_codes p
+         LEFT JOIN accounts a ON a.staff_id = p.assigned_staff_id
+         LEFT JOIN churches c ON c.id = p.church_id
+         WHERE p.pin_code = $1
+           AND p.is_active
+           AND p.status = 'active'
          LIMIT 1`,
         [pinCode]
       );
@@ -135,9 +134,9 @@ function registerAuthRoutes(app) {
           email: 'counter-pin',
           eventType: 'failed',
           context,
-          metadata: { loginMode: 'counter_pin', reason: 'invalid_pin', weekStart: week.validFrom.toISOString() }
+          metadata: { loginMode: 'counter_pin', reason: 'invalid_pin' }
         });
-        throw new Error('PIN Code 錯誤或已過期');
+        throw new Error('PIN Code 錯誤或未啟用');
       }
 
       await pool.query(
@@ -150,14 +149,22 @@ function registerAuthRoutes(app) {
         email: 'counter-pin',
         eventType: 'success',
         context,
-        metadata: { loginMode: 'counter_pin', pinId: pin.pin_id, pinName: pin.display_name || '', operatorName, weekStart: pin.valid_from }
+        metadata: {
+          loginMode: 'counter_pin',
+          pinId: pin.pin_id,
+          pinName: pin.display_name || '',
+          assignedStaffId: pin.assigned_staff_id || '',
+          churchId: pin.church_id || null,
+          churchName: pin.church_name || ''
+        }
       });
 
+      const operatorName = pin.assigned_name || pin.display_name || '櫃台使用者';
       res.json({
-        staffId: null,
-        email: '',
+        staffId: pin.assigned_staff_id || null,
+        email: pin.assigned_email || '',
         name: operatorName,
-        position: '',
+        position: pin.assigned_position || '',
         role: '義工',
         roles: ['義工'],
         featurePermissions: { counter: 'edit', qrcode: 'edit', qt: 'edit' },
@@ -166,7 +173,8 @@ function registerAuthRoutes(app) {
         workspaceMode: 'counter',
         counterPinName: pin.display_name || '',
         counterOperatorName: operatorName,
-        pinValidUntil: pin.valid_until
+        counterChurchId: pin.church_id || null,
+        counterChurchName: pin.church_name || ''
       });
     } catch (err) {
       next(err);
