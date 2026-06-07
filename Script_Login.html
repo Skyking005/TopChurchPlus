@@ -7,6 +7,7 @@ const SYSTEM_FEATURES = [
   { key: 'system', icon: 'settings', title: '系統管理', desc: '維護系統參數、位置、使用者、角色權限、短連結與底層設定。', action: 'openSystemManagement' },
   { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
   { key: 'zoom', icon: 'video', title: 'Zoom帳號管理系統', desc: '以行事曆方式查看與借用教會 Zoom 帳號，避免會議時段衝突。', action: 'openZoomSystem' },
+  { key: 'sunday_message', icon: 'message', title: '主日信息管理系統', desc: '管理主日信息主題，追蹤各會堂、特會與其他場合的分享狀況。', action: 'openSundayMessageSystem' },
   { key: 'forms', icon: 'form', title: '表單系統', desc: '建立問卷、活動報名與公開填寫表單，並檢視回覆與統計。', action: 'openFormsSystem' },
   { key: 'counter', icon: 'counter', title: '櫃台工作台', desc: '提供志工櫃台使用，處理現場繳費、QT 領取與報名服務。', action: 'openCounterWorkbench' },
   { key: 'qrcode', icon: 'qrcode', title: 'QRCode 活動管理', desc: '建立活動報到櫃台，搭配 Line QRCode 掃描並檢視出席名單。', action: 'openQrcodeSystem' },
@@ -40,6 +41,7 @@ const MAIN_VIEW_IDS = [
   'assetView',
   'venueView',
   'zoomView',
+  'sundayMessageView',
   'pastoralView',
   'attendanceView',
   'formsView',
@@ -719,7 +721,7 @@ function getEffectiveFeatureAccess() {
     SYSTEM_FEATURES.forEach(feature => grantRead(feature.key));
   } else if (roles.includes('管理員')) {
     SYSTEM_FEATURES
-      .filter(feature => feature.key !== 'system')
+      .filter(feature => !['system', 'sunday_message'].includes(feature.key))
       .forEach(feature => grantRead(feature.key));
   }
   return result;
@@ -753,7 +755,6 @@ function openPurchaseSystem() {
   });
   loadPurchaseSystem();
 }
-
 
 function openComingSoonSystem(feature) {
   alert(`${feature.title}入口已建立，功能將於後續階段開放。`);

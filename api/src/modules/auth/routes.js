@@ -4,6 +4,8 @@ const net = require('net');
 const { pool, tx } = require('../../db');
 const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../core/catalog');
 
+const ADMIN_READ_EXCLUDED_FEATURES = new Set(['system', 'sunday_message']);
+
 function registerAuthRoutes(app) {
   app.post('/login', async (req, res, next) => {
     try {
@@ -175,6 +177,7 @@ function registerAuthRoutes(app) {
 async function buildLoginUser(user, email, deviceType) {
   const roles = await getAccountRoles(user.staff_id, user.role);
   const featurePermissions = await getEffectiveFeaturePermissions({ roles, role: user.role });
+  applySundayMessageFeaturePermission(featurePermissions, user, roles);
   const featureUsage = await getFeatureUsageSummary(user.staff_id);
 
   return {
@@ -228,7 +231,7 @@ async function getEffectiveFeaturePermissions(user) {
     });
   } else if (roles.includes('管理員')) {
     SYSTEM_FEATURES
-      .filter(featureKey => featureKey !== 'system')
+      .filter(featureKey => !ADMIN_READ_EXCLUDED_FEATURES.has(featureKey))
       .forEach(featureKey => {
         if (!access[featureKey] || (FEATURE_ACCESS_RANK[access[featureKey]] || 0) < FEATURE_ACCESS_RANK.read) {
           access[featureKey] = 'read';
@@ -236,6 +239,20 @@ async function getEffectiveFeaturePermissions(user) {
       });
   }
   return access;
+}
+
+function applySundayMessageFeaturePermission(access, user, roles) {
+  if (!canAccessSundayMessageFeature(user, roles)) return access;
+  access.sunday_message = 'edit';
+  return access;
+}
+
+function canAccessSundayMessageFeature(user, roles) {
+  if ((roles || []).includes('超級管理者')) return true;
+  const departments = normalizeDepartments(user && user.department);
+  if (departments.includes('秘書部')) return true;
+  const position = String(user && user.position || '').trim();
+  return position.includes('主任牧師') || (roles || []).includes('主任牧師');
 }
 
 async function getFeatureUsageSummary(staffId) {

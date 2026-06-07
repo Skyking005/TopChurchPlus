@@ -521,6 +521,10 @@
       margin: 24px auto;
     }
 
+    .sunday-message-external-row {
+      grid-template-columns: 1fr;
+    }
+
     #addProjectBtn,
     .edit-only,
     #saveBtn {
@@ -1071,6 +1075,18 @@
     border-radius: 8px;
     padding: 10px;
     background: #eef2ff;
+  }
+
+  .sunday-message-external-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .sunday-message-external-row {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) 160px minmax(160px, 1fr) auto;
+    gap: 8px;
+    align-items: center;
   }
 
   .qt-toolbar {

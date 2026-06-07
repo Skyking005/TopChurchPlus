@@ -1048,6 +1048,56 @@ function getSystemLogs(filters, currentUser) {
   }, currentUser);
 }
 
+function getSundayMessageOptions(currentUser) {
+  return apiRequest('get', '/sunday-messages/options', null, null, currentUser);
+}
+
+function getSundayMessages(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/sunday-messages', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || 'active'
+  }, currentUser);
+}
+
+function getSundayMessage(messageId, currentUser) {
+  return apiRequest('get', `/sunday-messages/${encodeURIComponent(messageId)}`, null, null, currentUser);
+}
+
+function saveSundayMessage(payload) {
+  const message = payload.message || {};
+  const currentUser = payload.currentUser || {};
+  if (message.messageId) {
+    return apiRequest(
+      'put',
+      `/sunday-messages/${encodeURIComponent(message.messageId)}`,
+      { currentUser, message }
+    );
+  }
+  return apiRequest('post', '/sunday-messages', { currentUser, message });
+}
+
+function saveSundayMessageShares(payload) {
+  return apiRequest(
+    'put',
+    `/sunday-messages/${encodeURIComponent(payload.messageId)}/shares`,
+    {
+      currentUser: payload.currentUser || {},
+      shares: payload.shares || {}
+    }
+  );
+}
+
+function archiveSundayMessage(messageId, currentUser) {
+  return apiRequest(
+    'delete',
+    `/sunday-messages/${encodeURIComponent(messageId)}`,
+    null,
+    null,
+    currentUser
+  );
+}
+
 function exportPurchaseDoc(payload) {
   const purchaseId = payload.purchaseId;
   const docType = payload.docType;

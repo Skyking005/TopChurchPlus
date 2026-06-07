@@ -12,6 +12,7 @@ const PARAM_CATEGORIES = {
   purchaseTypes: 'purchaseTypes',
   paymentMethods: 'paymentMethods',
   departments: 'departments',
+  churchTypes: 'churchTypes',
   assetTypes: 'assetTypes',
   assetVendors: 'assetVendors',
   assetStatuses: 'assetStatuses'
@@ -24,6 +25,7 @@ const SYSTEM_FEATURES = [
   'asset',
   'venue',
   'zoom',
+  'sunday_message',
   'forms',
   'counter',
   'qrcode',

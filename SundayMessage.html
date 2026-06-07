@@ -1,0 +1,120 @@
+<section id="sundayMessageView" class="d-none">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div>
+      <h5 class="mb-1">主日信息管理</h5>
+      <div class="text-muted small">管理信息主題，並追蹤各會堂與非會堂場合的分享狀況。</div>
+    </div>
+    <button id="sundayMessageAddBtn" type="button" class="btn btn-success" onclick="openSundayMessageEditor()">新增信息</button>
+  </div>
+
+  <div class="filter-panel mb-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-8">
+        <label class="form-label">關鍵字</label>
+        <input id="sundayMessageKeyword" class="form-control" placeholder="牧者、信息主題、經文、備註" onkeydown="handleSundayMessageSearchKey(event)">
+      </div>
+      <div class="col-12 col-md-2">
+        <label class="form-label">狀態</label>
+        <select id="sundayMessageStatusFilter" class="form-select" onchange="loadSundayMessages()">
+          <option value="active">啟用</option>
+          <option value="archived">已封存</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-2 d-grid">
+        <button type="button" class="btn btn-outline-primary" onclick="loadSundayMessages()">搜尋</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sundayMessageError" class="text-danger small mb-2"></div>
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-5">
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>信息主題</th>
+                <th>分享狀況</th>
+                <th>最近分享</th>
+              </tr>
+            </thead>
+            <tbody id="sundayMessageTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-7">
+      <div id="sundayMessageDetailPanel" class="card d-none">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h6 id="sundayMessageDetailTitle" class="mb-1">信息資料</h6>
+              <div class="text-muted small">格式範例：OO牧者 - XXXXX</div>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="closeSundayMessageDetail()">收合</button>
+          </div>
+
+          <input id="sundayMessageId" type="hidden">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">牧者</label>
+              <input id="sundayMessageSpeaker" class="form-control sunday-message-input">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">信息主題</label>
+              <input id="sundayMessageTitle" class="form-control sunday-message-input">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">信息日期</label>
+              <input id="sundayMessageDate" type="date" class="form-control sunday-message-input">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">經文</label>
+              <input id="sundayMessageScripture" class="form-control sunday-message-input">
+            </div>
+            <div class="col-12">
+              <label class="form-label">備註</label>
+              <textarea id="sundayMessageNote" class="form-control sunday-message-input" rows="2"></textarea>
+            </div>
+          </div>
+          <div id="sundayMessageDetailError" class="text-danger small mt-2"></div>
+          <div class="d-flex gap-2 mt-3">
+            <button id="sundayMessageSaveBtn" type="button" class="btn btn-primary" onclick="submitSundayMessage()">儲存基本資料</button>
+            <button id="sundayMessageArchiveBtn" type="button" class="btn btn-outline-danger" onclick="archiveCurrentSundayMessage()">封存</button>
+          </div>
+
+          <hr>
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0">會堂分享狀況</h6>
+            <button id="sundayMessageSaveSharesBtn" type="button" class="btn btn-outline-primary btn-sm" onclick="submitSundayMessageShares()">儲存分享狀況</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>會堂</th>
+                  <th style="width: 170px;">分享日期</th>
+                  <th>備註</th>
+                  <th style="width: 90px;">狀態</th>
+                </tr>
+              </thead>
+              <tbody id="sundayMessageChurchShareBody"></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+            <h6 class="mb-0">非會堂分享場合</h6>
+            <button id="sundayMessageAddExternalBtn" type="button" class="btn btn-outline-secondary btn-sm" onclick="addSundayMessageExternalShare()">新增場合</button>
+          </div>
+          <div id="sundayMessageExternalShareList" class="sunday-message-external-list"></div>
+        </div>
+      </div>
+
+      <div id="sundayMessageEmptyDetail" class="list-loading-box text-muted">請從左側選擇信息，或新增一筆主日信息。</div>
+    </div>
+  </div>
+</section>

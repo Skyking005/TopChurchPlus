@@ -1,0 +1,319 @@
+<script>
+let sundayMessageOptions = { churches: [], externalPlaces: [] };
+let sundayMessageRows = [];
+let sundayMessageDetail = null;
+let sundayMessageCanEdit = false;
+
+function openSundayMessageSystem() {
+  recordFeatureUsage('sunday_message');
+  sundayMessageCanEdit = canManageSundayMessages();
+  document.getElementById('mainTitle').textContent = '主日信息管理系統';
+  hideAllMainViews();
+  document.getElementById('sundayMessageView').classList.remove('d-none');
+  document.getElementById('sundayMessageAddBtn').classList.toggle('d-none', !sundayMessageCanEdit);
+  closeSundayMessageDetail();
+  loadSundayMessageOptions(() => loadSundayMessages());
+}
+
+function canManageSundayMessages() {
+  if (currentUser?.isSuperAdmin) return true;
+  const departments = Array.isArray(currentUser?.departments)
+    ? currentUser.departments
+    : String(currentUser?.department || '').split(/[、,，]/).map(item => item.trim()).filter(Boolean);
+  if (departments.includes('秘書部')) return true;
+  const roles = getUserRoles(currentUser);
+  return String(currentUser?.position || '').includes('主任牧師') || roles.includes('主任牧師');
+}
+
+function loadSundayMessageOptions(callback) {
+  google.script.run
+    .withSuccessHandler(options => {
+      sundayMessageOptions = options || { churches: [], externalPlaces: [] };
+      if (callback) callback();
+    })
+    .withFailureHandler(showError)
+    .getSundayMessageOptions(currentUser);
+}
+
+function handleSundayMessageSearchKey(event) {
+  if (event.key === 'Enter') loadSundayMessages();
+}
+
+function loadSundayMessages() {
+  setListLoading('sundayMessageTableBody', true, '主日信息載入中...');
+  document.getElementById('sundayMessageError').textContent = '';
+  google.script.run
+    .withSuccessHandler(data => {
+      sundayMessageRows = data?.rows || [];
+      renderSundayMessageList();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('sundayMessageError').textContent = err.message || err;
+      sundayMessageRows = [];
+      renderSundayMessageList();
+    })
+    .getSundayMessages({
+      keyword: document.getElementById('sundayMessageKeyword').value,
+      status: document.getElementById('sundayMessageStatusFilter').value
+    }, currentUser);
+}
+
+function renderSundayMessageList() {
+  const body = document.getElementById('sundayMessageTableBody');
+  body.innerHTML = '';
+  if (!sundayMessageRows.length) {
+    body.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">目前沒有主日信息資料</td></tr>';
+    return;
+  }
+  sundayMessageRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <button type="button" class="btn btn-link p-0 text-start" onclick="loadSundayMessageDetail('${escapeAttr(row.messageId)}')">
+          <span class="fw-semibold">${escapeHtml(row.speakerName)} - ${escapeHtml(row.messageTitle)}</span>
+        </button>
+        <div class="small text-muted">${escapeHtml(row.scripture || '')}</div>
+      </td>
+      <td>
+        <span class="badge bg-success-subtle text-success">已分享 ${escapeHtml(row.sharedChurchCount)}</span>
+        <span class="badge bg-warning-subtle text-warning">未分享 ${escapeHtml(row.pendingChurchCount)}</span>
+        ${row.externalShareCount ? `<span class="badge bg-info-subtle text-info">非會堂 ${escapeHtml(row.externalShareCount)}</span>` : ''}
+      </td>
+      <td>${escapeHtml(formatSundayMessageDate(row.latestSharedDate || row.messageDate))}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function openSundayMessageEditor() {
+  sundayMessageDetail = {
+    message: {
+      messageId: '',
+      speakerName: '',
+      messageTitle: '',
+      messageDate: '',
+      scripture: '',
+      note: ''
+    },
+    churchShares: (sundayMessageOptions.churches || []).map(church => ({
+      churchId: church.churchId,
+      churchName: church.churchName,
+      churchType: church.churchType,
+      sharedDate: '',
+      note: '',
+      status: '未分享'
+    })),
+    externalShares: []
+  };
+  renderSundayMessageDetail();
+}
+
+function loadSundayMessageDetail(messageId) {
+  document.getElementById('sundayMessageDetailError').textContent = '';
+  google.script.run
+    .withSuccessHandler(detail => {
+      sundayMessageDetail = detail;
+      renderSundayMessageDetail();
+    })
+    .withFailureHandler(showError)
+    .getSundayMessage(messageId, currentUser);
+}
+
+function renderSundayMessageDetail() {
+  if (!sundayMessageDetail) {
+    closeSundayMessageDetail();
+    return;
+  }
+  const message = sundayMessageDetail.message || {};
+  document.getElementById('sundayMessageDetailPanel').classList.remove('d-none');
+  document.getElementById('sundayMessageEmptyDetail').classList.add('d-none');
+  document.getElementById('sundayMessageDetailTitle').textContent = message.messageId
+    ? `${message.speakerName} - ${message.messageTitle}`
+    : '新增主日信息';
+  document.getElementById('sundayMessageId').value = message.messageId || '';
+  document.getElementById('sundayMessageSpeaker').value = message.speakerName || '';
+  document.getElementById('sundayMessageTitle').value = message.messageTitle || '';
+  document.getElementById('sundayMessageDate').value = toDateInputValue(message.messageDate);
+  document.getElementById('sundayMessageScripture').value = message.scripture || '';
+  document.getElementById('sundayMessageNote').value = message.note || '';
+  document.getElementById('sundayMessageDetailError').textContent = '';
+
+  document.querySelectorAll('.sunday-message-input').forEach(input => { input.disabled = !sundayMessageCanEdit; });
+  document.getElementById('sundayMessageSaveBtn').classList.toggle('d-none', !sundayMessageCanEdit);
+  document.getElementById('sundayMessageSaveSharesBtn').classList.toggle('d-none', !sundayMessageCanEdit);
+  document.getElementById('sundayMessageAddExternalBtn').classList.toggle('d-none', !sundayMessageCanEdit);
+  document.getElementById('sundayMessageArchiveBtn').classList.toggle('d-none', !sundayMessageCanEdit || !message.messageId);
+
+  renderSundayMessageChurchShares();
+  renderSundayMessageExternalShares();
+}
+
+function closeSundayMessageDetail() {
+  sundayMessageDetail = null;
+  document.getElementById('sundayMessageDetailPanel')?.classList.add('d-none');
+  document.getElementById('sundayMessageEmptyDetail')?.classList.remove('d-none');
+}
+
+function renderSundayMessageChurchShares() {
+  const body = document.getElementById('sundayMessageChurchShareBody');
+  body.innerHTML = '';
+  const shares = sundayMessageDetail?.churchShares || [];
+  if (!shares.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-3">目前沒有會堂資料</td></tr>';
+    return;
+  }
+  shares.forEach((share, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(share.churchName)}</td>
+      <td><input type="date" class="form-control form-control-sm sunday-message-church-date" data-index="${index}" value="${escapeAttr(toDateInputValue(share.sharedDate))}" ${sundayMessageCanEdit ? '' : 'disabled'}></td>
+      <td><input class="form-control form-control-sm sunday-message-church-note" data-index="${index}" value="${escapeAttr(share.note || '')}" ${sundayMessageCanEdit ? '' : 'disabled'}></td>
+      <td>${share.sharedDate ? '<span class="badge bg-success-subtle text-success">已分享</span>' : '<span class="badge bg-secondary-subtle text-secondary">未分享</span>'}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderSundayMessageExternalShares() {
+  const list = document.getElementById('sundayMessageExternalShareList');
+  list.innerHTML = '';
+  const shares = sundayMessageDetail?.externalShares || [];
+  if (!shares.length) {
+    list.innerHTML = '<div class="text-muted small">尚未新增非會堂分享場合。</div>';
+    return;
+  }
+  shares.forEach((share, index) => {
+    const row = document.createElement('div');
+    row.className = 'sunday-message-external-row';
+    row.innerHTML = `
+      <input class="form-control sunday-message-external-place" list="sundayMessageExternalPlaceList" data-index="${index}" placeholder="OO特會、XX婦女會" value="${escapeAttr(share.externalPlace || '')}" ${sundayMessageCanEdit ? '' : 'disabled'}>
+      <input type="date" class="form-control sunday-message-external-date" data-index="${index}" value="${escapeAttr(toDateInputValue(share.sharedDate))}" ${sundayMessageCanEdit ? '' : 'disabled'}>
+      <input class="form-control sunday-message-external-note" data-index="${index}" placeholder="備註" value="${escapeAttr(share.note || '')}" ${sundayMessageCanEdit ? '' : 'disabled'}>
+      ${sundayMessageCanEdit ? `<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeSundayMessageExternalShare(${index})">移除</button>` : ''}
+    `;
+    list.appendChild(row);
+  });
+  renderSundayMessageExternalPlaceList();
+}
+
+function renderSundayMessageExternalPlaceList() {
+  let list = document.getElementById('sundayMessageExternalPlaceList');
+  if (!list) {
+    list = document.createElement('datalist');
+    list.id = 'sundayMessageExternalPlaceList';
+    document.getElementById('sundayMessageView').appendChild(list);
+  }
+  list.innerHTML = '';
+  (sundayMessageOptions.externalPlaces || []).forEach(value => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    list.appendChild(opt);
+  });
+}
+
+function addSundayMessageExternalShare() {
+  if (!sundayMessageDetail) return;
+  sundayMessageDetail.externalShares = sundayMessageDetail.externalShares || [];
+  sundayMessageDetail.externalShares.push({ externalPlace: '', sharedDate: '', note: '' });
+  renderSundayMessageExternalShares();
+}
+
+function removeSundayMessageExternalShare(index) {
+  if (!sundayMessageDetail) return;
+  sundayMessageDetail.externalShares.splice(index, 1);
+  renderSundayMessageExternalShares();
+}
+
+function submitSundayMessage() {
+  const btn = document.getElementById('sundayMessageSaveBtn');
+  const errorBox = document.getElementById('sundayMessageDetailError');
+  errorBox.textContent = '';
+  const message = {
+    messageId: document.getElementById('sundayMessageId').value,
+    speakerName: document.getElementById('sundayMessageSpeaker').value.trim(),
+    messageTitle: document.getElementById('sundayMessageTitle').value.trim(),
+    messageDate: document.getElementById('sundayMessageDate').value,
+    scripture: document.getElementById('sundayMessageScripture').value.trim(),
+    note: document.getElementById('sundayMessageNote').value.trim()
+  };
+  if (!message.speakerName) {
+    errorBox.textContent = '請填寫牧者姓名';
+    return;
+  }
+  if (!message.messageTitle) {
+    errorBox.textContent = '請填寫信息主題';
+    return;
+  }
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      loadSundayMessages();
+      loadSundayMessageDetail(res.messageId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveSundayMessage({ currentUser, message });
+}
+
+function submitSundayMessageShares() {
+  const messageId = document.getElementById('sundayMessageId').value;
+  const errorBox = document.getElementById('sundayMessageDetailError');
+  if (!messageId) {
+    errorBox.textContent = '請先儲存基本資料，再設定分享狀況';
+    return;
+  }
+  const btn = document.getElementById('sundayMessageSaveSharesBtn');
+  const shares = collectSundayMessageShares();
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      loadSundayMessages();
+      loadSundayMessageDetail(messageId);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveSundayMessageShares({ currentUser, messageId, shares });
+}
+
+function collectSundayMessageShares() {
+  const churchShares = (sundayMessageDetail?.churchShares || []).map((share, index) => ({
+    churchId: share.churchId,
+    sharedDate: document.querySelector(`.sunday-message-church-date[data-index="${index}"]`)?.value || '',
+    note: document.querySelector(`.sunday-message-church-note[data-index="${index}"]`)?.value.trim() || ''
+  }));
+
+  const externalShares = [...document.querySelectorAll('.sunday-message-external-row')].map(row => ({
+    externalPlace: row.querySelector('.sunday-message-external-place')?.value.trim() || '',
+    sharedDate: row.querySelector('.sunday-message-external-date')?.value || '',
+    note: row.querySelector('.sunday-message-external-note')?.value.trim() || ''
+  })).filter(share => share.externalPlace);
+
+  return { churchShares, externalShares };
+}
+
+function archiveCurrentSundayMessage() {
+  const messageId = document.getElementById('sundayMessageId').value;
+  if (!messageId || !confirm('確定要封存此主日信息？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      closeSundayMessageDetail();
+      loadSundayMessages();
+    })
+    .withFailureHandler(showError)
+    .archiveSundayMessage(messageId, currentUser);
+}
+
+function formatSundayMessageDate(value) {
+  const date = toDateInputValue(value);
+  return date || '';
+}
+</script>

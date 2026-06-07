@@ -2,6 +2,8 @@ const { pool } = require('../db');
 const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../modules/core/catalog');
 const { assertDesktop, normalizeRoles } = require('./users');
 
+const ADMIN_READ_EXCLUDED_FEATURES = new Set(['system', 'sunday_message']);
+
 function applyAdminReadableAccess(access, roles) {
   if (roles.includes('超級管理者')) {
     SYSTEM_FEATURES.forEach(featureKey => {
@@ -14,7 +16,7 @@ function applyAdminReadableAccess(access, roles) {
 
   if (roles.includes('管理員')) {
     SYSTEM_FEATURES
-      .filter(featureKey => featureKey !== 'system')
+      .filter(featureKey => !ADMIN_READ_EXCLUDED_FEATURES.has(featureKey))
       .forEach(featureKey => {
         if (!access[featureKey] || FEATURE_ACCESS_RANK[access[featureKey]] < FEATURE_ACCESS_RANK.read) {
           access[featureKey] = 'read';
