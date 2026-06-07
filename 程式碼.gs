@@ -826,7 +826,8 @@ function getZoomAvailability(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/zoom/availability', null, {
     startAt: filters.startAt || new Date().toISOString(),
-    endAt: filters.endAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    endAt: filters.endAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    zoomAccountId: filters.zoomAccountId || ''
   }, currentUser);
 }
 

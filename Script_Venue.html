@@ -35,7 +35,7 @@ function switchVenueTab(tab) {
 
 function setupVenueDefaults() {
   const dateInput = document.getElementById('venueDate');
-  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  if (dateInput && !dateInput.value) dateInput.value = toResourceDateValue(new Date());
 }
 
 function loadVenueResources(callback) {
@@ -54,45 +54,18 @@ function loadVenueResources(callback) {
 }
 
 function setupVenueFilters() {
-  const hallSelect = document.getElementById('venueHallFilter');
-  const mainLocationSelect = document.getElementById('venueMainLocationFilter');
-  const currentHall = hallSelect.value;
-  const currentMainLocation = mainLocationSelect.value;
-  const halls = [...new Set(venueResources.map(item => item.hall).filter(Boolean))];
+  const select = document.getElementById('venueResourceFilter');
+  const currentValue = select.value;
+  const bookableResources = venueResources.filter(item => item.isBookable);
 
-  hallSelect.innerHTML = '<option value="">全部會堂</option>';
-  halls.forEach(hall => {
+  select.innerHTML = '<option value="">全部可借用場地</option>';
+  bookableResources.forEach(resource => {
     const opt = document.createElement('option');
-    opt.value = hall;
-    opt.textContent = hall;
-    hallSelect.appendChild(opt);
-  });
-  if (currentHall && halls.includes(currentHall)) hallSelect.value = currentHall;
-  setupVenueMainLocationOptions(currentMainLocation);
-}
-
-function onVenueHallChanged() {
-  setupVenueMainLocationOptions('');
-}
-
-function setupVenueMainLocationOptions(selectedValue) {
-  const hall = document.getElementById('venueHallFilter').value;
-  const select = document.getElementById('venueMainLocationFilter');
-  const mainLocations = [...new Set(
-    venueResources
-      .filter(item => !hall || item.hall === hall)
-      .map(item => item.mainLocation)
-      .filter(Boolean)
-  )];
-
-  select.innerHTML = '<option value="">全部位置</option>';
-  mainLocations.forEach(mainLocation => {
-    const opt = document.createElement('option');
-    opt.value = mainLocation;
-    opt.textContent = mainLocation;
+    opt.value = encodeVenueResourceValue(resource);
+    opt.textContent = `${resource.hall} / ${resource.mainLocation}`;
     select.appendChild(opt);
   });
-  if (selectedValue && mainLocations.includes(selectedValue)) select.value = selectedValue;
+  if (currentValue && [...select.options].some(option => option.value === currentValue)) select.value = currentValue;
 }
 
 function loadVenueAvailability() {
@@ -125,18 +98,24 @@ function collectVenueAvailabilityFilters() {
   const date = document.getElementById('venueDate').value;
   const startTime = document.getElementById('venueStartTime').value || '00:00';
   const endTime = document.getElementById('venueEndTime').value || '23:59';
-  if (!date) throw new Error('請選擇查詢日期');
+  if (!date) throw new Error('請選擇週起始日');
 
-  const start = new Date(`${date}T${startTime}:00`);
-  const end = new Date(`${date}T${endTime}:00`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('查詢時間格式錯誤');
-  if (end <= start) throw new Error('結束時間必須晚於開始時間');
+  const weekStart = new Date(`${date}T00:00:00`);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  if (Number.isNaN(weekStart.getTime()) || Number.isNaN(weekEnd.getTime())) throw new Error('查詢日期格式錯誤');
+  if (endTime <= startTime) throw new Error('預設結束時間必須晚於開始時間');
+
+  const selectedResource = decodeVenueResourceValue(document.getElementById('venueResourceFilter').value);
 
   return {
-    hall: document.getElementById('venueHallFilter').value,
-    mainLocation: document.getElementById('venueMainLocationFilter').value,
-    startAt: start.toISOString(),
-    endAt: end.toISOString()
+    hall: selectedResource.hall || '',
+    mainLocation: selectedResource.mainLocation || '',
+    startAt: weekStart.toISOString(),
+    endAt: weekEnd.toISOString(),
+    weekStartDate: date,
+    defaultStartTime: startTime,
+    defaultEndTime: endTime
   };
 }
 
@@ -145,6 +124,8 @@ function renderVenueResources(resources) {
   const mobile = document.getElementById('mobileVenueResourceList');
   grid.innerHTML = '';
   mobile.innerHTML = '';
+  const filters = getCurrentVenueAvailabilityFiltersSafe();
+  const days = buildResourceWeekDays(filters.weekStartDate);
 
   if (!resources.length) {
     grid.innerHTML = '<div class="list-loading-box text-muted">查無場地資料</div>';
@@ -153,7 +134,7 @@ function renderVenueResources(resources) {
   }
 
   resources.forEach(resource => {
-    const view = getVenueResourceView(resource);
+    const view = getVenueResourceView(resource, days);
     const column = document.createElement('div');
     column.className = 'resource-calendar-column';
     column.innerHTML = `
@@ -169,7 +150,7 @@ function renderVenueResources(resources) {
       </div>
       <div class="resource-calendar-body">
         ${view.eventsHtml}
-        <div class="mt-2">${renderVenueActions(resource)}</div>
+        <div class="mt-2 d-flex gap-2 flex-wrap">${renderVenueActions(resource)}</div>
       </div>
     `;
     grid.appendChild(column);
@@ -233,7 +214,7 @@ function toggleVenueBookable(encodedHall, encodedMainLocation, isBookable) {
     });
 }
 
-function getVenueResourceView(resource) {
+function getVenueResourceView(resource, days) {
   const hasCalendarError = getVenueCalendarError(resource);
   const hasCalendar = Boolean(resource.calendarId);
   const events = resource.events || [];
@@ -255,20 +236,36 @@ function getVenueResourceView(resource) {
     status,
     statusClass,
     calendarText: hasCalendar ? resource.calendarId : '尚未設定',
-    eventsHtml: renderVenueEvents(events)
+    eventsHtml: renderVenueWeek(events, days)
   };
 }
 
+function renderVenueWeek(events, days) {
+  if (!days.length) return '<div class="resource-empty-slot">請選擇週起始日</div>';
+  return days.map(day => {
+    const dayEvents = (events || [])
+      .filter(event => eventOverlapsRange(event, day.date, day.nextDate))
+      .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+    return `
+      <div class="resource-week-day">
+        <div class="resource-week-day-header">${escapeHtml(day.label)}</div>
+        <div class="resource-week-day-body">
+          ${dayEvents.length ? renderVenueEvents(dayEvents) : '<div class="resource-empty-slot resource-empty-slot-compact">可借用</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderVenueEvents(events) {
-  if (!events || !events.length) return '<div class="resource-empty-slot">此時段可借用</div>';
-  return events.slice(0, 3).map(event => `
+  return events.map(event => `
     <div class="resource-reservation-card">
       <div class="fw-semibold">${escapeHtml(formatResourceTimeRange(event.startAt, event.endAt))}</div>
       <div>${escapeHtml(event.title || '未命名')}</div>
       <div class="small text-muted">${escapeHtml(event.requesterName || event.source || '')}</div>
       ${venueCanEdit && event.source !== 'google_calendar' && event.reservationId ? `<button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="cancelVenueReservationFromUI('${escapeAttr(event.reservationId)}')">取消借用</button>` : ''}
     </div>
-  `).join('') + (events.length > 3 ? `<div class="text-muted small">另有 ${events.length - 3} 筆</div>` : '');
+  `).join('');
 }
 
 function renderVenueActions(resource) {
@@ -281,14 +278,16 @@ function renderVenueActions(resource) {
 function openVenueReservationModal() {
   if (!venueCanEdit) return;
   const filters = collectVenueAvailabilityFilters();
-  document.getElementById('venueReservationStartAt').value = toResourceDateTimeLocal(filters.startAt);
-  document.getElementById('venueReservationEndAt').value = toResourceDateTimeLocal(filters.endAt);
+  const defaultStartAt = new Date(`${filters.weekStartDate}T${filters.defaultStartTime}:00`);
+  const defaultEndAt = new Date(`${filters.weekStartDate}T${filters.defaultEndTime}:00`);
+  document.getElementById('venueReservationStartAt').value = toResourceDateTimeLocal(defaultStartAt);
+  document.getElementById('venueReservationEndAt').value = toResourceDateTimeLocal(defaultEndAt);
   document.getElementById('venueReservationTitle').value = '';
   document.getElementById('venueReservationRequester').value = currentUser?.name || '';
   document.getElementById('venueReservationPhone').value = '';
   document.getElementById('venueReservationNote').value = '';
   document.getElementById('venueReservationError').textContent = '';
-  renderVenueReservationResourceOptions(filters.startAt, filters.endAt);
+  renderVenueReservationResourceOptions(defaultStartAt.toISOString(), defaultEndAt.toISOString());
   venueReservationModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('venueReservationModal'));
   venueReservationModalInstance.show();
 }
@@ -296,7 +295,10 @@ function openVenueReservationModal() {
 function renderVenueReservationResourceOptions(startAt, endAt) {
   const select = document.getElementById('venueReservationResource');
   select.innerHTML = '';
-  (venueAvailability?.resources || []).forEach(resource => {
+  const selected = decodeVenueResourceValue(document.getElementById('venueResourceFilter').value);
+  (venueAvailability?.resources || [])
+    .filter(resource => !selected.hall || (resource.hall === selected.hall && resource.mainLocation === selected.mainLocation))
+    .forEach(resource => {
     const busy = isVenueResourceBusy(resource, startAt, endAt);
     const opt = document.createElement('option');
     opt.value = JSON.stringify({ hall: resource.hall, mainLocation: resource.mainLocation });
@@ -419,6 +421,33 @@ function getVenueCalendarError(resource) {
   return (venueAvailability?.calendarErrors || []).find(item =>
     item.hall === resource.hall && item.mainLocation === resource.mainLocation
   );
+}
+
+function encodeVenueResourceValue(resource) {
+  if (!resource) return '';
+  return `${encodeURIComponent(resource.hall || '')}|${encodeURIComponent(resource.mainLocation || '')}`;
+}
+
+function decodeVenueResourceValue(value) {
+  if (!value) return { hall: '', mainLocation: '' };
+  const [hall, mainLocation] = String(value).split('|');
+  return {
+    hall: decodeURIComponent(hall || ''),
+    mainLocation: decodeURIComponent(mainLocation || '')
+  };
+}
+
+function getCurrentVenueAvailabilityFiltersSafe() {
+  try {
+    return collectVenueAvailabilityFilters();
+  } catch (err) {
+    const dateValue = document.getElementById('venueDate')?.value || toResourceDateValue(new Date());
+    return {
+      weekStartDate: dateValue,
+      defaultStartTime: document.getElementById('venueStartTime')?.value || '08:00',
+      defaultEndTime: document.getElementById('venueEndTime')?.value || '22:00'
+    };
+  }
 }
 
 function formatVenueTime(value) {

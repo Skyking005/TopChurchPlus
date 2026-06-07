@@ -20,24 +20,20 @@
     <div class="filter-panel mb-3">
     <div class="row g-2 align-items-end">
       <div class="col-12 col-md-3">
-        <label class="form-label">日期</label>
+        <label class="form-label">週起始日</label>
         <input id="venueDate" type="date" class="form-control">
       </div>
       <div class="col-6 col-md-2">
-        <label class="form-label">開始時間</label>
+        <label class="form-label">預設開始時間</label>
         <input id="venueStartTime" type="time" class="form-control" value="08:00">
       </div>
       <div class="col-6 col-md-2">
-        <label class="form-label">結束時間</label>
+        <label class="form-label">預設結束時間</label>
         <input id="venueEndTime" type="time" class="form-control" value="22:00">
       </div>
-      <div class="col-12 col-md-2">
-        <label class="form-label">會堂</label>
-        <select id="venueHallFilter" class="form-select" onchange="onVenueHallChanged()"></select>
-      </div>
-      <div class="col-12 col-md-3">
-        <label class="form-label">主要位置</label>
-        <select id="venueMainLocationFilter" class="form-select"></select>
+      <div class="col-12 col-md-5">
+        <label class="form-label">可借用場地</label>
+        <select id="venueResourceFilter" class="form-select" onchange="loadVenueAvailability()"></select>
       </div>
       <div class="col-12 text-end">
         <button type="button" class="btn btn-primary" onclick="loadVenueAvailability()">查詢使用狀況</button>

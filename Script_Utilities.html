@@ -191,4 +191,37 @@ function formatResourceTime(value) {
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
+
+function toResourceDateValue(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function buildResourceWeekDays(startDateValue) {
+  const start = new Date(`${startDateValue}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return [];
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const nextDate = new Date(date);
+    nextDate.setDate(date.getDate() + 1);
+    return {
+      date,
+      nextDate,
+      dateValue: toResourceDateValue(date),
+      label: date.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' })
+    };
+  });
+}
+
+function eventOverlapsRange(event, startAt, endAt) {
+  const start = new Date(startAt).getTime();
+  const end = new Date(endAt).getTime();
+  return new Date(event.startAt).getTime() < end &&
+    new Date(event.endAt).getTime() > start;
+}
 </script>

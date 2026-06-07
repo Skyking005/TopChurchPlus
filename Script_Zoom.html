@@ -16,7 +16,21 @@ function openZoomSystem() {
 
 function setupZoomDefaults() {
   const dateInput = document.getElementById('zoomDate');
-  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  if (dateInput && !dateInput.value) dateInput.value = toResourceDateValue(new Date());
+}
+
+function setupZoomAccountFilter() {
+  const select = document.getElementById('zoomAccountFilter');
+  if (!select) return;
+  const currentValue = select.value;
+  select.innerHTML = '<option value="">全部 Zoom 帳號</option>';
+  (zoomAvailability.accounts || []).forEach(account => {
+    const opt = document.createElement('option');
+    opt.value = account.zoomAccountId;
+    opt.textContent = `${account.displayName} / ${account.email}`;
+    select.appendChild(opt);
+  });
+  if (currentValue && [...select.options].some(option => option.value === currentValue)) select.value = currentValue;
 }
 
 function loadZoomAvailability() {
@@ -33,6 +47,7 @@ function loadZoomAvailability() {
   google.script.run
     .withSuccessHandler(data => {
       zoomAvailability = data || { accounts: [], reservations: [] };
+      setupZoomAccountFilter();
       renderZoomCalendar();
     })
     .withFailureHandler(err => {
@@ -47,17 +62,29 @@ function collectZoomRange() {
   const date = document.getElementById('zoomDate').value;
   const startTime = document.getElementById('zoomStartTime').value || '00:00';
   const endTime = document.getElementById('zoomEndTime').value || '23:59';
-  if (!date) throw new Error('請選擇日期');
-  const start = new Date(`${date}T${startTime}:00`);
-  const end = new Date(`${date}T${endTime}:00`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('時間格式錯誤');
-  if (end <= start) throw new Error('結束時間必須晚於開始時間');
-  return { startAt: start.toISOString(), endAt: end.toISOString() };
+  if (!date) throw new Error('請選擇週起始日');
+  const start = new Date(`${date}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error('日期格式錯誤');
+  if (endTime <= startTime) throw new Error('預設結束時間必須晚於開始時間');
+  return {
+    startAt: start.toISOString(),
+    endAt: end.toISOString(),
+    weekStartDate: date,
+    defaultStartTime: startTime,
+    defaultEndTime: endTime,
+    zoomAccountId: document.getElementById('zoomAccountFilter')?.value || ''
+  };
 }
 
 function renderZoomCalendar() {
   const grid = document.getElementById('zoomCalendarGrid');
-  const accounts = zoomAvailability.accounts || [];
+  const range = getCurrentZoomRangeSafe();
+  const days = buildResourceWeekDays(range.weekStartDate);
+  const selectedAccountId = document.getElementById('zoomAccountFilter')?.value || '';
+  const accounts = (zoomAvailability.accounts || [])
+    .filter(account => !selectedAccountId || account.zoomAccountId === selectedAccountId);
   const reservations = zoomAvailability.reservations || [];
   grid.innerHTML = '';
   if (!accounts.length) {
@@ -74,11 +101,28 @@ function renderZoomCalendar() {
         <div class="small text-muted text-break">${escapeHtml(account.email)}</div>
       </div>
       <div class="resource-calendar-body">
-        ${accountReservations.length ? accountReservations.map(renderZoomReservationCard).join('') : '<div class="resource-empty-slot">此時段可借用</div>'}
+        ${renderZoomWeek(accountReservations, days)}
       </div>
     `;
     grid.appendChild(column);
   });
+}
+
+function renderZoomWeek(reservations, days) {
+  if (!days.length) return '<div class="resource-empty-slot">請選擇週起始日</div>';
+  return days.map(day => {
+    const dayReservations = (reservations || [])
+      .filter(item => eventOverlapsRange(item, day.date, day.nextDate))
+      .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
+    return `
+      <div class="resource-week-day">
+        <div class="resource-week-day-header">${escapeHtml(day.label)}</div>
+        <div class="resource-week-day-body">
+          ${dayReservations.length ? dayReservations.map(renderZoomReservationCard).join('') : '<div class="resource-empty-slot resource-empty-slot-compact">可借用</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderZoomReservationCard(item) {
@@ -96,20 +140,24 @@ function renderZoomReservationCard(item) {
 function openZoomReservationModal() {
   if (!zoomCanEdit) return;
   const range = collectZoomRange();
-  document.getElementById('zoomReservationStartAt').value = toResourceDateTimeLocal(range.startAt);
-  document.getElementById('zoomReservationEndAt').value = toResourceDateTimeLocal(range.endAt);
+  const defaultStartAt = new Date(`${range.weekStartDate}T${range.defaultStartTime}:00`);
+  const defaultEndAt = new Date(`${range.weekStartDate}T${range.defaultEndTime}:00`);
+  document.getElementById('zoomReservationStartAt').value = toResourceDateTimeLocal(defaultStartAt);
+  document.getElementById('zoomReservationEndAt').value = toResourceDateTimeLocal(defaultEndAt);
   document.getElementById('zoomReservationTitle').value = '';
   document.getElementById('zoomReservationBorrower').value = currentUser?.name || '';
   document.getElementById('zoomReservationNote').value = '';
   document.getElementById('zoomReservationError').textContent = '';
-  renderZoomReservationAccountOptions(range.startAt, range.endAt);
+  renderZoomReservationAccountOptions(defaultStartAt.toISOString(), defaultEndAt.toISOString());
   zoomReservationModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('zoomReservationModal'));
   zoomReservationModalInstance.show();
 }
 
 function renderZoomReservationAccountOptions(startAt, endAt) {
   const select = document.getElementById('zoomReservationAccount');
-  const accounts = zoomAvailability.accounts || [];
+  const selectedAccountId = document.getElementById('zoomAccountFilter')?.value || '';
+  const accounts = (zoomAvailability.accounts || [])
+    .filter(account => !selectedAccountId || account.zoomAccountId === selectedAccountId);
   select.innerHTML = '';
   accounts.forEach(account => {
     const busy = isZoomAccountBusy(account.zoomAccountId, startAt, endAt);
@@ -122,12 +170,9 @@ function renderZoomReservationAccountOptions(startAt, endAt) {
 }
 
 function isZoomAccountBusy(zoomAccountId, startAt, endAt) {
-  const start = new Date(startAt).getTime();
-  const end = new Date(endAt).getTime();
   return (zoomAvailability.reservations || []).some(item =>
     item.zoomAccountId === zoomAccountId &&
-    new Date(item.startAt).getTime() < end &&
-    new Date(item.endAt).getTime() > start
+    eventOverlapsRange(item, startAt, endAt)
   );
 }
 
@@ -169,5 +214,17 @@ function cancelZoomReservationFromUI(reservationId) {
     })
     .withFailureHandler(showError)
     .cancelZoomReservation({ currentUser, reservationId });
+}
+
+function getCurrentZoomRangeSafe() {
+  try {
+    return collectZoomRange();
+  } catch (err) {
+    return {
+      weekStartDate: document.getElementById('zoomDate')?.value || toResourceDateValue(new Date()),
+      defaultStartTime: document.getElementById('zoomStartTime')?.value || '08:00',
+      defaultEndTime: document.getElementById('zoomEndTime')?.value || '22:00'
+    };
+  }
 }
 </script>
