@@ -479,27 +479,38 @@ function renderFeatureMenu() {
   if (!grid || !currentUser) return;
 
   const allowedKeys = getAllowedFeatureKeys(currentUser);
+  const preferences = getFeaturePreferences();
   const features = SYSTEM_FEATURES
     .filter(feature => allowedKeys.includes(feature.key))
     .map(feature => ({
       ...feature,
       mode: getFeatureAccessLabel(getFeatureAccess(feature.key)),
-      usageCount: getFeatureUsageCount(feature.key)
+      usageCount: getFeatureUsageCount(feature.key),
+      pinned: preferences.pinned.includes(feature.key)
     }))
-    .sort((a, b) => b.usageCount - a.usageCount || SYSTEM_FEATURES.findIndex(item => item.key === a.key) - SYSTEM_FEATURES.findIndex(item => item.key === b.key));
+    .sort((a, b) => compareFeatureOrder(a, b, preferences));
   grid.innerHTML = '';
+  renderFeatureToolbar(preferences);
 
   if (!features.length) {
     grid.innerHTML = '<div class="feature-empty">目前帳號尚未被授權任何系統入口，請洽管理員。</div>';
     return;
   }
 
-  features.forEach(feature => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'feature-option';
-    button.onclick = () => window[feature.action](feature);
-    button.innerHTML = `
+  features.forEach((feature, index) => {
+    const card = document.createElement('div');
+    card.className = `feature-option${feature.pinned ? ' feature-option-pinned' : ''}`;
+    card.tabIndex = 0;
+    card.role = 'button';
+    card.dataset.featureKey = feature.key;
+    card.onclick = () => window[feature.action](feature);
+    card.onkeydown = evt => {
+      if (evt.key === 'Enter' || evt.key === ' ') {
+        evt.preventDefault();
+        window[feature.action](feature);
+      }
+    };
+    card.innerHTML = `
       <span class="feature-card-head">
         <span class="feature-icon" aria-hidden="true">${getFeatureIconSvg(feature.icon || feature.key)}</span>
         <span class="feature-title">${escapeHtml(feature.title)}</span>
@@ -510,9 +521,123 @@ function renderFeatureMenu() {
         ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
         ${feature.action === 'openComingSoonSystem' ? '<span class="feature-soon">建置中</span>' : ''}
       </span>
+      <span class="feature-custom-actions" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+        <button type="button" class="feature-action-btn${feature.pinned ? ' feature-action-btn-active' : ''}" title="${feature.pinned ? '取消釘選' : '釘選'}" onclick="toggleFeaturePin('${escapeAttr(feature.key)}')">${feature.pinned ? '已釘選' : '釘選'}</button>
+        <button type="button" class="feature-action-icon" title="向前移動" ${index === 0 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', -1)">←</button>
+        <button type="button" class="feature-action-icon" title="向後移動" ${index === features.length - 1 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', 1)">→</button>
+      </span>
     `;
-    grid.appendChild(button);
+    grid.appendChild(card);
   });
+}
+
+function renderFeatureToolbar(preferences) {
+  const toolbar = document.getElementById('featureToolbar');
+  if (!toolbar) return;
+  const hasCustom = hasFeatureCustomOrder(preferences);
+  toolbar.innerHTML = `
+    <div class="feature-toolbar-note">${hasCustom ? '已使用個人功能排序' : '依常用程度動態排序'}</div>
+    ${hasCustom ? '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetFeaturePreferences()">恢復動態排序</button>' : ''}
+  `;
+}
+
+function compareFeatureOrder(a, b, preferences) {
+  const hasCustom = hasFeatureCustomOrder(preferences);
+  const aPinned = preferences.pinned.includes(a.key);
+  const bPinned = preferences.pinned.includes(b.key);
+  if (aPinned !== bPinned) return aPinned ? -1 : 1;
+  if (hasCustom) {
+    const aRank = getFeaturePreferenceRank(a.key, preferences.order);
+    const bRank = getFeaturePreferenceRank(b.key, preferences.order);
+    if (aRank !== bRank) return aRank - bRank;
+  }
+  return b.usageCount - a.usageCount || getSystemFeatureRank(a.key) - getSystemFeatureRank(b.key);
+}
+
+function getSystemFeatureRank(featureKey) {
+  const index = SYSTEM_FEATURES.findIndex(item => item.key === featureKey);
+  return index >= 0 ? index : 9999;
+}
+
+function getFeaturePreferenceRank(featureKey, order) {
+  const index = order.indexOf(featureKey);
+  return index >= 0 ? index : 9999 + getSystemFeatureRank(featureKey);
+}
+
+function hasFeatureCustomOrder(preferences = getFeaturePreferences()) {
+  return Boolean(preferences.pinned.length || preferences.order.length);
+}
+
+function getFeaturePreferences() {
+  const empty = { pinned: [], order: [] };
+  try {
+    const raw = localStorage.getItem(getFeaturePreferencesKey());
+    const parsed = raw ? JSON.parse(raw) : empty;
+    return {
+      pinned: normalizeFeatureKeys(parsed.pinned),
+      order: normalizeFeatureKeys(parsed.order)
+    };
+  } catch (err) {
+    return empty;
+  }
+}
+
+function saveFeaturePreferences(preferences) {
+  localStorage.setItem(getFeaturePreferencesKey(), JSON.stringify({
+    pinned: normalizeFeatureKeys(preferences.pinned),
+    order: normalizeFeatureKeys(preferences.order)
+  }));
+}
+
+function getFeaturePreferencesKey() {
+  const userKey = currentUser?.staffId || currentUser?.email || currentUser?.name || 'anonymous';
+  return `topchurch_feature_preferences_${userKey}`;
+}
+
+function normalizeFeatureKeys(keys) {
+  const validKeys = new Set(SYSTEM_FEATURES.map(feature => feature.key));
+  return [...new Set((Array.isArray(keys) ? keys : [])
+    .map(key => String(key || '').trim())
+    .filter(key => validKeys.has(key)))];
+}
+
+function getRenderedFeatureKeys() {
+  return [...document.querySelectorAll('#featureGrid .feature-option')]
+    .map(card => card.dataset.featureKey)
+    .filter(Boolean);
+}
+
+function toggleFeaturePin(featureKey) {
+  const preferences = getFeaturePreferences();
+  const pinned = new Set(preferences.pinned);
+  if (pinned.has(featureKey)) {
+    pinned.delete(featureKey);
+  } else {
+    pinned.add(featureKey);
+    if (!preferences.order.includes(featureKey)) {
+      preferences.order = [featureKey].concat(preferences.order);
+    }
+  }
+  preferences.pinned = [...pinned];
+  saveFeaturePreferences(preferences);
+  renderFeatureMenu();
+}
+
+function moveFeatureOrder(featureKey, direction) {
+  const keys = getRenderedFeatureKeys();
+  const index = keys.indexOf(featureKey);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= keys.length) return;
+  [keys[index], keys[targetIndex]] = [keys[targetIndex], keys[index]];
+  const preferences = getFeaturePreferences();
+  preferences.order = keys;
+  saveFeaturePreferences(preferences);
+  renderFeatureMenu();
+}
+
+function resetFeaturePreferences() {
+  localStorage.removeItem(getFeaturePreferencesKey());
+  renderFeatureMenu();
 }
 
 function getFeatureIconSvg(icon) {
