@@ -93,6 +93,7 @@ tmp/local-ai/risks.md
 
 1. Codex 完成任務後更新核心文件：
    - `docs/HANDOFF.md`
+   - `docs/REMOTE_AI_GUARDRAILS.md`
    - `docs/MODULES.md`
    - `docs/API_CATALOG.md`
    - `docs/DATABASE_SCHEMA.md`
@@ -106,6 +107,8 @@ tmp/local-ai/risks.md
 5. Codex 讀取摘要後再執行實際修改。
 
 ## 建議的遠端 AI 輸出格式
+
+遠端 AI 開始前必須先讀 `docs/REMOTE_AI_GUARDRAILS.md`。若發現 mojibake、secret、production DB、部署或 branch 異常，依該文件停止並回報。
 
 遠端 AI 的輸出建議固定為 Markdown：
 

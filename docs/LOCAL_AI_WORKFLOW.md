@@ -57,7 +57,7 @@ Local AI 不負責：
 [Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11434', 'User')
 ```
 
-遠端主機與 GitHub 文件溝通流程見 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md`。
+遠端主機與 GitHub 文件溝通流程見 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md`。遠端 AI 防雷規則見 `docs/REMOTE_AI_GUARDRAILS.md`。
 
 若只想產生搜尋結果，不呼叫 Ollama：
 

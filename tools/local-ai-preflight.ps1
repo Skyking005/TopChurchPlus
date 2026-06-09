@@ -224,6 +224,7 @@ $coreDocs = @(
   'AGENTS.md',
   'docs/NEW_THREAD_GUIDE.md',
   'docs/HANDOFF.md',
+  'docs/REMOTE_AI_GUARDRAILS.md',
   'docs/MODULES.md'
 )
 
