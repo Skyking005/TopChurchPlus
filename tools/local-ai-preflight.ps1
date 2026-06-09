@@ -3,6 +3,7 @@ param(
   [string]$Task,
 
   [string]$Model = 'qwen3:0.6b',
+  [string]$OllamaHost = '',
   [int]$MaxMatches = 40,
   [int]$MaxDocChars = 600,
   [switch]$NoAi
@@ -18,6 +19,18 @@ $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 if (-not $env:OLLAMA_MODELS) {
   $env:OLLAMA_MODELS = 'D:\ollama-models'
 }
+
+$resolvedOllamaHost = $OllamaHost
+if (-not $resolvedOllamaHost -and $env:TOPCHURCHPLUS_OLLAMA_HOST) {
+  $resolvedOllamaHost = $env:TOPCHURCHPLUS_OLLAMA_HOST
+}
+if (-not $resolvedOllamaHost) {
+  $resolvedOllamaHost = 'http://127.0.0.1:11434'
+}
+if ($resolvedOllamaHost -notmatch '^https?://') {
+  $resolvedOllamaHost = "http://$resolvedOllamaHost"
+}
+$resolvedOllamaHost = $resolvedOllamaHost.TrimEnd('/')
 
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 
@@ -52,17 +65,26 @@ function Get-OllamaPath {
 }
 
 function Ensure-OllamaServer {
-  param([Parameter(Mandatory = $true)][string]$OllamaPath)
+  param(
+    [string]$OllamaPath = '',
+    [Parameter(Mandatory = $true)][string]$HostUrl
+  )
 
   try {
-    Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -Method GET -TimeoutSec 3 | Out-Null
+    Invoke-RestMethod -Uri "$HostUrl/api/tags" -Method GET -TimeoutSec 3 | Out-Null
     return
   } catch {
+    if ($HostUrl -ne 'http://127.0.0.1:11434' -and $HostUrl -ne 'http://localhost:11434') {
+      throw "Remote Ollama host is not reachable: $HostUrl"
+    }
+    if (-not $OllamaPath) {
+      $OllamaPath = Get-OllamaPath
+    }
     Start-Process -FilePath $OllamaPath -ArgumentList 'serve' -WindowStyle Hidden
     Start-Sleep -Seconds 5
   }
 
-  Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -Method GET -TimeoutSec 10 | Out-Null
+  Invoke-RestMethod -Uri "$HostUrl/api/tags" -Method GET -TimeoutSec 10 | Out-Null
 }
 
 function Get-TaskKeywords {
@@ -168,7 +190,8 @@ function Get-DocDigest {
 
 function Invoke-LocalAi {
   param(
-    [Parameter(Mandatory = $true)][string]$Prompt
+    [Parameter(Mandatory = $true)][string]$Prompt,
+    [Parameter(Mandatory = $true)][string]$HostUrl
   )
 
   $body = @{
@@ -184,7 +207,7 @@ function Invoke-LocalAi {
   } | ConvertTo-Json -Depth 8
 
   $response = Invoke-RestMethod `
-    -Uri 'http://127.0.0.1:11434/api/generate' `
+    -Uri "$HostUrl/api/generate" `
     -Method POST `
     -ContentType 'application/json; charset=utf-8' `
     -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) `
@@ -219,6 +242,10 @@ $fallbackContext = @"
 ## Task
 $Task
 
+## Ollama
+- Host: $resolvedOllamaHost
+- Model: $Model
+
 ## Keywords
 $($keywords -join ', ')
 
@@ -238,8 +265,7 @@ if ($NoAi) {
   exit 0
 }
 
-$ollamaPath = Get-OllamaPath
-Ensure-OllamaServer -OllamaPath $ollamaPath
+Ensure-OllamaServer -HostUrl $resolvedOllamaHost
 
 $prompt = @"
 你是 TopChurchPlus 專案的 Local AI 前置分析助手。
@@ -267,7 +293,7 @@ $fallbackContext
 "@
 
 try {
-  $aiResult = Invoke-LocalAi -Prompt $prompt
+  $aiResult = Invoke-LocalAi -Prompt $prompt -HostUrl $resolvedOllamaHost
   Write-Utf8File -Path (Join-Path $outputDir 'task_context.md') -Content $aiResult
   Write-Utf8File -Path (Join-Path $outputDir 'risks.md') -Content $aiResult
   Write-Host "Local AI preflight complete: $outputDir\task_context.md"

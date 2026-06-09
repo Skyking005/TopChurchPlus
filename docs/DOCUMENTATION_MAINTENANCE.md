@@ -30,6 +30,7 @@
 | `docs/TEST_MATRIX.md` | 新增功能流程、合法/非法案例、回歸測試方式 | 測試情境、預期結果、Demo 資料 |
 | `docs/WORKFLOW.md` | 工作流程、工具、部署、常見除錯方式改變 | 流程與命令，不放業務細節 |
 | `docs/LOCAL_AI_WORKFLOW.md` | Local AI / Ollama 前置分析流程、模型、輸出規則改變 | 本機 AI 僅做前置分析，不放 secret |
+| `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md` | Tailscale 遠端 AI 主機、GitHub 文件溝通流程改變 | 遠端 AI 分工、連線、安全原則 |
 | `docs/TOPCHURCHPLUS_SKILL.md` | Codex 開發習慣、固定工具、任務完成規則改變 | Skill 摘要與注意事項 |
 | `docs/SYSTEM_ARCHITECTURE.md` | 系統邊界、前端/API/DB/外部入口架構改變 | 架構關係與責任邊界 |
 | `docs/DISASTER_RECOVERY_REBUILD.md` | 本機、NAS、DB、Apps Script 重建方式或月維護流程改變 | 重建步驟、必備備份、演練標準 |

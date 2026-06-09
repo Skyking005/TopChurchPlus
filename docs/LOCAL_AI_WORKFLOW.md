@@ -42,6 +42,23 @@ Local AI 不負責：
 .\tools\local-ai-preflight.cmd -Task "我要修改財務系統請款單編輯功能"
 ```
 
+使用 Tailscale 遠端 Ollama 主機：
+
+```powershell
+.\tools\local-ai-preflight.cmd `
+  -Task "我要修改財務系統請款單編輯功能" `
+  -OllamaHost "http://<tailscale-ip-or-magicdns>:11434" `
+  -Model "qwen2.5-coder:14b"
+```
+
+也可以用環境變數固定遠端 host：
+
+```powershell
+[Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11434', 'User')
+```
+
+遠端主機與 GitHub 文件溝通流程見 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md`。
+
 若只想產生搜尋結果，不呼叫 Ollama：
 
 ```powershell
