@@ -71,7 +71,7 @@ function Ensure-OllamaServer {
   )
 
   try {
-    Invoke-RestMethod -Uri "$HostUrl/api/tags" -Method GET -TimeoutSec 3 | Out-Null
+    Invoke-RestMethod -Uri "$HostUrl/api/tags" -Method GET -TimeoutSec 30 | Out-Null
     return
   } catch {
     if ($HostUrl -ne 'http://127.0.0.1:11434' -and $HostUrl -ne 'http://localhost:11434') {
