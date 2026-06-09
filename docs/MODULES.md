@@ -352,4 +352,3 @@ Feature key：`linebot`
 注意：
 
 - 新文件產出優先走 NAS 文件服務，不再新增 Google Drive 依賴。
-
