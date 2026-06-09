@@ -23,6 +23,29 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 - 最新 Apps Script 版本：`@127`
 - 最新 Git commit：`bba2bf8 Add LIFF entry security framework`
 
+## 文件入口
+
+為降低後續任務 Token 消耗，新任務建議先讀下列文件，不要每次重新掃描整個專案：
+
+- `AGENTS.md`：不可違反的編碼、資料庫、部署與任務規則。
+- `docs/HANDOFF.md`：目前交接摘要。
+- `docs/SYSTEM_ARCHITECTURE.md`：前端、API、DB、權限、外部入口架構。
+- `docs/DATABASE_SCHEMA.md`：主要資料表、欄位語意、關聯與同步注意事項。
+- `docs/API_CATALOG.md`：API 模組與 endpoint 索引。
+- `docs/MODULES.md`：各系統模組狀態、主要檔案與修正注意事項。
+- `docs/TEST_MATRIX.md`：各模組合法/非法流程測試清單。
+- `docs/WORKFLOW.md`：日常開發、部署、測試工具與新模組流程。
+
+任務開場建議只讀：
+
+```text
+AGENTS.md
+docs/HANDOFF.md
+docs/<本任務相關文件>
+```
+
+例如修財務，就讀 `HANDOFF`、`MODULES` 的財務章節、`DATABASE_SCHEMA` 的財務章節、`API_CATALOG` 的 Finance 章節。
+
 ## 必守規則
 
 - 所有 `.gs`、`.html`、`.js`、`.json`、`.sql`、`.md` 一律視為 UTF-8。
