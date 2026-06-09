@@ -4,6 +4,16 @@
 
 本文件用於降低 `/new` 對話的 Token 消耗。新對話開始時，不要先掃描整個專案；先依任務類型讀最少文件，再用 `rg` 定位檔案。
 
+## Local AI 前置分析
+
+若本機 Ollama 可用，開新任務前可先執行：
+
+```powershell
+.\tools\local-ai-preflight.cmd -Task "<本次任務描述>"
+```
+
+然後優先讀 `tmp/local-ai/task_context.md`。Local AI 只做前置分析，不可直接修改程式碼、資料庫、secret 或部署設定。詳細規則見 `docs/LOCAL_AI_WORKFLOW.md`。
+
 ## 最小讀取順序
 
 每次新對話先讀：

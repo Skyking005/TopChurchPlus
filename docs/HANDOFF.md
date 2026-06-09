@@ -32,6 +32,7 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 
 - `AGENTS.md`：不可違反的編碼、資料庫、部署與任務規則。
 - `docs/NEW_THREAD_GUIDE.md`：`/new` 對話最小讀取順序與任務對應文件。
+- `docs/LOCAL_AI_WORKFLOW.md`：Ollama / Local AI 前置分析流程，可先產生 `tmp/local-ai/task_context.md` 降低 Token 消耗。
 - `docs/HANDOFF.md`：目前交接摘要。
 - `docs/DOCUMENTATION_MAINTENANCE.md`：每次任務完成後要更新哪些系統文件。
 - `docs/SYSTEM_ARCHITECTURE.md`：前端、API、DB、權限、外部入口架構。

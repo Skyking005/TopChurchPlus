@@ -29,6 +29,7 @@
 | `docs/DATABASE_SCHEMA.md` | DB table、欄位、索引、關聯、資料語意改變 | 表、欄位意義、索引、關聯與注意事項 |
 | `docs/TEST_MATRIX.md` | 新增功能流程、合法/非法案例、回歸測試方式 | 測試情境、預期結果、Demo 資料 |
 | `docs/WORKFLOW.md` | 工作流程、工具、部署、常見除錯方式改變 | 流程與命令，不放業務細節 |
+| `docs/LOCAL_AI_WORKFLOW.md` | Local AI / Ollama 前置分析流程、模型、輸出規則改變 | 本機 AI 僅做前置分析，不放 secret |
 | `docs/TOPCHURCHPLUS_SKILL.md` | Codex 開發習慣、固定工具、任務完成規則改變 | Skill 摘要與注意事項 |
 | `docs/SYSTEM_ARCHITECTURE.md` | 系統邊界、前端/API/DB/外部入口架構改變 | 架構關係與責任邊界 |
 | `docs/DISASTER_RECOVERY_REBUILD.md` | 本機、NAS、DB、Apps Script 重建方式或月維護流程改變 | 重建步驟、必備備份、演練標準 |
@@ -48,7 +49,7 @@
 | API 重構 | `API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX` |
 | 前端 UI/流程 | `MODULES`、`TEST_MATRIX` |
 | 外部入口 / LIFF / 表單公開頁 | `SYSTEM_ARCHITECTURE`、`API_CATALOG`、`TEST_MATRIX` |
-| 工具 / 部署流程 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、`HANDOFF` |
+| 工具 / 部署流程 | `WORKFLOW`、`LOCAL_AI_WORKFLOW`、`TOPCHURCHPLUS_SKILL`、`HANDOFF` |
 | 除錯雷點 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、必要時 `HANDOFF` |
 | 災難復原 / 重建 | `DISASTER_RECOVERY_REBUILD`、`RECOVERY_SECRETS_CHECKLIST`、`WORKFLOW`、`SYSTEM_ARCHITECTURE`、`HANDOFF` |
 

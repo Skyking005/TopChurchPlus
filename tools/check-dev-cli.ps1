@@ -30,6 +30,7 @@ $checks = @(
   @{ Name = 'clasp'; Command = $commands.clasp; Args = @('--version') }
   @{ Name = 'ast-grep'; Command = $commands.astGrep; Args = @('--version') }
   @{ Name = 'Repomix'; Command = $commands.repomix; Args = @('--version') }
+  @{ Name = 'Ollama'; Command = $commands.ollama; Args = @('--version') }
   @{ Name = 'SQLFluff'; Command = Expand-DevCliPath $commands.sqlfluff; Args = @('--version') }
 )
 

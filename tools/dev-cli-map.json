@@ -6,6 +6,7 @@
     "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe\\ripgrep-15.1.0-x86_64-pc-windows-msvc",
     "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe",
     "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\MikeFarah.yq_Microsoft.Winget.Source_8wekyb3d8bbwe",
+    "%LOCALAPPDATA%\\Programs\\Ollama",
     "%REPO_ROOT%\\node_modules\\.bin",
     "%REPO_ROOT%\\.venv-tools\\Scripts"
   ],
@@ -17,6 +18,7 @@
     "clasp": "clasp",
     "astGrep": "ast-grep",
     "repomix": "repomix",
+    "ollama": "ollama",
     "sqlfluff": "%REPO_ROOT%\\.venv-tools\\Scripts\\sqlfluff.exe"
   }
 }
