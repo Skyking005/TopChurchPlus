@@ -11,7 +11,9 @@ const ISSUE_STATUSES = new Set(['提案', '取消', '完成']);
 const ISSUE_PRIORITIES = new Set(['低', '中', '高']);
 
 const REVIEW_DOCUMENTS = [
+  { key: 'NEW_THREAD_GUIDE', title: 'NEW_THREAD_GUIDE /new 對話指南', path: 'docs/NEW_THREAD_GUIDE.md', group: '交接' },
   { key: 'HANDOFF', title: 'HANDOFF 交接文件', path: 'docs/HANDOFF.md', group: '交接' },
+  { key: 'DOCUMENTATION_MAINTENANCE', title: 'DOCUMENTATION_MAINTENANCE 文件維護矩陣', path: 'docs/DOCUMENTATION_MAINTENANCE.md', group: '流程' },
   { key: 'SYSTEM_ARCHITECTURE', title: 'SYSTEM_ARCHITECTURE 系統架構', path: 'docs/SYSTEM_ARCHITECTURE.md', group: '架構' },
   { key: 'DATABASE_SCHEMA', title: 'DATABASE_SCHEMA 資料庫結構', path: 'docs/DATABASE_SCHEMA.md', group: '資料庫' },
   { key: 'API_CATALOG', title: 'API_CATALOG API 目錄', path: 'docs/API_CATALOG.md', group: 'API' },

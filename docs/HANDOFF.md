@@ -28,7 +28,9 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 為降低後續任務 Token 消耗，新任務建議先讀下列文件，不要每次重新掃描整個專案：
 
 - `AGENTS.md`：不可違反的編碼、資料庫、部署與任務規則。
+- `docs/NEW_THREAD_GUIDE.md`：`/new` 對話最小讀取順序與任務對應文件。
 - `docs/HANDOFF.md`：目前交接摘要。
+- `docs/DOCUMENTATION_MAINTENANCE.md`：每次任務完成後要更新哪些系統文件。
 - `docs/SYSTEM_ARCHITECTURE.md`：前端、API、DB、權限、外部入口架構。
 - `docs/DATABASE_SCHEMA.md`：主要資料表、欄位語意、關聯與同步注意事項。
 - `docs/API_CATALOG.md`：API 模組與 endpoint 索引。
@@ -40,11 +42,14 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 
 ```text
 AGENTS.md
+docs/NEW_THREAD_GUIDE.md
 docs/HANDOFF.md
 docs/<本任務相關文件>
 ```
 
-例如修財務，就讀 `HANDOFF`、`MODULES` 的財務章節、`DATABASE_SCHEMA` 的財務章節、`API_CATALOG` 的 Finance 章節。
+例如修財務，就讀 `NEW_THREAD_GUIDE`、`HANDOFF`、`MODULES` 的財務章節、`DATABASE_SCHEMA` 的財務章節、`API_CATALOG` 的 Finance 章節。
+
+任務完成前，依 `docs/DOCUMENTATION_MAINTENANCE.md` 檢查並更新相關文件。文件更新是任務完成的一部分，用來降低下一次 `/new` 的分析成本。
 
 ## 必守規則
 

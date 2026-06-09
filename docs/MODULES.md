@@ -38,7 +38,7 @@ Feature key：`dev_management`
 
 - 超級管理者專用。
 - 可提交 Issue 提案，欄位包含類型、狀態、優先度、描述。
-- 可 review `HANDOFF`、`SYSTEM_ARCHITECTURE`、`DATABASE_SCHEMA`、`API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX`、`AGENTS`、Skill 摘要等文件。
+- 可 review `NEW_THREAD_GUIDE`、`HANDOFF`、`DOCUMENTATION_MAINTENANCE`、`SYSTEM_ARCHITECTURE`、`DATABASE_SCHEMA`、`API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX`、`AGENTS`、Skill 摘要等文件。
 - 可記錄版本更新歷程、部署狀態與驗證摘要。
 
 注意：

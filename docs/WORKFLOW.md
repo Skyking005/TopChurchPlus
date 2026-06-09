@@ -58,14 +58,15 @@ npm run dev:sqlfluff -- --version
 
 為降低大型專案任務的 Token 消耗，開發時請優先使用以下順序：
 
-1. 先讀 `AGENTS.md`、`docs/HANDOFF.md`、`docs/MODULES.md`、`docs/API_CATALOG.md`，只讀與本任務相關章節。
+1. 先讀 `AGENTS.md`、`docs/NEW_THREAD_GUIDE.md`、`docs/HANDOFF.md`，再依任務類型讀 `docs/DOCUMENTATION_MAINTENANCE.md` 指定的相關文件。
 2. 用 `rg` 找相關檔案、函式、feature key、endpoint。
 3. 用 `ast-grep` 找同類程式碼或可安全套用的結構模式。
 4. 小範圍修改，避免批次格式化。
 5. 用 `jq` 檢查 API JSON 回應，避免貼整包 JSON。
 6. 有 UI 變更時，用 Playwright 跑瀏覽器流程或產生測試。
 7. 有 SQL 變更時，用 SQLFluff 與資料庫備份流程檢查。
-8. 提交前跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
+8. 提交前依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
+9. 跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
 
 常用搜尋範例：
 
@@ -178,16 +179,31 @@ $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 ## 建議任務流程
 
 1. 讀取 `AGENTS.md`。
-2. 檢查目前分支與工作區狀態。
-3. 修改前確認相關中文區塊可讀。
-4. 判斷任務類型：前端、API、資料庫、文件產出、外部公開頁、權限設定。
-5. 新模組優先用 `.\tools\new-module.cmd` 產生骨架，再人工接線。
-6. 小範圍修改。
-7. 若有 API 異動，新增或更新 `tests/api/smoke-<module>.ps1`。
-8. 執行最小驗證；可用 `.\tests\api\run-smoke.cmd` 跑可重複 API 測試。
-9. 需要時執行 `.\tools\deploy-all.cmd`，或 `.\tools\deploy-all.cmd -RunSmoke`。
-10. Commit 訊息寫清楚本次完成內容、驗證結果、DB 備份與部署資訊。
-11. Push 到 GitHub。
+2. 讀取 `docs/NEW_THREAD_GUIDE.md`，依任務類型只讀相關文件。
+3. 檢查目前分支與工作區狀態。
+4. 修改前確認相關中文區塊可讀。
+5. 判斷任務類型：前端、API、資料庫、文件產出、外部公開頁、權限設定。
+6. 新模組優先用 `.\tools\new-module.cmd` 產生骨架，再人工接線。
+7. 小範圍修改。
+8. 若有 API 異動，新增或更新 `tests/api/smoke-<module>.ps1`。
+9. 依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關文件；若不需更新，最終回覆說明原因。
+10. 執行最小驗證；可用 `.\tests\api\run-smoke.cmd` 跑可重複 API 測試。
+11. 需要時執行 `.\tools\deploy-all.cmd`，或 `.\tools\deploy-all.cmd -RunSmoke`。
+12. Commit 訊息寫清楚本次完成內容、驗證結果、DB 備份與部署資訊。
+13. Push 到 GitHub。
+
+## 任務完成文件更新規則
+
+每次任務完成前都要檢查 `docs/DOCUMENTATION_MAINTENANCE.md`：
+
+- 新增/修改模組：更新 `docs/MODULES.md`。
+- 新增/修改 API：更新 `docs/API_CATALOG.md`。
+- 新增/修改資料表、欄位、索引、seed：更新 `docs/DATABASE_SCHEMA.md`。
+- 新增/修改測試流程：更新 `docs/TEST_MATRIX.md`。
+- 新增除錯雷點或工具規則：更新 `docs/WORKFLOW.md` 與 `docs/TOPCHURCHPLUS_SKILL.md`。
+- 影響後續接手的重大背景：更新 `docs/HANDOFF.md`。
+
+文件更新也屬於任務完成的一部分，除非本次任務真的沒有影響任何系統文件。
 
 ## 新模組接線檢查表
 

@@ -11,14 +11,15 @@
 
 ## 核心流程
 
-1. 先讀 `AGENTS.md`、`HANDOFF.md`、`MODULES.md`、`API_CATALOG.md`。
+1. 先讀 `AGENTS.md`、`NEW_THREAD_GUIDE.md`、`HANDOFF.md`，再依任務類型讀相關文件。
 2. 先設 PowerShell UTF-8，再用 `rg` / `rg -g` 搜尋相關檔案。
 3. 修改前確認相關區塊沒有 mojibake。
 4. 手動修改優先使用 `apply_patch`，避免批次重寫中文檔案。
 5. API 端用 Node 語法檢查，前端 HTML script partial 用 Node `new Function` 檢查。
 6. 有 DB 異動時，先備份 NAS PostgreSQL，再套 migration，並確認索引與代表資料。
 7. API 部署使用 `deploy-api.cmd`，Google Apps Script 推送使用 `push-to-google.cmd`。
-8. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。
+8. 完成前依 `DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
+9. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。
 
 ## 固定工具
 
@@ -37,3 +38,5 @@
 - PowerShell inline SQL 若包含 `||`、複雜引號或中文，應改用 `.sql` 檔傳到 NAS 執行。
 - API 測試若要送中文 JSON，使用 UTF-8 明確工具或 Node/.NET client，送完要讀回確認中文未變成 `????`。
 - 每次 DB 變更要檢查外鍵與常用查詢索引。
+- 每次任務完成都要檢查是否需更新 `HANDOFF`、`MODULES`、`API_CATALOG`、`DATABASE_SCHEMA`、`TEST_MATRIX`、`WORKFLOW` 或相關設計文件。
+- `/new` 對話優先讀 `NEW_THREAD_GUIDE`，只載入本任務相關文件與程式碼。
