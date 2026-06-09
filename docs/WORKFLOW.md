@@ -93,13 +93,13 @@ npm run dev:sqlfluff -- --version
 任務分流規則：
 
 - 小修、單一檔案、明確錯誤訊息、文字或樣式微調：可由 Codex 直接讀相關檔案後處理，不強制跑 Local/Remote AI。
-- 跨模組、大範圍 UI、資料庫設計或 migration、權限架構、全系統檢查、舊系統資料搬移、文件盤點：先跑 Local AI preflight；若本地模型不足或需要較大上下文，再改用 Remote AI preflight。
-- Local/Remote AI 只做前置分析與檔案定位，不直接修改程式、不碰資料庫、不部署、不讀 secret。
+- 跨模組、大範圍 UI、資料庫設計或 migration、權限架構、全系統檢查、舊系統資料搬移、文件盤點：優先跑 Remote AI preflight。Local AI 只作為快速小摘要或 Remote 不可用時的備援。
+- Remote/Local AI 只做前置分析與檔案定位，不直接修改程式、不碰資料庫、不部署、不讀 secret。
 
 標準順序：
 
 1. 先讀 `AGENTS.md`、`docs/NEW_THREAD_GUIDE.md`、`docs/HANDOFF.md`，再依任務類型讀 `docs/DOCUMENTATION_MAINTENANCE.md` 指定的相關文件。
-2. 依任務分流規則決定是否執行 `tools\local-ai-preflight.cmd`。若已產出 `tmp/local-ai/task_context.md`，Codex 需優先讀取該摘要。
+2. 依任務分流規則決定是否執行 preflight。大任務優先使用 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md` 的 Remote AI preflight；小型摘要或 Remote 不可用時才執行 `tools\local-ai-preflight.cmd`。若已產出 `tmp/local-ai/task_context.md`，Codex 需優先讀取該摘要。
 3. 用 `rg` 找相關檔案、函式、feature key、endpoint。
 4. 用 `ast-grep` 找同類程式碼或可安全套用的結構模式。
 5. 小範圍修改，避免批次格式化。

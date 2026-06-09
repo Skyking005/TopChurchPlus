@@ -14,7 +14,7 @@
 1. 先讀 `AGENTS.md`、`NEW_THREAD_GUIDE.md`、`HANDOFF.md`，再依任務類型讀相關文件。
 2. 先設 PowerShell UTF-8，再用 `rg` / `rg -g` 搜尋相關檔案。
 3. 修改前確認相關區塊沒有 mojibake。
-4. 小修可直接處理；跨模組、資料庫、架構、全系統檢查與舊系統搬移任務，先跑 Local AI preflight，必要時使用 Remote AI preflight。
+4. 小修可直接處理；跨模組、資料庫、架構、全系統檢查與舊系統搬移任務，優先跑 Remote AI preflight。Local AI 只作為小型摘要或 Remote 不可用時的備援。
 5. 手動修改優先使用 `apply_patch`，避免批次重寫中文檔案。
 6. API 端用 Node 語法檢查，前端 HTML script partial 用 Node `new Function` 檢查。
 7. 有 DB 異動時，先備份 NAS PostgreSQL，再套 migration，並確認索引與代表資料。

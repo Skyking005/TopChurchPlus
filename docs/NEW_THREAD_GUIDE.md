@@ -4,17 +4,19 @@
 
 本文件用於降低 `/new` 對話的 Token 消耗。新對話開始時，不要先掃描整個專案；先依任務類型讀最少文件，再用 `rg` 定位檔案。
 
-## Local AI 前置分析
+## AI 前置分析
 
-若本機 Ollama 可用，開新任務前可先依任務大小決定是否執行：
+新任務先依任務大小決定是否執行 preflight。大任務優先使用 Remote AI，小修可略過。
+
+Local AI 備援指令：
 
 ```powershell
 .\tools\local-ai-preflight.cmd -Task "<本次任務描述>"
 ```
 
-然後優先讀 `tmp/local-ai/task_context.md`。Local AI 只做前置分析，不可直接修改程式碼、資料庫、secret 或部署設定。詳細規則見 `docs/LOCAL_AI_WORKFLOW.md`。
+若產生 `tmp/local-ai/task_context.md`，Codex 需優先讀取。Remote/Local AI 只做前置分析，不可直接修改程式碼、資料庫、secret 或部署設定。詳細規則見 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md`、`docs/REMOTE_AI_GUARDRAILS.md`、`docs/LOCAL_AI_WORKFLOW.md`。
 
-建議執行 preflight 的任務：
+建議優先執行 Remote AI preflight 的任務：
 
 - 跨模組功能、系統框架、權限架構、資料庫設計或 migration。
 - 需要分析舊 MSSQL / Line Bot / Google Apps Script / NAS API 之間關係的任務。
@@ -25,7 +27,11 @@
 - 單一檔案小修、明確錯誤修正、小範圍 UI 或文字調整。
 - 使用者已提供精準檔案、函式與修正方向。
 
-若 Local AI 結果不足、任務上下文太大、或需要較強模型摘要，再使用 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md` 的 Remote AI preflight。
+Local AI 適用情境：
+
+- Remote AI 不可用時的備援。
+- 小型文件摘要、關鍵字初篩、低風險搜尋整理。
+- 使用 `-NoAi` 只產生搜尋摘要。
 
 ## 最小讀取順序
 
@@ -76,7 +82,7 @@
 
 ## Token 節省原則
 
-- 大任務先讀 Local/Remote AI preflight 摘要，再讀原始檔。
+- 大任務先讀 Remote AI preflight 摘要，再讀原始檔。
 - 不貼完整大檔案，優先用 `rg -n` 找函式、endpoint、feature key。
 - 只讀相關章節，不重讀整份大型文件。
 - API 回應用 `jq` 擷取重點欄位。
