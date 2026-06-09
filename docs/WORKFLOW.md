@@ -30,6 +30,22 @@
 .\tools\setup-dev-env.cmd
 ```
 
+Windows PowerShell 常會因 Execution Policy 擋住直接執行 `.ps1`。本專案原則是不要直接執行 `.ps1`，優先使用對應 `.cmd` wrapper：
+
+```powershell
+.\tests\api\run-smoke.cmd
+.\tools\check-api.cmd
+.\tools\check-scripts.cmd
+.\tools\deploy-all.cmd
+```
+
+若臨時需要執行沒有專用 wrapper 的 `.ps1`，使用通用入口：
+
+```powershell
+.\tools\run-ps1.cmd .\tests\api\smoke-dev-management.ps1
+.\tools\run-ps1.cmd .\database\run_legacy_weekly_sync.ps1
+```
+
 CLI 路徑集中記錄於 `tools/dev-cli-map.json`。若工具位置改變，優先更新這份地圖檔，不要讓檢查腳本每次掃描整個系統目錄。
 
 本專案建議安裝並使用的免費 CLI：

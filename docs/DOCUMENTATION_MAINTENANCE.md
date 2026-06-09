@@ -49,6 +49,10 @@
 | 工具 / 部署流程 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、`HANDOFF` |
 | 除錯雷點 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、必要時 `HANDOFF` |
 
+## 已固定處理的常見雷點
+
+- PowerShell Execution Policy 可能阻擋直接執行 `.ps1`。專案應優先使用 `.cmd` wrapper；沒有專用 wrapper 時使用 `tools\run-ps1.cmd <script.ps1>`。
+
 ## 每週文件更新排程內容
 
 每週回顧時應執行：

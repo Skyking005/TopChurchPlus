@@ -35,6 +35,7 @@
 ## 注意事項
 
 - PowerShell 不要用 `Get-Content | Set-Content` 批次重寫中文檔案。
+- PowerShell 不要直接執行 `.ps1`；優先使用 `.cmd` wrapper。臨時腳本用 `tools\run-ps1.cmd <script.ps1>`，避免 Execution Policy 中斷。
 - PowerShell inline SQL 若包含 `||`、複雜引號或中文，應改用 `.sql` 檔傳到 NAS 執行。
 - API 測試若要送中文 JSON，使用 UTF-8 明確工具或 Node/.NET client，送完要讀回確認中文未變成 `????`。
 - 每次 DB 變更要檢查外鍵與常用查詢索引。
