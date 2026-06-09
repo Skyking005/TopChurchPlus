@@ -232,6 +232,8 @@ function renderDevReleases() {
   devReleases.forEach(row => {
     const item = document.createElement('div');
     item.className = 'dev-release-item';
+    const tokenUsage = extractDevReleaseTokenUsage(row.verificationResult);
+    const verificationText = cleanDevReleaseVerification(row.verificationResult);
     item.innerHTML = `
       <div class="d-flex flex-wrap justify-content-between gap-2">
         <div>
@@ -243,12 +245,13 @@ function renderDevReleases() {
           </div>
         </div>
         <div class="d-flex gap-1">
+          ${tokenUsage ? `<span class="badge bg-info text-dark">Token ${escapeHtml(tokenUsage)}</span>` : '<span class="badge bg-light text-dark border">Token 未記錄</span>'}
           ${row.apiDeployed ? '<span class="badge bg-success">API</span>' : '<span class="badge bg-secondary">API 未註記</span>'}
           ${row.appsScriptDeployed ? '<span class="badge bg-success">GAS</span>' : '<span class="badge bg-secondary">GAS 未註記</span>'}
         </div>
       </div>
       ${row.commitMessage ? `<div class="small mt-2">${escapeHtml(row.commitMessage)}</div>` : ''}
-      ${row.verificationResult ? `<pre class="dev-release-verification">${escapeHtml(row.verificationResult)}</pre>` : ''}
+      ${verificationText ? `<pre class="dev-release-verification">${escapeHtml(verificationText)}</pre>` : ''}
       <div class="text-muted small mt-2">建立者：${escapeHtml(row.createdByName || '')}</div>
     `;
     list.appendChild(item);
@@ -263,7 +266,7 @@ function submitDevRelease() {
     appsScriptVersion: document.getElementById('devReleaseGasVersion').value.trim(),
     commitMessage: document.getElementById('devReleaseCommitMessage').value.trim(),
     summary: document.getElementById('devReleaseSummary').value.trim(),
-    verificationResult: document.getElementById('devReleaseVerification').value.trim(),
+    verificationResult: buildDevReleaseVerificationResult(),
     apiDeployed: document.getElementById('devReleaseApiDeployed').checked,
     appsScriptDeployed: document.getElementById('devReleaseGasDeployed').checked
   };
@@ -288,12 +291,34 @@ function submitDevRelease() {
 }
 
 function resetDevReleaseForm() {
-  ['devReleaseCommitHash', 'devReleaseGasVersion', 'devReleaseCommitMessage', 'devReleaseSummary', 'devReleaseVerification'].forEach(id => {
+  ['devReleaseCommitHash', 'devReleaseGasVersion', 'devReleaseTokenUsage', 'devReleaseCommitMessage', 'devReleaseSummary', 'devReleaseVerification'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('devReleaseApiDeployed').checked = false;
   document.getElementById('devReleaseGasDeployed').checked = false;
   document.getElementById('devReleaseFormError').textContent = '';
+}
+
+function buildDevReleaseVerificationResult() {
+  const tokenUsage = document.getElementById('devReleaseTokenUsage').value.trim();
+  const verification = document.getElementById('devReleaseVerification').value.trim();
+  const lines = [];
+  if (tokenUsage) lines.push(`Token 消耗：${tokenUsage}`);
+  if (verification) lines.push(verification);
+  return lines.join('\n');
+}
+
+function extractDevReleaseTokenUsage(value) {
+  const match = String(value || '').match(/^Token\s*消耗[：:]\s*(.+)$/m);
+  return match ? match[1].trim() : '';
+}
+
+function cleanDevReleaseVerification(value) {
+  return String(value || '')
+    .split(/\r?\n/)
+    .filter(line => !/^Token\s*消耗[：:]\s*/.test(line.trim()))
+    .join('\n')
+    .trim();
 }
 
 function renderDevPager(containerId, state, loadFunctionName) {

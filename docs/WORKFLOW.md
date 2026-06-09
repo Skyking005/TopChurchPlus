@@ -100,6 +100,8 @@ npm run dev:sqlfluff -- --version
 8. 提交前依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
 9. 跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
 
+任務完成後，若有建立系統開發管理的版本歷程，需填寫本次 Token 消耗；若無法取得精準值，填估算或註明「未取得」。
+
 常用搜尋範例：
 
 ```powershell
@@ -241,6 +243,7 @@ $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 - 新增/修改資料表、欄位、索引、seed：更新 `docs/DATABASE_SCHEMA.md`。
 - 新增/修改測試流程：更新 `docs/TEST_MATRIX.md`。
 - 新增除錯雷點或工具規則：更新 `docs/WORKFLOW.md` 與 `docs/TOPCHURCHPLUS_SKILL.md`。
+- 新增/修改全站 UI 基礎樣式：更新 `docs/TEST_MATRIX.md`，必要時更新 `docs/MODULES.md`。
 - 影響後續接手的重大背景：更新 `docs/HANDOFF.md`。
 
 文件更新也屬於任務完成的一部分，除非本次任務真的沒有影響任何系統文件。

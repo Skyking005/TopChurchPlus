@@ -15,6 +15,7 @@
 - 若部署 API，測 `/health`。
 - 若有中文 Demo 寫入，讀回確認中文可讀。
 - 每月災難復原維護，執行 `.\tools\check-rebuild-readiness.cmd -RunSmoke`，確認本機工具、NAS API、GitHub、文件與 smoke test 可用，並人工確認 `docs/RECOVERY_SECRETS_CHECKLIST.md` 內的私密資料可取得。
+- 全站 UI 樣式調整時，至少檢查登入入口、功能選單、清單表格、表單輸入框、Modal、系統開發管理頁籤是否可讀且沒有文字重疊。
 
 ## 登入與權限
 
@@ -30,6 +31,20 @@
 - 無權限功能不顯示，直接打 API 也需被拒絕。
 - 登出後回登入頁，不白畫面。
 - 閒置提示與自動登出正常。
+
+## 系統開發管理
+
+合法流程：
+
+- 新增 Issue，類型、狀態、優先度與描述可保存。
+- 文件 Review 可讀 `DISASTER_RECOVERY_REBUILD` 與 `RECOVERY_SECRETS_CHECKLIST`。
+- 新增版本歷程時可填寫 Token 消耗，列表需顯示 Token 標籤。
+- 未填 Token 消耗的版本歷程需顯示 Token 未記錄。
+
+非法流程：
+
+- 非超級管理者不可進入系統開發管理。
+- 版本摘要未填不可保存。
 
 ## 專案管理
 
