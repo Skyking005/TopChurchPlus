@@ -343,4 +343,3 @@ LIFF 安全框架已納入：
 - 任務是否牽涉 API；若是，部署 NAS API 並測 `/health`。
 - 是否需要保留 Demo 資料；若有中文寫入，要讀回確認。
 - 是否要同步 GitHub；目前規則是每次功能調整後 commit 並 push。
-
