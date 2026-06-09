@@ -10,11 +10,11 @@
   });
 
   async function startLiffApp() {
-    setStatus('正在讀取 LINE 入口設定...');
+    setStatus('正在讀取 Line App 設定...');
     state.config = await apiGet('/liff/config' + buildChannelQuery());
     if (!state.config.liffId) {
       document.getElementById('configWarning').classList.remove('d-none');
-      setStatus('LINE 入口尚未完成設定');
+      setStatus('Line App 尚未完成設定');
       renderModuleList(state.config.modules || []);
       return;
     }
@@ -43,7 +43,7 @@
 
   async function createSession() {
     const idToken = liff.getIDToken();
-    if (!idToken) throw new Error('無法取得 LINE ID Token，請重新開啟 LINE 入口');
+    if (!idToken) throw new Error('無法取得 LINE ID Token，請重新開啟 Line App');
     const result = await apiPost('/liff/session', {
       channelKey: getChannelKey(),
       idToken
@@ -80,8 +80,7 @@
     try {
       const result = await apiPost('/liff/bind-member', {
         name: document.getElementById('bindName').value,
-        birthday: document.getElementById('bindBirthday').value,
-        mobileLast3: document.getElementById('bindMobileLast3').value
+        mobilePhone: document.getElementById('bindMobilePhone').value
       }, true);
       message.textContent = result.message || '綁定完成';
       await loadMeAndPortal();

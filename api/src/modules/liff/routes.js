@@ -204,7 +204,7 @@ async function requireLiffSession(req) {
      RETURNING session_id, line_user_id, channel_key, expires_at`,
     [hashToken(token)]
   );
-  if (!rows[0]) throw unauthorized('LIFF Session 已失效，請重新開啟 LINE 入口');
+  if (!rows[0]) throw unauthorized('LIFF Session 已失效，請重新開啟 Line App');
   return rows[0];
 }
 
@@ -256,23 +256,17 @@ async function bindLiffMember(session, payload, req) {
   }
 
   const name = normalizeText(payload.name);
-  const birthday = normalizeDate(payload.birthday);
-  const mobileLast3 = normalizeDigits(payload.mobileLast3).slice(-3);
+  const mobilePhone = normalizeDigits(payload.mobilePhone || payload.phone);
+  const mobilePhoneVariants = getPhoneVariants(mobilePhone);
   const churchId = Number(payload.churchId || 0);
 
   if (!name) throw validationError('請填寫姓名');
-  if (!birthday && mobileLast3.length !== 3) throw validationError('請填寫生日或手機末三碼');
+  if (mobilePhone.length < 8) throw validationError('請填寫完整手機號碼');
 
   const values = [name.toLowerCase()];
   const where = ['lower(pm.name) = $1', 'pm.is_active'];
-  if (birthday) {
-    values.push(birthday);
-    where.push(`pm.birthday = $${values.length}::date`);
-  }
-  if (mobileLast3.length === 3) {
-    values.push(`%${mobileLast3}`);
-    where.push(`regexp_replace(coalesce(pc.mobile_phone, ''), '\\D', '', 'g') LIKE $${values.length}`);
-  }
+  values.push(mobilePhoneVariants);
+  where.push(`regexp_replace(coalesce(pc.mobile_phone, ''), '\\D', '', 'g') = ANY($${values.length}::text[])`);
   if (Number.isFinite(churchId) && churchId > 0) {
     values.push(churchId);
     where.push(`pm.church_id = $${values.length}`);
@@ -290,7 +284,7 @@ async function bindLiffMember(session, payload, req) {
   );
 
   if (candidates.rows.length === 0) throw notFound('找不到符合條件的會友資料，請洽櫃台或牧養同工協助');
-  if (candidates.rows.length > 1) throw validationError('找到多筆相同資料，請增加生日、手機末三碼或會堂條件');
+  if (candidates.rows.length > 1) throw validationError('找到多筆相同資料，請洽櫃台或牧養同工協助確認');
 
   const member = candidates.rows[0];
   const client = await pool.connect();
@@ -327,6 +321,18 @@ async function bindLiffMember(session, payload, req) {
         session.line_user_id
       ]
     );
+    const pastoralBind = await client.query(
+      `UPDATE pastoral_members
+       SET line_user_id = $1,
+           updated_at = now()
+       WHERE id = $2
+         AND (coalesce(line_user_id, '') = '' OR line_user_id = $1)
+       RETURNING id`,
+      [session.line_user_id, member.id]
+    );
+    if (!pastoralBind.rowCount) {
+      throw validationError('此會友資料已綁定其他 LINE 帳號，請洽櫃台或牧養同工協助');
+    }
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -410,9 +416,20 @@ function normalizeDigits(value) {
   return normalizeText(value).replace(/\D/g, '');
 }
 
-function normalizeDate(value) {
-  const text = normalizeText(value);
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : '';
+function getPhoneVariants(value) {
+  const phone = normalizeDigits(value);
+  const variants = new Set([phone]);
+  if (phone.startsWith('09') && phone.length === 10) {
+    variants.add(phone.slice(1));
+    variants.add(`886${phone.slice(1)}`);
+  } else if (phone.startsWith('9') && phone.length === 9) {
+    variants.add(`0${phone}`);
+    variants.add(`886${phone}`);
+  } else if (phone.startsWith('8869') && phone.length === 12) {
+    variants.add(`0${phone.slice(3)}`);
+    variants.add(phone.slice(3));
+  }
+  return [...variants].filter(Boolean);
 }
 
 function httpError(status, message) {

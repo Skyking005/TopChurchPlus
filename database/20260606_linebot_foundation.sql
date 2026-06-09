@@ -99,9 +99,9 @@ ON CONFLICT (line_user_id) DO UPDATE SET
 
 INSERT INTO line_bot_module_settings (module_key, module_name, description, is_enabled, sort_order)
 VALUES
-  ('line_edm', 'LINE EDM', '分眾推播、訊息範本、排程與發送紀錄', true, 10),
+  ('line_edm', 'LINE EDM', '分眾訊息、圖文素材、回應內容與發送紀錄', true, 10),
   ('member_binding', 'LINE 會友綁定', '綁定狀態、重複綁定與未綁定名單管理', true, 20),
-  ('qt_order', 'QT 下單與庫存檢查', 'LINE BOT 下單前檢查會堂月庫存', true, 30),
+  ('qt_order', 'QT 下單與庫存檢查', '會友端 QT 訂購前檢查會堂月庫存', true, 30),
   ('forms', '表單入口', '活動報名、問卷填寫與付款流程連結', true, 40),
   ('qrcode', 'QR Code 報到', '會友端 QR Code 與活動報到流程', true, 50),
   ('venue', '場地借用入口', '會友端場地申請與狀態通知', false, 60),

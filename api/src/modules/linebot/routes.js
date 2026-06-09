@@ -407,6 +407,11 @@ async function getLineBotRichMenus() {
       lineRichMenuId: row.line_rich_menu_id || '',
       audienceRule: row.audience_rule || {},
       audienceType: row.audience_rule?.type || 'bound',
+      actionType: row.audience_rule?.actionType || 'open_liff',
+      promptTitle: row.audience_rule?.promptTitle || '',
+      unboundPrompt: row.audience_rule?.prompts?.unbound || '',
+      boundPrompt: row.audience_rule?.prompts?.bound || '',
+      targetUrl: row.audience_rule?.targetUrl || '',
       status: row.status || 'draft',
       sortOrder: Number(row.sort_order || 0),
       createdAt: row.created_at,
@@ -450,8 +455,8 @@ async function updateLineBotModule(moduleKey, payload) {
      RETURNING module_key`,
     [enabled, moduleKey]
   );
-  if (!result.rowCount) throw new Error('找不到 LINE BOT 模組設定');
-  return { success: true, message: 'LINE BOT 模組設定已更新' };
+  if (!result.rowCount) throw new Error('找不到 Line App 會友功能設定');
+  return { success: true, message: 'Line App 會友功能設定已更新' };
 }
 
 async function getLineBotEvents(query = {}) {
@@ -584,12 +589,20 @@ function normalizeLineBotRichMenu(payload) {
   const menuName = normalizeText(payload.menuName);
   if (!menuName) throw new Error('請填寫 Rich Menu 名稱');
   const audienceType = ['unbound', 'bound', 'advanced', 'staff', 'custom'].includes(payload.audienceType) ? payload.audienceType : 'bound';
+  const actionType = ['open_liff', 'reply_message', 'external_url'].includes(payload.actionType) ? payload.actionType : 'open_liff';
   return {
     menuName,
     lineRichMenuId: normalizeText(payload.lineRichMenuId),
     audienceRule: {
       type: audienceType,
-      note: normalizeText(payload.audienceNote)
+      note: normalizeText(payload.audienceNote),
+      actionType,
+      promptTitle: normalizeText(payload.promptTitle),
+      prompts: {
+        unbound: normalizeText(payload.unboundPrompt),
+        bound: normalizeText(payload.boundPrompt)
+      },
+      targetUrl: normalizeText(payload.targetUrl)
     },
     status: ['draft', 'active', 'disabled'].includes(payload.status) ? payload.status : 'draft',
     sortOrder: Number.isFinite(Number(payload.sortOrder)) ? Number(payload.sortOrder) : 100

@@ -10,7 +10,7 @@ let lineBotRichMenus = [];
 
 function openLineBotSystem() {
   recordFeatureUsage('linebot');
-  document.getElementById('mainTitle').textContent = 'LINE BOT 管理系統';
+  document.getElementById('mainTitle').textContent = 'Line App會友管理系統';
   hideAllMainViews();
   document.getElementById('lineBotView').classList.remove('d-none');
   switchLineBotTab('dashboard');
@@ -347,7 +347,7 @@ function resetLineBotLinkForm() {
 
 function loadLineBotModules() {
   const box = document.getElementById('lineBotModulesBody');
-  box.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>BOT 模組載入中...</div>';
+  box.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>會友功能載入中...</div>';
   google.script.run
     .withSuccessHandler(data => {
       lineBotModules = data?.rows || [];
@@ -374,7 +374,7 @@ function renderLineBotRichMenus() {
   body.innerHTML = '';
   document.getElementById('saveLineBotRichMenuBtn').classList.toggle('d-none', !canEdit);
   if (!lineBotRichMenus.length) {
-    body.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">尚未建立 Rich Menu 設定</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚未建立 Rich Menu 設定</td></tr>';
     return;
   }
   lineBotRichMenus.forEach(row => {
@@ -383,6 +383,10 @@ function renderLineBotRichMenus() {
       <td>${escapeHtml(row.menuName)}</td>
       <td><code>${escapeHtml(row.lineRichMenuId || '')}</code></td>
       <td>${escapeHtml(formatLineBotAudienceType(row.audienceType))}</td>
+      <td>
+        <div class="small">${escapeHtml(row.promptTitle || '')}</div>
+        <div class="text-muted small">${escapeHtml(truncateLineBotText(row.unboundPrompt || row.boundPrompt || '', 32))}</div>
+      </td>
       <td>${escapeHtml(formatLineBotRichMenuStatus(row.status))}</td>
       <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotRichMenu('${escapeAttr(row.richMenuId)}')">編輯</button>` : ''}</td>
     `;
@@ -401,6 +405,11 @@ function submitLineBotRichMenu() {
     lineRichMenuId: document.getElementById('lineBotRichMenuLineId').value.trim(),
     audienceType: document.getElementById('lineBotRichMenuAudienceType').value,
     audienceNote: document.getElementById('lineBotRichMenuAudienceNote').value.trim(),
+    actionType: document.getElementById('lineBotRichMenuActionType').value,
+    promptTitle: document.getElementById('lineBotRichMenuPromptTitle').value.trim(),
+    unboundPrompt: document.getElementById('lineBotRichMenuUnboundPrompt').value.trim(),
+    boundPrompt: document.getElementById('lineBotRichMenuBoundPrompt').value.trim(),
+    targetUrl: document.getElementById('lineBotRichMenuTargetUrl').value.trim(),
     status: document.getElementById('lineBotRichMenuStatus').value,
     sortOrder: Number(document.getElementById('lineBotRichMenuSortOrder').value || 100)
   };
@@ -427,6 +436,11 @@ function editLineBotRichMenu(richMenuId) {
   document.getElementById('lineBotRichMenuLineId').value = row.lineRichMenuId || '';
   document.getElementById('lineBotRichMenuAudienceType').value = row.audienceType || 'bound';
   document.getElementById('lineBotRichMenuAudienceNote').value = row.audienceRule?.note || '';
+  document.getElementById('lineBotRichMenuActionType').value = row.actionType || row.audienceRule?.actionType || 'open_liff';
+  document.getElementById('lineBotRichMenuPromptTitle').value = row.promptTitle || row.audienceRule?.promptTitle || '';
+  document.getElementById('lineBotRichMenuUnboundPrompt').value = row.unboundPrompt || row.audienceRule?.prompts?.unbound || '';
+  document.getElementById('lineBotRichMenuBoundPrompt').value = row.boundPrompt || row.audienceRule?.prompts?.bound || '';
+  document.getElementById('lineBotRichMenuTargetUrl').value = row.targetUrl || row.audienceRule?.targetUrl || '';
   document.getElementById('lineBotRichMenuStatus').value = row.status || 'draft';
   document.getElementById('lineBotRichMenuSortOrder').value = row.sortOrder || 100;
 }
@@ -437,6 +451,11 @@ function resetLineBotRichMenuForm() {
   document.getElementById('lineBotRichMenuLineId').value = '';
   document.getElementById('lineBotRichMenuAudienceType').value = 'bound';
   document.getElementById('lineBotRichMenuAudienceNote').value = '';
+  document.getElementById('lineBotRichMenuActionType').value = 'open_liff';
+  document.getElementById('lineBotRichMenuPromptTitle').value = '';
+  document.getElementById('lineBotRichMenuUnboundPrompt').value = '';
+  document.getElementById('lineBotRichMenuBoundPrompt').value = '';
+  document.getElementById('lineBotRichMenuTargetUrl').value = '';
   document.getElementById('lineBotRichMenuStatus').value = 'draft';
   document.getElementById('lineBotRichMenuSortOrder').value = '100';
 }
@@ -445,7 +464,7 @@ function renderLineBotFeatureList(features, elementId, editable) {
   const box = document.getElementById(elementId);
   box.innerHTML = '';
   if (!features.length) {
-    box.innerHTML = '<div class="linebot-placeholder">尚未設定 BOT 功能模組。</div>';
+    box.innerHTML = '<div class="linebot-placeholder">尚未設定 Line App 會友功能。</div>';
     return;
   }
   features.forEach(feature => {
