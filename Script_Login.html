@@ -5,6 +5,7 @@ const SYSTEM_FEATURES = [
   { key: 'admin_supply', icon: 'package', title: '行政物資管理系統', desc: '管理行政消耗品、各會堂庫存、入庫、領用、調撥與低庫存提醒。', action: 'openAdminSupplySystem' },
   { key: 'asset', icon: 'package', title: '資產管理系統', desc: '管理固定資產清冊、設備位置、借用狀態、異動紀錄與資產來源。', action: 'openAssetSystem' },
   { key: 'system', icon: 'settings', title: '系統管理', desc: '維護系統參數、位置、使用者、角色權限、短連結與底層設定。', action: 'openSystemManagement' },
+  { key: 'dev_management', icon: 'code', title: '系統開發管理', desc: '提交開發 Issue、檢視系統文件、版本歷程與開發交接資訊。', action: 'openDevManagementSystem' },
   { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
   { key: 'zoom', icon: 'video', title: 'Zoom帳號管理系統', desc: '以行事曆方式查看與借用教會 Zoom 帳號，避免會議時段衝突。', action: 'openZoomSystem' },
   { key: 'sunday_message', icon: 'message', title: '主日信息管理系統', desc: '管理主日信息主題，追蹤各會堂、特會與其他場合的分享狀況。', action: 'openSundayMessageSystem' },
@@ -22,7 +23,7 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system'],
+  '超級管理者': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system', 'dev_management'],
   '管理員': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
   '全職同工': ['project', 'finance', 'admin_supply', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
@@ -48,6 +49,7 @@ const MAIN_VIEW_IDS = [
   'educationView',
   'qtView',
   'lineBotView',
+  'devManagementView',
   'qrcodeView',
   'counterWorkbenchView',
   'systemView'
@@ -655,7 +657,8 @@ function getFeatureIconSvg(icon) {
     music: '<path d="M9 18V6l10-2v12"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="16" r="2"/>',
     chart: '<path d="M4 20h16"/><path d="M7 16V9M12 16V5M17 16v-7"/>',
     calendar: '<path d="M5 5h14v15H5z"/><path d="M8 3v4M16 3v4M5 9h14"/><path d="M8 13h3M13 13h3M8 17h3"/>',
-    video: '<path d="M4 7h11v10H4z"/><path d="M15 11l5-3v8l-5-3z"/>'
+    video: '<path d="M4 7h11v10H4z"/><path d="M15 11l5-3v8l-5-3z"/>',
+    code: '<path d="M8 9l-4 3 4 3"/><path d="M16 9l4 3-4 3"/><path d="M14 5l-4 14"/>'
   };
   const path = paths[icon] || paths.clipboard;
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">${path}</svg>`;
@@ -716,7 +719,7 @@ function getEffectiveFeatureAccess() {
     SYSTEM_FEATURES.forEach(feature => grantRead(feature.key));
   } else if (roles.includes('管理員')) {
     SYSTEM_FEATURES
-      .filter(feature => !['system', 'sunday_message'].includes(feature.key))
+      .filter(feature => !['system', 'sunday_message', 'dev_management'].includes(feature.key))
       .forEach(feature => grantRead(feature.key));
   }
   return result;

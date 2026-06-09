@@ -1083,6 +1083,61 @@ function getSystemLogs(filters, currentUser) {
   }, currentUser);
 }
 
+function getDevManagementIssues(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/dev-management/issues', null, {
+    type: filters.type || '',
+    status: filters.status || '',
+    priority: filters.priority || '',
+    keyword: filters.keyword || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function saveDevManagementIssue(payload) {
+  const issueId = payload.issue && payload.issue.issueId ? payload.issue.issueId : '';
+  if (issueId) {
+    return apiRequest(
+      'put',
+      `/dev-management/issues/${encodeURIComponent(issueId)}`,
+      { currentUser: payload.currentUser, issue: payload.issue }
+    );
+  }
+  return apiRequest('post', '/dev-management/issues', {
+    currentUser: payload.currentUser,
+    issue: payload.issue
+  });
+}
+
+function getDevManagementDocuments(currentUser) {
+  return apiRequest('get', '/dev-management/documents', null, null, currentUser);
+}
+
+function getDevManagementDocument(documentKey, currentUser) {
+  return apiRequest(
+    'get',
+    `/dev-management/documents/${encodeURIComponent(documentKey)}`,
+    null,
+    null,
+    currentUser
+  );
+}
+
+function getDevManagementReleases(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/dev-management/releases', null, {
+    limit: filters.limit || 30
+  }, currentUser);
+}
+
+function saveDevManagementRelease(payload) {
+  return apiRequest('post', '/dev-management/releases', {
+    currentUser: payload.currentUser,
+    release: payload.release
+  });
+}
+
 function getSundayMessageOptions(currentUser) {
   return apiRequest('get', '/sunday-messages/options', null, null, currentUser);
 }

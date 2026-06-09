@@ -41,6 +41,32 @@
 - 參數管理。
 - 使用紀錄與系統日誌。
 
+### Dev Management
+
+模組：`api/src/modules/dev-management/routes.js`
+
+用途：
+
+- 系統開發 Issue 提案。
+- 核心文件 Review。
+- 版本更新歷程。
+
+目前 endpoint：
+
+- `GET /dev-management/issues`
+- `POST /dev-management/issues`
+- `PUT /dev-management/issues/:issueId`
+- `GET /dev-management/documents`
+- `GET /dev-management/documents/:documentKey`
+- `GET /dev-management/releases`
+- `POST /dev-management/releases`
+
+注意：
+
+- 僅超級管理者可讀寫。
+- 文件讀取使用白名單，避免任意讀取伺服器檔案。
+- 新增/更新會寫入 `audit_logs`，system key 為 `dev_management`。
+
 ## Project
 
 模組：`api/src/modules/project/routes.js`

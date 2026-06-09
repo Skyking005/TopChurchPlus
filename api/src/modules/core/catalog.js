@@ -37,6 +37,7 @@ const SYSTEM_FEATURES = [
   'worship',
   'attendance',
   'serving',
+  'dev_management',
   'system'
 ];
 

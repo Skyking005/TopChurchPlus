@@ -2,7 +2,7 @@ const { pool } = require('../db');
 const { FEATURE_ACCESS_RANK, SYSTEM_FEATURES } = require('../modules/core/catalog');
 const { assertDesktop, normalizeRoles } = require('./users');
 
-const ADMIN_READ_EXCLUDED_FEATURES = new Set(['system', 'sunday_message']);
+const ADMIN_READ_EXCLUDED_FEATURES = new Set(['system', 'sunday_message', 'dev_management']);
 
 function applyAdminReadableAccess(access, roles) {
   if (roles.includes('超級管理者')) {

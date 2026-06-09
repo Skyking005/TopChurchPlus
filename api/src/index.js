@@ -10,6 +10,7 @@ const { registerAttendanceRoutes } = require('./modules/attendance/routes');
 const { registerAuthRoutes } = require('./modules/auth/routes');
 const { registerCoreRoutes } = require('./modules/core/routes');
 const { registerCounterRoutes } = require('./modules/counter/routes');
+const { registerDevManagementRoutes } = require('./modules/dev-management/routes');
 const { registerDocumentRoutes } = require('./modules/documents/routes');
 const { registerEducationRoutes } = require('./modules/education/routes');
 const { registerPastoralRoutes } = require('./modules/pastoral/routes');
@@ -34,6 +35,7 @@ app.use(createApiKeyMiddleware({ publicPaths: ['/health'], publicPrefixes: ['/li
 registerCoreRoutes(app);
 registerAuthRoutes(app);
 registerCounterRoutes(app);
+registerDevManagementRoutes(app);
 registerDocumentRoutes(app);
 registerSystemRoutes(app);
 registerAttendanceRoutes(app);

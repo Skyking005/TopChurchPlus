@@ -4,9 +4,13 @@ $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LocalApiRoot = Join-Path $ProjectRoot 'api'
 $LocalApiSrc = Join-Path $ProjectRoot 'api\src'
 $LocalApiPublic = Join-Path $ProjectRoot 'api\public'
+$LocalDocsRoot = Join-Path $ProjectRoot 'docs'
+$LocalAgentsFile = Join-Path $ProjectRoot 'AGENTS.md'
 $RemoteApiRoot = '\\192.168.3.2\docker\project-api'
 $RemoteApiSrc = '\\192.168.3.2\docker\project-api\src'
 $RemoteApiPublic = '\\192.168.3.2\docker\project-api\public'
+$RemoteDocsRoot = '\\192.168.3.2\docker\project-api\docs'
+$RemoteAgentsFile = '\\192.168.3.2\docker\project-api\AGENTS.md'
 $RemoteApiIndex = Join-Path $RemoteApiSrc 'index.js'
 $SshKey = Join-Path $env:USERPROFILE '.ssh\project_api_deploy'
 $NasUser = 'cetu'
@@ -45,6 +49,21 @@ if (Test-Path -LiteralPath $LocalApiPublic) {
   Get-ChildItem -LiteralPath $LocalApiPublic -Force | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination $RemoteApiPublic -Recurse -Force
   }
+}
+
+if (Test-Path -LiteralPath $LocalDocsRoot) {
+  Write-Host "Copying project docs to NAS..."
+  if (-not (Test-Path -LiteralPath $RemoteDocsRoot)) {
+    New-Item -ItemType Directory -Path $RemoteDocsRoot -Force | Out-Null
+  }
+  Get-ChildItem -LiteralPath $LocalDocsRoot -Force | ForEach-Object {
+    Copy-Item -LiteralPath $_.FullName -Destination $RemoteDocsRoot -Recurse -Force
+  }
+}
+
+if (Test-Path -LiteralPath $LocalAgentsFile) {
+  Write-Host "Copying AGENTS.md to NAS..."
+  Copy-Item -LiteralPath $LocalAgentsFile -Destination $RemoteAgentsFile -Force
 }
 
 Write-Host "Copying API runtime files to NAS..."

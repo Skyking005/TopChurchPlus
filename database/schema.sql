@@ -37,6 +37,34 @@ CREATE TABLE IF NOT EXISTS role_feature_permissions (
   PRIMARY KEY (role, feature_key)
 );
 
+CREATE TABLE IF NOT EXISTS development_issues (
+  issue_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  issue_no BIGSERIAL UNIQUE NOT NULL,
+  issue_type TEXT NOT NULL CHECK (issue_type IN ('feature', 'issue', 'maintain')),
+  status TEXT NOT NULL DEFAULT '提案' CHECK (status IN ('提案', '取消', '完成')),
+  priority TEXT NOT NULL DEFAULT '中' CHECK (priority IN ('低', '中', '高')),
+  description TEXT NOT NULL,
+  created_by_staff_id TEXT REFERENCES accounts(staff_id) ON DELETE SET NULL,
+  created_by_name TEXT,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS development_releases (
+  release_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  commit_hash TEXT,
+  commit_message TEXT,
+  apps_script_version TEXT,
+  api_deployed BOOLEAN NOT NULL DEFAULT false,
+  apps_script_deployed BOOLEAN NOT NULL DEFAULT false,
+  summary TEXT NOT NULL DEFAULT '',
+  verification_result TEXT NOT NULL DEFAULT '',
+  created_by_staff_id TEXT REFERENCES accounts(staff_id) ON DELETE SET NULL,
+  created_by_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS params (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category TEXT NOT NULL,
@@ -252,6 +280,11 @@ CREATE INDEX IF NOT EXISTS idx_purchase_expense_proofs_purchase_id ON purchase_e
 CREATE INDEX IF NOT EXISTS idx_purchase_payment_requests_purchase_id ON purchase_payment_requests(purchase_id);
 CREATE INDEX IF NOT EXISTS idx_account_roles_staff_id ON account_roles(staff_id);
 CREATE INDEX IF NOT EXISTS idx_role_feature_permissions_role ON role_feature_permissions(role);
+CREATE INDEX IF NOT EXISTS idx_development_issues_status_priority ON development_issues(status, priority, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_development_issues_type ON development_issues(issue_type);
+CREATE INDEX IF NOT EXISTS idx_development_issues_created_by_staff ON development_issues(created_by_staff_id);
+CREATE INDEX IF NOT EXISTS idx_development_releases_created_at ON development_releases(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_development_releases_created_by_staff ON development_releases(created_by_staff_id);
 
 INSERT INTO params (category, value, sort_order) VALUES
   ('chargeOptions', '是', 1),

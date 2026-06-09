@@ -23,6 +23,30 @@ Feature key：`system`
 - 只有超級管理者可做系統層級調整。
 - 管理員是應用層權限，不等同超級管理者。
 
+## 系統開發管理
+
+Feature key：`dev_management`
+
+主要檔案：
+
+- `DevManagement.html`
+- `Script_DevManagement.html`
+- `api/src/modules/dev-management/routes.js`
+- `database/20260609_dev_management.sql`
+
+狀態：
+
+- 超級管理者專用。
+- 可提交 Issue 提案，欄位包含類型、狀態、優先度、描述。
+- 可 review `HANDOFF`、`SYSTEM_ARCHITECTURE`、`DATABASE_SCHEMA`、`API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX`、`AGENTS`、Skill 摘要等文件。
+- 可記錄版本更新歷程、部署狀態與驗證摘要。
+
+注意：
+
+- 管理員不可看此模組。
+- 文件讀取採 API 白名單，不允許任意讀檔。
+- Issue 與版本新增/更新會寫入 audit log。
+
 ## 專案管理
 
 Feature key：`project`

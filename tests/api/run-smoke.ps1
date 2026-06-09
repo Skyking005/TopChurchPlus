@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 
 & "$PSScriptRoot\smoke-health.ps1"
 & "$PSScriptRoot\smoke-error-context.ps1"
+& "$PSScriptRoot\smoke-dev-management.ps1" -WriteDemo:$WriteDemo
 & "$PSScriptRoot\smoke-admin-supply.ps1" -WriteDemo:$WriteDemo
 & "$PSScriptRoot\smoke-liff.ps1" -WriteDemo:$WriteDemo
 

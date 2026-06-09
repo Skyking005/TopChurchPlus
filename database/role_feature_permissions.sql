@@ -26,6 +26,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('超級管理者', 'attendance', 'edit'),
     ('超級管理者', 'serving', 'edit'),
     ('超級管理者', 'system', 'edit'),
+    ('超級管理者', 'dev_management', 'edit'),
     ('管理員', 'project', 'edit'),
     ('管理員', 'finance', 'edit'),
     ('管理員', 'asset', 'edit'),

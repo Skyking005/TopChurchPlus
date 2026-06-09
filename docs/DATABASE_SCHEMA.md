@@ -74,6 +74,43 @@
 - 比 system_usage_logs 保存更久。
 - 記錄時避免大量塞完整個人資料。
 
+### development_issues
+
+系統開發 Issue 提案主檔。
+
+欄位概念：
+
+- issue_no：流水編號，給介面顯示。
+- issue_type：`feature`、`issue`、`maintain`。
+- status：`提案`、`取消`、`完成`。
+- priority：`低`、`中`、`高`。
+- description：使用者描述的需求、問題或維護事項。
+- created_by_staff_id / created_by_name：提交人。
+- completed_at：狀態為完成時記錄完成時間。
+
+索引：
+
+- `status + priority + created_at`：清單排序與篩選。
+- `issue_type`：類型篩選。
+- `created_by_staff_id`：依提交人查詢。
+
+### development_releases
+
+版本更新歷程。
+
+欄位概念：
+
+- commit_hash / commit_message：Git 更新資訊。
+- apps_script_version：Google Apps Script 部署版本。
+- api_deployed / apps_script_deployed：部署註記。
+- summary：本次更新摘要。
+- verification_result：測試、部署、DB 備份等驗證摘要。
+
+索引：
+
+- `created_at`：版本歷程倒序列表。
+- `created_by_staff_id`：依建立人查詢。
+
 ### params / param_categories / param_items
 
 參數管理。

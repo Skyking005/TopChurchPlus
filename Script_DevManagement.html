@@ -1,0 +1,335 @@
+<script>
+let devManagementActiveTab = 'issues';
+let devIssuesState = { page: 1, pageSize: 20, total: 0, rows: [] };
+let devDocuments = [];
+let devReleases = [];
+
+function openDevManagementSystem() {
+  recordFeatureUsage('dev_management');
+  document.getElementById('mainTitle').textContent = '系統開發管理';
+  hideAllMainViews();
+  document.getElementById('devManagementView').classList.remove('d-none');
+  switchDevManagementTab(devManagementActiveTab || 'issues');
+}
+
+function refreshDevManagement() {
+  if (devManagementActiveTab === 'documents') {
+    loadDevDocuments();
+  } else if (devManagementActiveTab === 'releases') {
+    loadDevReleases();
+  } else {
+    loadDevIssues(devIssuesState.page || 1);
+  }
+}
+
+function switchDevManagementTab(tab) {
+  devManagementActiveTab = tab;
+  document.querySelectorAll('[data-dev-management-tab]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.devManagementTab === tab);
+  });
+  document.getElementById('devManagementIssuesPane').classList.toggle('d-none', tab !== 'issues');
+  document.getElementById('devManagementDocumentsPane').classList.toggle('d-none', tab !== 'documents');
+  document.getElementById('devManagementReleasesPane').classList.toggle('d-none', tab !== 'releases');
+
+  if (tab === 'documents') loadDevDocuments();
+  if (tab === 'releases') loadDevReleases();
+  if (tab === 'issues') loadDevIssues(devIssuesState.page || 1);
+}
+
+function handleDevIssueSearchKey(event) {
+  if (event.key === 'Enter') loadDevIssues(1);
+}
+
+function loadDevIssues(page = 1) {
+  devIssuesState.page = page;
+  setListLoading('devIssuesBody', true, 'Issue 載入中...');
+  document.getElementById('devIssueListError').textContent = '';
+  google.script.run
+    .withSuccessHandler(data => {
+      devIssuesState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderDevIssues();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('devIssueListError').textContent = err.message || err;
+      devIssuesState.rows = [];
+      renderDevIssues();
+    })
+    .getDevManagementIssues({
+      keyword: document.getElementById('devIssueKeyword').value,
+      type: document.getElementById('devIssueTypeFilter').value,
+      status: document.getElementById('devIssueStatusFilter').value,
+      priority: document.getElementById('devIssuePriorityFilter').value,
+      page,
+      pageSize: 20
+    }, currentUser);
+}
+
+function renderDevIssues() {
+  const body = document.getElementById('devIssuesBody');
+  body.innerHTML = '';
+  if (!devIssuesState.rows.length) {
+    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無 Issue</td></tr>';
+  } else {
+    devIssuesState.rows.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>#${escapeHtml(row.issueNo || '')}</td>
+        <td>${escapeHtml(row.issueType || '')}</td>
+        <td>${formatDevStatusBadge(row.status)}</td>
+        <td>${formatDevPriorityBadge(row.priority)}</td>
+        <td class="dev-issue-description">${escapeHtml(row.description || '')}</td>
+        <td>
+          <div>${escapeHtml(row.createdByName || '')}</div>
+          <div class="text-muted small">${escapeHtml(formatDevDateTime(row.createdAt))}</div>
+        </td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="editDevIssue('${escapeAttr(row.issueId)}')">編輯</button>
+        </td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+  renderDevPager('devIssuesPager', devIssuesState, 'loadDevIssues');
+}
+
+function editDevIssue(issueId) {
+  const row = devIssuesState.rows.find(item => String(item.issueId) === String(issueId));
+  if (!row) return;
+  document.getElementById('devIssueId').value = row.issueId;
+  document.getElementById('devIssueType').value = row.issueType || 'feature';
+  document.getElementById('devIssueStatus').value = row.status || '提案';
+  document.getElementById('devIssuePriority').value = row.priority || '中';
+  document.getElementById('devIssueDescription').value = row.description || '';
+  document.getElementById('devIssueDescription').focus();
+}
+
+function resetDevIssueForm() {
+  document.getElementById('devIssueId').value = '';
+  document.getElementById('devIssueType').value = 'feature';
+  document.getElementById('devIssueStatus').value = '提案';
+  document.getElementById('devIssuePriority').value = '中';
+  document.getElementById('devIssueDescription').value = '';
+  document.getElementById('devIssueFormError').textContent = '';
+}
+
+function submitDevIssue() {
+  const btn = document.getElementById('saveDevIssueBtn');
+  const errorBox = document.getElementById('devIssueFormError');
+  const issue = {
+    issueId: document.getElementById('devIssueId').value,
+    issueType: document.getElementById('devIssueType').value,
+    status: document.getElementById('devIssueStatus').value,
+    priority: document.getElementById('devIssuePriority').value,
+    description: document.getElementById('devIssueDescription').value.trim()
+  };
+  errorBox.textContent = '';
+  if (!issue.description) {
+    errorBox.textContent = '請填寫描述';
+    return;
+  }
+
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(() => {
+      setButtonLoading(btn, false);
+      resetDevIssueForm();
+      loadDevIssues(devIssuesState.page || 1);
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveDevManagementIssue({ currentUser, issue });
+}
+
+function loadDevDocuments() {
+  const list = document.getElementById('devDocumentsList');
+  list.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>文件掃描中...</div>';
+  google.script.run
+    .withSuccessHandler(data => {
+      devDocuments = data?.rows || [];
+      renderDevDocuments();
+      if (devDocuments.length && !document.getElementById('devDocumentContent').dataset.documentKey) {
+        loadDevDocument(devDocuments[0].key);
+      }
+    })
+    .withFailureHandler(err => {
+      list.innerHTML = `<div class="text-danger small">${escapeHtml(err.message || err)}</div>`;
+    })
+    .getDevManagementDocuments(currentUser);
+}
+
+function renderDevDocuments() {
+  const list = document.getElementById('devDocumentsList');
+  list.innerHTML = '';
+  if (!devDocuments.length) {
+    list.innerHTML = '<div class="text-muted small">尚無可 review 文件</div>';
+    return;
+  }
+  devDocuments.forEach(doc => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'list-group-item list-group-item-action';
+    button.dataset.documentKey = doc.key;
+    button.onclick = () => loadDevDocument(doc.key);
+    button.innerHTML = `
+      <div class="d-flex justify-content-between gap-2">
+        <span class="fw-semibold">${escapeHtml(doc.title)}</span>
+        ${doc.exists ? '<span class="badge bg-success">可讀</span>' : '<span class="badge bg-danger">缺檔</span>'}
+      </div>
+      <div class="text-muted small">${escapeHtml(doc.group || '')} · ${escapeHtml(formatDevFileSize(doc.size || 0))}</div>
+    `;
+    list.appendChild(button);
+  });
+}
+
+function loadDevDocument(documentKey) {
+  document.querySelectorAll('#devDocumentsList [data-document-key]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.documentKey === documentKey);
+  });
+  const content = document.getElementById('devDocumentContent');
+  content.dataset.documentKey = documentKey;
+  content.textContent = '文件載入中...';
+  google.script.run
+    .withSuccessHandler(doc => {
+      document.getElementById('devDocumentTitle').textContent = doc.title || doc.key || '文件';
+      document.getElementById('devDocumentMeta').textContent =
+        `${formatDevFileSize(doc.size || 0)} · ${doc.lineCount || 0} 行 · 更新 ${formatDevDateTime(doc.updatedAt)}`;
+      content.textContent = doc.content || '';
+    })
+    .withFailureHandler(err => {
+      document.getElementById('devDocumentTitle').textContent = '文件讀取失敗';
+      document.getElementById('devDocumentMeta').textContent = '';
+      content.textContent = err.message || err;
+    })
+    .getDevManagementDocument(documentKey, currentUser);
+}
+
+function loadDevReleases() {
+  const list = document.getElementById('devReleaseList');
+  list.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>版本歷程載入中...</div>';
+  document.getElementById('devReleaseListError').textContent = '';
+  google.script.run
+    .withSuccessHandler(data => {
+      devReleases = data?.rows || [];
+      renderDevReleases();
+    })
+    .withFailureHandler(err => {
+      document.getElementById('devReleaseListError').textContent = err.message || err;
+      devReleases = [];
+      renderDevReleases();
+    })
+    .getDevManagementReleases({ limit: 30 }, currentUser);
+}
+
+function renderDevReleases() {
+  const list = document.getElementById('devReleaseList');
+  list.innerHTML = '';
+  if (!devReleases.length) {
+    list.innerHTML = '<div class="text-muted text-center py-4">尚無版本歷程</div>';
+    return;
+  }
+  devReleases.forEach(row => {
+    const item = document.createElement('div');
+    item.className = 'dev-release-item';
+    item.innerHTML = `
+      <div class="d-flex flex-wrap justify-content-between gap-2">
+        <div>
+          <div class="fw-semibold">${escapeHtml(row.summary || '')}</div>
+          <div class="text-muted small">
+            ${escapeHtml(row.commitHash || '未填 commit')}
+            ${row.appsScriptVersion ? ` · ${escapeHtml(row.appsScriptVersion)}` : ''}
+            · ${escapeHtml(formatDevDateTime(row.createdAt))}
+          </div>
+        </div>
+        <div class="d-flex gap-1">
+          ${row.apiDeployed ? '<span class="badge bg-success">API</span>' : '<span class="badge bg-secondary">API 未註記</span>'}
+          ${row.appsScriptDeployed ? '<span class="badge bg-success">GAS</span>' : '<span class="badge bg-secondary">GAS 未註記</span>'}
+        </div>
+      </div>
+      ${row.commitMessage ? `<div class="small mt-2">${escapeHtml(row.commitMessage)}</div>` : ''}
+      ${row.verificationResult ? `<pre class="dev-release-verification">${escapeHtml(row.verificationResult)}</pre>` : ''}
+      <div class="text-muted small mt-2">建立者：${escapeHtml(row.createdByName || '')}</div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function submitDevRelease() {
+  const btn = document.getElementById('saveDevReleaseBtn');
+  const errorBox = document.getElementById('devReleaseFormError');
+  const release = {
+    commitHash: document.getElementById('devReleaseCommitHash').value.trim(),
+    appsScriptVersion: document.getElementById('devReleaseGasVersion').value.trim(),
+    commitMessage: document.getElementById('devReleaseCommitMessage').value.trim(),
+    summary: document.getElementById('devReleaseSummary').value.trim(),
+    verificationResult: document.getElementById('devReleaseVerification').value.trim(),
+    apiDeployed: document.getElementById('devReleaseApiDeployed').checked,
+    appsScriptDeployed: document.getElementById('devReleaseGasDeployed').checked
+  };
+  errorBox.textContent = '';
+  if (!release.summary) {
+    errorBox.textContent = '請填寫版本摘要';
+    return;
+  }
+
+  setButtonLoading(btn, true, '新增中...');
+  google.script.run
+    .withSuccessHandler(() => {
+      setButtonLoading(btn, false);
+      resetDevReleaseForm();
+      loadDevReleases();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .saveDevManagementRelease({ currentUser, release });
+}
+
+function resetDevReleaseForm() {
+  ['devReleaseCommitHash', 'devReleaseGasVersion', 'devReleaseCommitMessage', 'devReleaseSummary', 'devReleaseVerification'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('devReleaseApiDeployed').checked = false;
+  document.getElementById('devReleaseGasDeployed').checked = false;
+  document.getElementById('devReleaseFormError').textContent = '';
+}
+
+function renderDevPager(containerId, state, loadFunctionName) {
+  const container = document.getElementById(containerId);
+  const total = Number(state.total || 0);
+  const pageSize = Number(state.pageSize || 20);
+  const page = Number(state.page || 1);
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  container.innerHTML = `
+    <button type="button" class="btn btn-outline-secondary btn-sm" ${page <= 1 ? 'disabled' : ''} onclick="${loadFunctionName}(${page - 1})">上一頁</button>
+    <span class="small text-muted">第 ${page} / ${totalPages} 頁，共 ${total} 筆</span>
+    <button type="button" class="btn btn-outline-secondary btn-sm" ${page >= totalPages ? 'disabled' : ''} onclick="${loadFunctionName}(${page + 1})">下一頁</button>
+  `;
+}
+
+function formatDevStatusBadge(status) {
+  const map = { '提案': 'bg-primary', '取消': 'bg-secondary', '完成': 'bg-success' };
+  return `<span class="badge ${map[status] || 'bg-secondary'}">${escapeHtml(status || '')}</span>`;
+}
+
+function formatDevPriorityBadge(priority) {
+  const map = { '高': 'bg-danger', '中': 'bg-warning text-dark', '低': 'bg-info text-dark' };
+  return `<span class="badge ${map[priority] || 'bg-secondary'}">${escapeHtml(priority || '')}</span>`;
+}
+
+function formatDevDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('zh-TW', { hour12: false });
+}
+
+function formatDevFileSize(size) {
+  const value = Number(size || 0);
+  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${value} B`;
+}
+</script>
