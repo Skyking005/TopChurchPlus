@@ -52,6 +52,7 @@
 ## 已固定處理的常見雷點
 
 - PowerShell Execution Policy 可能阻擋直接執行 `.ps1`。專案應優先使用 `.cmd` wrapper；沒有專用 wrapper 時使用 `tools\run-ps1.cmd <script.ps1>`。
+- PowerShell 管線結果在單筆資料時可能被 unwrap，造成 `.Count` 判斷不穩。Smoke test 請用 `Get-StableCount` 或 `Measure-Object`。
 
 ## 每週文件更新排程內容
 

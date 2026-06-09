@@ -46,6 +46,13 @@ Windows PowerShell 常會因 Execution Policy 擋住直接執行 `.ps1`。本專
 .\tools\run-ps1.cmd .\database\run_legacy_weekly_sync.ps1
 ```
 
+PowerShell 管線在 0 筆、1 筆、多筆資料時可能回傳不同型態，測試腳本不要直接依賴 `Where-Object` 結果的 `.Count`。API smoke test 請使用 `tests\api\lib\topchurchplus-test.ps1` 的 `Get-StableCount`，或至少使用 `Measure-Object`：
+
+```powershell
+Assert-True ((($rows | Where-Object { $_.key -eq 'HANDOFF' }) | Get-StableCount) -eq 1) 'HANDOFF document should be listed.'
+Assert-True ((($rows | Where-Object { $_.key -eq 'HANDOFF' }) | Measure-Object).Count -eq 1) 'HANDOFF document should be listed.'
+```
+
 CLI 路徑集中記錄於 `tools/dev-cli-map.json`。若工具位置改變，優先更新這份地圖檔，不要讓檢查腳本每次掃描整個系統目錄。
 
 本專案建議安裝並使用的免費 CLI：

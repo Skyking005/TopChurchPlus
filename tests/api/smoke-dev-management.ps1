@@ -8,8 +8,8 @@ $ErrorActionPreference = 'Stop'
 $currentUser = New-DemoCurrentUser
 
 $documents = (Invoke-TopChurchPlusApi -Method GET -Path '/dev-management/documents' -CurrentUser $currentUser).Json
-Assert-True (($documents.rows | Measure-Object).Count -gt 0) 'Dev management documents should be listed.'
-Assert-True ((($documents.rows | Where-Object { $_.key -eq 'HANDOFF' }) | Measure-Object).Count -eq 1) 'HANDOFF document should be listed.'
+Assert-True (($documents.rows | Get-StableCount) -gt 0) 'Dev management documents should be listed.'
+Assert-True ((($documents.rows | Where-Object { $_.key -eq 'HANDOFF' }) | Get-StableCount) -eq 1) 'HANDOFF document should be listed.'
 Write-Host 'PASS dev-management documents'
 
 $handoff = (Invoke-TopChurchPlusApi -Method GET -Path '/dev-management/documents/HANDOFF' -CurrentUser $currentUser).Json

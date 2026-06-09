@@ -8,8 +8,8 @@ $ErrorActionPreference = 'Stop'
 $currentUser = New-DemoCurrentUser
 
 $options = (Invoke-TopChurchPlusApi -Method GET -Path '/admin-supplies/options' -CurrentUser $currentUser).Json
-Assert-True (($options.churches | Measure-Object).Count -gt 0) 'Admin supply options should include churches.'
-Assert-True (($options.categories | Measure-Object).Count -gt 0) 'Admin supply options should include categories.'
+Assert-True (($options.churches | Get-StableCount) -gt 0) 'Admin supply options should include churches.'
+Assert-True (($options.categories | Get-StableCount) -gt 0) 'Admin supply options should include categories.'
 Write-Host 'PASS admin-supply options'
 
 $items = (Invoke-TopChurchPlusApi -Method GET -Path '/admin-supplies/items?page=1&pageSize=20' -CurrentUser $currentUser).Json

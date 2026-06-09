@@ -94,6 +94,28 @@ function Assert-True {
   }
 }
 
+function Get-StableCount {
+  param(
+    [Parameter(ValueFromPipeline = $true)]
+    [object]$InputObject
+  )
+
+  begin {
+    $items = @()
+  }
+
+  process {
+    if ($null -ne $InputObject) {
+      $items += $InputObject
+    }
+  }
+
+  end {
+    # PowerShell may unwrap a single pipeline result, so use Measure-Object for stable 0/1/many counts.
+    return ($items | Measure-Object).Count
+  }
+}
+
 function Assert-ReadableChinese {
   param(
     [string]$Text,
