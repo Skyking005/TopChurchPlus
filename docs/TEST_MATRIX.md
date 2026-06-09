@@ -38,8 +38,7 @@
 
 - 新增 Issue，類型、狀態、優先度與描述可保存。
 - 文件 Review 可讀 `DISASTER_RECOVERY_REBUILD` 與 `RECOVERY_SECRETS_CHECKLIST`。
-- 新增版本歷程時可填寫 Token 消耗，列表需顯示 Token 標籤。
-- 未填 Token 消耗的版本歷程需顯示 Token 未記錄。
+- 新增版本歷程時只需記錄部署與驗證摘要；Token 與 Remote 運算紀錄應保存在 GitHub commit body。
 
 非法流程：
 

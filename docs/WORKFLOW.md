@@ -100,7 +100,15 @@ npm run dev:sqlfluff -- --version
 8. 提交前依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
 9. 跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
 
-任務完成後，若有建立系統開發管理的版本歷程，需填寫本次 Token 消耗；若無法取得精準值，填估算或註明「未取得」。
+任務完成後，Token 與 Remote 運算紀錄寫在 GitHub commit body，不放在系統介面。若無法取得精準 Token 值，需註明「未取得」；若沒有調用 Remote 運算，註明「未使用」。若有使用 Remote 運算，需記錄任務、估算節省 Token 與估算依據。
+
+建議 commit body 固定包含：
+
+```text
+Token usage: 未取得 / 估算值
+Remote compute: 未使用 / 已使用（任務與工具）
+Remote token saving: N/A / 估算節省值與依據
+```
 
 常用搜尋範例：
 

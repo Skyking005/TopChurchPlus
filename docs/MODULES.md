@@ -39,14 +39,14 @@ Feature key：`dev_management`
 - 超級管理者專用。
 - 可提交 Issue 提案，欄位包含類型、狀態、優先度、描述。
 - 可 review `NEW_THREAD_GUIDE`、`HANDOFF`、`DOCUMENTATION_MAINTENANCE`、`SYSTEM_ARCHITECTURE`、`DATABASE_SCHEMA`、`API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX`、`AGENTS`、Skill 摘要等文件。
-- 可記錄版本更新歷程、部署狀態、Token 消耗與驗證摘要。
+- 可記錄版本更新歷程、部署狀態與驗證摘要。
 
 注意：
 
 - 管理員不可看此模組。
 - 文件讀取採 API 白名單，不允許任意讀檔。
 - Issue 與版本新增/更新會寫入 audit log。
-- Token 消耗目前由版本歷程人工填寫；若 Codex 或外部 AI 未提供精準值，可填估算或註明未取得。
+- Token 消耗與 Remote 運算紀錄改由 GitHub commit body 保存，避免系統介面多一層維護成本。
 
 ## 專案管理
 
