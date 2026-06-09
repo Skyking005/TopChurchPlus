@@ -16,6 +16,22 @@
 
 重要：不要使用預設的 `C:\Users\<使用者>\.ollama` 模型目錄。本機 Windows 使用者路徑含中文時，Ollama 的 llama-server 曾發生路徑 mojibake，導致模型無法載入。因此本專案固定使用 ASCII 路徑 `D:\ollama-models`。
 
+## AI Context Snapshot
+
+內部 RTX / Local AI 主機不要直接讀正式 repo，請讀乾淨快照：
+
+```text
+D:\系統開發\topchurchplus-ai-context
+```
+
+產生快照：
+
+```powershell
+.\tools\build-ai-context.cmd
+```
+
+快照規則見 `docs/AI_CONTEXT_WORKFLOW.md`。此快照會排除 `.env`、secret、備份、測試資料、原始資料與大型依賴，適合提供給 RAG、Open WebUI、AnythingLLM、Continue 或其他 Local AI 工具做唯讀索引。
+
 ## Local AI 負責的工作
 
 Local AI 只做前置分析，不直接修改系統：

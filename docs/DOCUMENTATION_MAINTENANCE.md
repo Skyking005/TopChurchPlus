@@ -29,6 +29,7 @@
 | `docs/DATABASE_SCHEMA.md` | DB table、欄位、索引、關聯、資料語意改變 | 表、欄位意義、索引、關聯與注意事項 |
 | `docs/TEST_MATRIX.md` | 新增功能流程、合法/非法案例、回歸測試方式 | 測試情境、預期結果、Demo 資料 |
 | `docs/WORKFLOW.md` | 工作流程、工具、部署、常見除錯方式改變 | 流程與命令，不放業務細節 |
+| `docs/AI_CONTEXT_WORKFLOW.md` | Local AI / RTX 主機的唯讀 context 產生、分享、排除規則改變 | AI 可讀資料範圍與安全限制 |
 | `docs/LOCAL_AI_WORKFLOW.md` | Local AI / Ollama 前置分析流程、模型、輸出規則改變 | 本機 AI 僅做前置分析，不放 secret |
 | `docs/REMOTE_AI_GUARDRAILS.md` | 遠端 AI 防雷規則、停止條件、可做/不可做事項改變 | 遠端 AI 僅做前置分析 |
 | `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md` | Tailscale 遠端 AI 主機、GitHub 文件溝通流程改變 | 遠端 AI 分工、連線、安全原則 |

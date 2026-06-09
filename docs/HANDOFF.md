@@ -32,6 +32,7 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 
 - `AGENTS.md`：不可違反的編碼、資料庫、部署與任務規則。
 - `docs/NEW_THREAD_GUIDE.md`：`/new` 對話最小讀取順序與任務對應文件。
+- `docs/AI_CONTEXT_WORKFLOW.md`：提供給內部 Local AI / RTX 主機讀取的安全唯讀快照流程。
 - `docs/LOCAL_AI_WORKFLOW.md`：Ollama / Local AI 前置分析流程，可先產生 `tmp/local-ai/task_context.md` 降低 Token 消耗。
 - `docs/REMOTE_AI_GUARDRAILS.md`：Tailscale 遠端 AI 運算主機的防雷規則，遇亂碼、secret、部署或 DB 操作必須停止。
 - `docs/HANDOFF.md`：目前交接摘要。

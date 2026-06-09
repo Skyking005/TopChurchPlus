@@ -8,6 +8,8 @@
 
 新任務先依任務大小決定是否執行 preflight。大任務優先使用 Remote AI，小修可略過。
 
+Local AI / RAG 工具應優先讀 `D:\系統開發\topchurchplus-ai-context` 這份安全快照，不直接讀正式 repo。快照產生方式見 `docs/AI_CONTEXT_WORKFLOW.md`。
+
 Local AI 備援指令：
 
 ```powershell

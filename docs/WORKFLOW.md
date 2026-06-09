@@ -53,6 +53,14 @@ Windows PowerShell 常會因 Execution Policy 擋住直接執行 `.ps1`。本專
 .\tools\run-ps1.cmd .\database\run_legacy_weekly_sync.ps1
 ```
 
+產生給內部 Local AI / RTX 主機讀取的安全唯讀快照：
+
+```powershell
+.\tools\build-ai-context.cmd
+```
+
+快照預設輸出到 `D:\系統開發\topchurchplus-ai-context`，排除 `.env`、secret、測試資料、原始資料、文書範本、備份與大型依賴。詳細規則見 `docs\AI_CONTEXT_WORKFLOW.md`。
+
 PowerShell 管線在 0 筆、1 筆、多筆資料時可能回傳不同型態，測試腳本不要直接依賴 `Where-Object` 結果的 `.Count`。API smoke test 請使用 `tests\api\lib\topchurchplus-test.ps1` 的 `Get-StableCount`，或至少使用 `Measure-Object`：
 
 ```powershell
