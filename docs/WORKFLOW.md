@@ -18,6 +18,54 @@
 . .\tools\setup-utf8.ps1
 ```
 
+檢查開發 CLI 是否可用：
+
+```powershell
+.\tools\check-dev-cli.cmd
+```
+
+本專案建議安裝並使用的免費 CLI：
+
+- `rg`：快速搜尋檔案與內容。
+- `jq`：檢查與壓縮 API JSON 回應。
+- `yq`：檢查 YAML/JSON/TOML 等設定。
+- `Playwright`：網頁互動與回歸測試。
+- `clasp`：Google Apps Script push/deploy。
+- `ast-grep`：結構化搜尋與同類程式碼定位。
+- `SQLFluff`：SQL migration lint。
+- `Repomix`：需要壓縮 repo context 或交接時產生 AI-friendly 摘要。
+
+專案本地 Node CLI 使用 root `package.json` 管理，SQLFluff 安裝在 `.venv-tools`。
+
+```powershell
+npm run cli:check
+npm run dev:playwright -- --version
+npm run dev:clasp -- --version
+npm run dev:ast-grep -- --version
+npm run dev:repomix -- --version
+npm run dev:sqlfluff -- --version
+```
+
+## 低 Token 開發順序
+
+為降低大型專案任務的 Token 消耗，開發時請優先使用以下順序：
+
+1. 先讀 `AGENTS.md`、`docs/HANDOFF.md`、`docs/MODULES.md`、`docs/API_CATALOG.md`，只讀與本任務相關章節。
+2. 用 `rg` 找相關檔案、函式、feature key、endpoint。
+3. 用 `ast-grep` 找同類程式碼或可安全套用的結構模式。
+4. 小範圍修改，避免批次格式化。
+5. 用 `jq` 檢查 API JSON 回應，避免貼整包 JSON。
+6. 有 UI 變更時，用 Playwright 跑瀏覽器流程或產生測試。
+7. 有 SQL 變更時，用 SQLFluff 與資料庫備份流程檢查。
+8. 提交前跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
+
+常用搜尋範例：
+
+```powershell
+rg "featureKey|linebot|finance" -g "*.html" -g "*.gs" -g "*.js"
+npm run dev:ast-grep -- --pattern "apiRequest($$$ARGS)" --lang js
+```
+
 檢查 API 與 Apps Script 語法：
 
 ```powershell

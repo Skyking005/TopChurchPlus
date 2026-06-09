@@ -1,0 +1,40 @@
+{
+  "name": "topchurchplus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TopChurchPlus development CLI toolchain",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "cli:check": "powershell -ExecutionPolicy Bypass -File tools/check-dev-cli.ps1",
+    "dev:rg": "rg",
+    "dev:ast-grep": "ast-grep",
+    "dev:playwright": "playwright",
+    "dev:clasp": "clasp",
+    "dev:repomix": "repomix",
+    "dev:sqlfluff": ".venv-tools\\Scripts\\sqlfluff.exe",
+    "check:sql": ".venv-tools\\Scripts\\sqlfluff.exe lint --dialect postgres database"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skyking005/TopChurchPlus.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Skyking005/TopChurchPlus/issues"
+  },
+  "homepage": "https://github.com/Skyking005/TopChurchPlus#readme",
+  "devDependencies": {
+    "@ast-grep/cli": "^0.43.0",
+    "@google/clasp": "^3.3.0",
+    "@playwright/test": "^1.60.0",
+    "@vscode/ripgrep": "^1.18.0",
+    "repomix": "^1.14.1"
+  }
+}
