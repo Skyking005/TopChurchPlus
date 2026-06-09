@@ -24,6 +24,14 @@
 .\tools\check-dev-cli.cmd
 ```
 
+若新開終端尚未吃到工具 PATH，先執行：
+
+```powershell
+.\tools\setup-dev-env.cmd
+```
+
+CLI 路徑集中記錄於 `tools/dev-cli-map.json`。若工具位置改變，優先更新這份地圖檔，不要讓檢查腳本每次掃描整個系統目錄。
+
 本專案建議安裝並使用的免費 CLI：
 
 - `rg`：快速搜尋檔案與內容。

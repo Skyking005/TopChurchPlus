@@ -8,29 +8,29 @@ chcp 65001 > $null
 $OutputEncoding = [System.Text.UTF8Encoding]::new()
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$winGetPackageRoot = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages'
-$winGetPackagePaths = @()
-if (Test-Path -LiteralPath $winGetPackageRoot) {
-  $winGetPackagePaths = Get-ChildItem -LiteralPath $winGetPackageRoot -Directory -ErrorAction SilentlyContinue |
-    Select-Object -ExpandProperty FullName
+$mapPath = Join-Path $PSScriptRoot 'dev-cli-map.json'
+
+function Expand-DevCliPath {
+  param([string] $Path)
+  if (-not $Path) { return '' }
+  $expanded = $Path.Replace('%REPO_ROOT%', $repoRoot.Path)
+  [Environment]::ExpandEnvironmentVariables($expanded)
 }
-$env:PATH = @(
-  'C:\Program Files\nodejs'
-  (Join-Path $repoRoot 'node_modules\.bin')
-  (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links')
-  $winGetPackagePaths
-  $env:PATH
-) -join ';'
+
+$toolMap = Get-Content -LiteralPath $mapPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$mappedPathEntries = @($toolMap.pathEntries | ForEach-Object { Expand-DevCliPath $_ } | Where-Object { $_ -and (Test-Path -LiteralPath $_) })
+$env:PATH = @($mappedPathEntries; $env:PATH) -join ';'
+$commands = $toolMap.commands
 
 $checks = @(
-  @{ Name = 'rg'; Command = 'rg'; Args = @('--version') }
-  @{ Name = 'jq'; Command = 'jq'; Args = @('--version') }
-  @{ Name = 'yq'; Command = 'yq'; Args = @('--version') }
-  @{ Name = 'Playwright'; Command = 'playwright'; Args = @('--version') }
-  @{ Name = 'clasp'; Command = 'clasp'; Args = @('--version') }
-  @{ Name = 'ast-grep'; Command = 'ast-grep'; Args = @('--version') }
-  @{ Name = 'Repomix'; Command = 'repomix'; Args = @('--version') }
-  @{ Name = 'SQLFluff'; Command = Join-Path $repoRoot '.venv-tools\Scripts\sqlfluff.exe'; Args = @('--version') }
+  @{ Name = 'rg'; Command = $commands.rg; Args = @('--version') }
+  @{ Name = 'jq'; Command = $commands.jq; Args = @('--version') }
+  @{ Name = 'yq'; Command = $commands.yq; Args = @('--version') }
+  @{ Name = 'Playwright'; Command = $commands.playwright; Args = @('--version') }
+  @{ Name = 'clasp'; Command = $commands.clasp; Args = @('--version') }
+  @{ Name = 'ast-grep'; Command = $commands.astGrep; Args = @('--version') }
+  @{ Name = 'Repomix'; Command = $commands.repomix; Args = @('--version') }
+  @{ Name = 'SQLFluff'; Command = Expand-DevCliPath $commands.sqlfluff; Args = @('--version') }
 )
 
 $failed = @()

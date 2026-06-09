@@ -1,0 +1,22 @@
+{
+  "description": "TopChurchPlus development CLI path map. Paths may use Windows environment variables and are expanded by tools/check-dev-cli.ps1.",
+  "pathEntries": [
+    "%ProgramFiles%\\nodejs",
+    "%LOCALAPPDATA%\\Microsoft\\WinGet\\Links",
+    "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe\\ripgrep-15.1.0-x86_64-pc-windows-msvc",
+    "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe",
+    "%LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\MikeFarah.yq_Microsoft.Winget.Source_8wekyb3d8bbwe",
+    "%REPO_ROOT%\\node_modules\\.bin",
+    "%REPO_ROOT%\\.venv-tools\\Scripts"
+  ],
+  "commands": {
+    "rg": "rg",
+    "jq": "jq",
+    "yq": "yq",
+    "playwright": "playwright",
+    "clasp": "clasp",
+    "astGrep": "ast-grep",
+    "repomix": "repomix",
+    "sqlfluff": "%REPO_ROOT%\\.venv-tools\\Scripts\\sqlfluff.exe"
+  }
+}
