@@ -47,15 +47,17 @@ Local AI 不負責：
 ```powershell
 .\tools\local-ai-preflight.cmd `
   -Task "我要修改財務系統請款單編輯功能" `
-  -OllamaHost "http://<tailscale-ip-or-magicdns>:11434" `
+  -OllamaHost "http://<tailscale-ip-or-magicdns>:11436" `
   -Model "qwen2.5-coder:14b"
 ```
 
 也可以用環境變數固定遠端 host：
 
 ```powershell
-[Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11434', 'User')
+[Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11436', 'User')
 ```
+
+遠端 AI client 端請打 proxy port `11436`，不要直接打原生 Ollama `11434`，否則遠端 AI proxy log 不會記錄本次分析。
 
 遠端主機與 GitHub 文件溝通流程見 `docs/REMOTE_LOCAL_AI_GITHUB_WORKFLOW.md`。遠端 AI 防雷規則見 `docs/REMOTE_AI_GUARDRAILS.md`。
 

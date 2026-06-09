@@ -11,6 +11,17 @@ const MOVEMENT_LABELS = {
   return: '退回'
 };
 
+const LOCATION_SHORT_NAMES = {
+  '卓越北大教會': '北大',
+  '卓越桃園教會': '桃園',
+  '卓越大學教會': '大學',
+  '卓越飛航教會': '飛航',
+  '卓越台北幸福教會': '台北幸福',
+  '香港卓越盈峯行道會': '盈峯',
+  '卓越溫哥華行道會': '溫哥華',
+  '巨人倉庫': '巨人倉庫'
+};
+
 function registerAdminSupplyRoutes(app) {
   app.get('/admin-supplies/options', async (req, res, next) => {
     try {
@@ -97,6 +108,7 @@ async function getOptions() {
     churches: churches.rows.map(row => ({
       churchId: row.id,
       churchName: row.name,
+      churchShortName: getLocationShortName(row.name),
       locationType: row.church_type === '倉庫' ? 'warehouse' : 'church'
     })),
     categories: mergeDefaults(categories.rows.map(row => row.category), ['文具用品', '清潔用品', '紙品耗材', '行政耗材', '活動耗材', '其他']),
@@ -359,18 +371,16 @@ async function getMovements(query = {}) {
 }
 
 async function generateSupplyCode() {
-  const prefix = `SUP${new Date().toISOString().slice(0, 10).replace(/-/g, '')}`;
   const { rows } = await pool.query(
     `SELECT supply_code
      FROM admin_supply_items
-     WHERE supply_code LIKE $1
-     ORDER BY supply_code DESC
-     LIMIT 1`,
-    [`${prefix}%`]
+     WHERE supply_code ~ '^I[0-9]{4}$'
+     ORDER BY substring(supply_code from 2)::int DESC
+     LIMIT 1`
   );
   const last = rows[0]?.supply_code || '';
-  const next = String((Number(last.slice(-3)) || 0) + 1).padStart(3, '0');
-  return `${prefix}${next}`;
+  const next = String((Number(last.slice(1)) || 0) + 1).padStart(4, '0');
+  return `I${next}`;
 }
 
 function normalizeRequired(value, message) {
@@ -401,6 +411,10 @@ function formatQuantity(value) {
   return Number(value || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 });
 }
 
+function getLocationShortName(name) {
+  return LOCATION_SHORT_NAMES[name] || name;
+}
+
 function toItem(row) {
   const stocks = Array.isArray(row.stocks) ? row.stocks : [];
   return {
@@ -417,6 +431,7 @@ function toItem(row) {
     stocks: stocks.map(stock => ({
       churchId: stock.churchId,
       churchName: stock.churchName,
+      churchShortName: getLocationShortName(stock.churchName),
       locationType: stock.locationType || 'church',
       quantity: Number(stock.quantity || 0),
       isLowStock: Number(stock.quantity || 0) < Number(row.min_stock || 0)

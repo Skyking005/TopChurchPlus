@@ -102,6 +102,12 @@ validators.js   輸入驗證
 - 跨系統關聯：`entity_links`、`domain_events`、`api/src/shared/cross-system.js`。
 - 外部身份橋接：`line_users`、`member_accounts`。
 
+資料生命週期原則：
+
+- 業務資料預設不直接 hard delete，改以停用、取消、作廢或刪除標記保留追溯性。
+- 涉及流水號、簽核、庫存、金流、會友、報名、檔案與異動紀錄的資料，需保留原始紀錄供稽核與後續查詢。
+- 只有可重建快取、匯入暫存、明確測試資料清空等低風險資料，才考慮 hard delete。
+
 ## 檔案管理
 
 原則：

@@ -10,6 +10,13 @@
 - 送出含中文的 API JSON 測試資料時，使用 `tools/invoke-json-utf8.cmd`，不要直接用 `Invoke-RestMethod -Body $json`。
 - 寫入含中文的 Demo 或測試資料後，必須查回資料確認中文可讀，再結束任務。
 
+## 刪除與停用政策
+
+- 業務資料預設採 soft delete、停用、取消、作廢等狀態標註，不直接 hard delete。
+- 需要保留流水號、簽核、庫存、金流、會友、報名、異動紀錄的資料，一律優先用 `is_active`、`status`、`deleted_at`、`cancelled_at` 等欄位表達狀態。
+- Hard delete 只適用於臨時匯入錯誤、可重建的快取、測試前清空、或使用者明確要求刪除且已確認不影響稽核追溯的資料。
+- UI 文案盡量使用「停用」、「標註停用」、「取消」、「作廢」，避免讓使用者誤以為資料與紀錄被永久刪除。
+
 ## 常用工具
 
 先啟用 PowerShell UTF-8：

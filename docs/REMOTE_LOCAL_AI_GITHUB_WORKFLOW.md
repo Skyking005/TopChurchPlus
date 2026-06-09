@@ -39,7 +39,7 @@
 
 ## 遠端 Ollama 設定
 
-遠端主機需讓 Ollama API 只在 Tailscale 網路可連線。不要直接對外開放 `11434`。
+遠端主機需讓 Ollama API 只在 Tailscale 網路可連線。Codex client 端請呼叫遠端 AI proxy `11436`，不要直接呼叫原生 Ollama `11434`。
 
 ## 何時使用 Remote AI
 
@@ -84,15 +84,15 @@ ollama serve
 ```powershell
 .\tools\local-ai-preflight.cmd `
   -Task "分析財務系統請款單編輯功能" `
-  -OllamaHost "http://<tailscale-ip-or-magicdns>:11434" `
+  -OllamaHost "http://<tailscale-ip-or-magicdns>:11436" `
   -Model "qwen2.5-coder:14b"
 ```
 
 若要固定使用遠端主機：
 
 ```powershell
-[Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11434', 'User')
-$env:TOPCHURCHPLUS_OLLAMA_HOST = 'http://<tailscale-ip-or-magicdns>:11434'
+[Environment]::SetEnvironmentVariable('TOPCHURCHPLUS_OLLAMA_HOST', 'http://<tailscale-ip-or-magicdns>:11436', 'User')
+$env:TOPCHURCHPLUS_OLLAMA_HOST = 'http://<tailscale-ip-or-magicdns>:11436'
 ```
 
 之後可直接執行：
@@ -163,7 +163,7 @@ tmp/local-ai/risks.md
 
 ## 安全原則
 
-- Tailscale ACL 建議只允許開發電腦連遠端 AI 主機的 `11434`。
+- Tailscale ACL 建議只允許開發電腦連遠端 AI proxy 的 `11436`；原生 Ollama `11434` 應視為遠端主機內部服務，不作為 Codex client 呼叫入口。
 - 遠端 AI 主機不放 `.env`、DB password、API key。
 - 遠端 AI 主機若需要 repo，使用只讀方式較安全。
 - 若使用 GitHub token，使用 read-only token；不要給 production deploy 權限。
@@ -172,7 +172,7 @@ tmp/local-ai/risks.md
 ## 測試遠端連線
 
 ```powershell
-Invoke-RestMethod -Uri "http://<tailscale-ip-or-magicdns>:11434/api/tags" -Method GET
+Invoke-RestMethod -Uri "http://<tailscale-ip-or-magicdns>:11436/api/tags" -Method GET
 ```
 
 測試模型：
@@ -185,7 +185,7 @@ $body = @{
 } | ConvertTo-Json -Depth 6
 
 Invoke-RestMethod `
-  -Uri "http://<tailscale-ip-or-magicdns>:11434/api/generate" `
+  -Uri "http://<tailscale-ip-or-magicdns>:11436/api/generate" `
   -Method POST `
   -ContentType 'application/json; charset=utf-8' `
   -Body ([System.Text.Encoding]::UTF8.GetBytes($body))

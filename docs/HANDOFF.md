@@ -23,8 +23,8 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 - 復原私密資料保管檢查表：`docs/RECOVERY_SECRETS_CHECKLIST.md`
 - 每月重建能力檢查：`.\tools\check-rebuild-readiness.cmd -RunSmoke`
 - Apps Script 部署作業 ID：`AKfycbwqO5FTVL_5iWCwHPGQH0ZhXM9IOH4U17UnTGKm7SVrP0NqZd4wEer-1z82B7HFTKkw`
-- 最新 Apps Script 版本：`@127`
-- 最新 Git commit：`bba2bf8 Add LIFF entry security framework`
+- 最新 Apps Script 版本：以 `push-to-google.cmd` / clasp 部署輸出為準。
+- 最新 Git commit：以 `git log -1 --oneline` 為準；本文件只保留架構交接，不追逐每次 commit hash。
 
 ## 文件入口
 
@@ -243,6 +243,8 @@ api/src/modules/<module>/
 - 位置資料未來與場地借用共用。
 - 行政物資管理是庫存管理方向，需要總量與各會堂/倉庫位置數量。
 - 行政物資目前以 `churches.code = GIANT_WAREHOUSE` 表示巨人倉庫，供行政物資庫存使用，不應混入一般系統的本會會堂下拉。
+- 行政物資新建品項流水號格式為 `I0001`；移除品項採標註停用，不 hard delete，保留庫存與異動紀錄。
+- 行政物資清單位置欄位顯示短名：北大、桃園、大學、飛航、台北幸福、盈峯、溫哥華、巨人倉庫。
 
 ### 場地與 Zoom 預約
 

@@ -136,7 +136,6 @@ function renderAdminSupplyItems() {
       <td><button type="button" class="btn btn-link p-0" onclick="openAdminSupplyItemEditor('${escapeAttr(item.supplyId)}')">${escapeHtml(item.supplyCode)}</button></td>
       <td>
         <div class="fw-semibold">${escapeHtml(item.name)}</div>
-        ${item.isLowStock ? '<span class="badge bg-danger-subtle text-danger">部分位置低庫存</span>' : ''}
         ${!item.isActive ? '<span class="badge bg-secondary ms-1">停用</span>' : ''}
       </td>
       <td>${escapeHtml(item.category || '')}</td>
@@ -145,6 +144,7 @@ function renderAdminSupplyItems() {
       ${(adminSupplyOptions.churches || []).map(church => renderAdminSupplyStockCell(item, church)).join('')}
       <td class="text-end">
         ${adminSupplyCanEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="openAdminSupplyMovementModal('${escapeAttr(item.supplyId)}')">異動</button>` : ''}
+        ${renderAdminSupplyActiveToggleButton(item)}
       </td>
     `;
     body.appendChild(tr);
@@ -156,15 +156,19 @@ function renderAdminSupplyTableHead() {
   const head = document.getElementById('adminSupplyTableHead');
   head.innerHTML = `
     <tr>
-      <th>物資編號</th>
+      <th>流水號</th>
       <th>物資名稱</th>
       <th>類別</th>
       <th>單位</th>
       <th class="text-end">總數量</th>
-      ${(adminSupplyOptions.churches || []).map(church => `<th class="text-end">${escapeHtml(church.churchName)}${church.locationType === 'warehouse' ? '<div class="text-muted small fw-normal">倉庫</div>' : ''}</th>`).join('')}
+      ${(adminSupplyOptions.churches || []).map(church => `<th class="text-end">${escapeHtml(formatAdminSupplyLocationTitle(church))}</th>`).join('')}
       <th class="text-end">功能</th>
     </tr>
   `;
+}
+
+function formatAdminSupplyLocationTitle(church) {
+  return church.churchShortName || church.churchName || '';
 }
 
 function renderAdminSupplyStockCell(item, church) {
@@ -173,9 +177,16 @@ function renderAdminSupplyStockCell(item, church) {
   return `
     <td class="text-end ${cls}">
       <div>${formatAdminSupplyQuantity(stock.quantity)}</div>
-      ${stock.isLowStock ? '<span class="badge bg-danger-subtle text-danger">低</span>' : ''}
     </td>
   `;
+}
+
+function renderAdminSupplyActiveToggleButton(item) {
+  if (!adminSupplyCanEdit) return '';
+  const nextActive = item.isActive === false;
+  const label = nextActive ? '恢復啟用' : '標註停用';
+  const buttonClass = nextActive ? 'btn-outline-success' : 'btn-outline-danger';
+  return `<button type="button" class="btn btn-sm ${buttonClass} ms-1" onclick="setAdminSupplyItemActive('${escapeAttr(item.supplyId)}', ${nextActive})">${label}</button>`;
 }
 
 function renderAdminSupplyPager() {
@@ -246,6 +257,46 @@ function submitAdminSupplyItem() {
       errorBox.textContent = err.message || err;
     })
     .saveAdminSupplyItem({ currentUser, item });
+}
+
+function setAdminSupplyItemActive(supplyId, isActive) {
+  if (!adminSupplyCanEdit) return;
+  const item = adminSupplyItems.find(row => String(row.supplyId) === String(supplyId));
+  if (!item) {
+    alert('找不到此物資品項');
+    return;
+  }
+  const message = isActive
+    ? '確定要恢復啟用此物資？'
+    : '確定要標註此物資為停用？流水號、庫存與異動紀錄都會保留。';
+  if (!confirm(message)) return;
+  lockActionButtons();
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message);
+      loadAdminSupplyOptions(() => {
+        renderAdminSupplyFilters();
+        loadAdminSupplyItems();
+      });
+      unlockActionButtons();
+    })
+    .withFailureHandler(err => {
+      unlockActionButtons();
+      showError(err);
+    })
+    .saveAdminSupplyItem({
+      currentUser,
+      item: {
+        supplyId: item.supplyId,
+        supplyCode: item.supplyCode,
+        name: item.name,
+        category: item.category,
+        unit: item.unit,
+        minStock: item.minStock,
+        isActive,
+        note: item.note
+      }
+    });
 }
 
 function renderAdminSupplyMovementSupplyOptions() {
