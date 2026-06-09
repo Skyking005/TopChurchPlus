@@ -65,6 +65,7 @@
 
 - 僅超級管理者可讀寫。
 - 文件讀取使用白名單，避免任意讀取伺服器檔案。
+- 文件 Review 目前包含 `HANDOFF`、`SYSTEM_ARCHITECTURE`、`DATABASE_SCHEMA`、`API_CATALOG`、`MODULES`、`WORKFLOW`、`TEST_MATRIX`、`DISASTER_RECOVERY_REBUILD` 等核心文件。
 - 新增/更新會寫入 `audit_logs`，system key 為 `dev_management`。
 
 ## Project

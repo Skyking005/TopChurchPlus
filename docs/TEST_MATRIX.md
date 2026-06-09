@@ -14,6 +14,7 @@
 - Apps Script HTML partial 用 `new Function()` 解析。
 - 若部署 API，測 `/health`。
 - 若有中文 Demo 寫入，讀回確認中文可讀。
+- 每月災難復原維護，執行 `.\tools\check-rebuild-readiness.cmd -RunSmoke`，確認本機工具、NAS API、GitHub、文件與 smoke test 可用。
 
 ## 登入與權限
 

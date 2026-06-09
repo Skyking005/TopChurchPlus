@@ -53,6 +53,15 @@ Assert-True ((($rows | Where-Object { $_.key -eq 'HANDOFF' }) | Get-StableCount)
 Assert-True ((($rows | Where-Object { $_.key -eq 'HANDOFF' }) | Measure-Object).Count -eq 1) 'HANDOFF document should be listed.'
 ```
 
+PowerShell 呼叫原生命令後，如果要判斷 `$LASTEXITCODE`，請先把輸出與 exit code 存到變數，再做 pipeline 或其他處理：
+
+```powershell
+$output = & $command @args 2>&1
+$exitCode = $LASTEXITCODE
+$output | Select-Object -First 3
+if ($exitCode -ne 0) { throw 'Command failed.' }
+```
+
 CLI 路徑集中記錄於 `tools/dev-cli-map.json`。若工具位置改變，優先更新這份地圖檔，不要讓檢查腳本每次掃描整個系統目錄。
 
 本專案建議安裝並使用的免費 CLI：
@@ -153,10 +162,18 @@ GET 或沒有 body 的請求可以直接呼叫：
 .\tools\deploy-all.cmd -RunSmoke
 ```
 
+`deploy-api.cmd` 會 recreate container，部署後若第一次 `/health` 出現短暫連線中斷，先等 3 秒再重試一次，避免把 container 啟動時序誤判為功能錯誤。
+
 部署後同步建立並保留 Demo 測試資料：
 
 ```powershell
 .\tools\deploy-all.cmd -RunSmoke -WriteSmokeDemo
+```
+
+每月重建能力維護檢查：
+
+```powershell
+.\tools\check-rebuild-readiness.cmd -RunSmoke
 ```
 
 如果只想跑部署、不跑 health：

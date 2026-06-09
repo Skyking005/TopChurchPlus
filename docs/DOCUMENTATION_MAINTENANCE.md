@@ -31,6 +31,7 @@
 | `docs/WORKFLOW.md` | 工作流程、工具、部署、常見除錯方式改變 | 流程與命令，不放業務細節 |
 | `docs/TOPCHURCHPLUS_SKILL.md` | Codex 開發習慣、固定工具、任務完成規則改變 | Skill 摘要與注意事項 |
 | `docs/SYSTEM_ARCHITECTURE.md` | 系統邊界、前端/API/DB/外部入口架構改變 | 架構關係與責任邊界 |
+| `docs/DISASTER_RECOVERY_REBUILD.md` | 本機、NAS、DB、Apps Script 重建方式或月維護流程改變 | 重建步驟、必備備份、演練標準 |
 | `docs/core_platform_architecture.md` | 底層平台能力如權限、檔案、簽核、稽核、參數模式改變 | 共用底層設計 |
 | `docs/DATABASE_MIGRATION_WORKFLOW.md` | DB migration 工作流程、MSSQL 對應策略改變 | DB 變更流程 |
 | `docs/LEGACY_MSSQL_SYNC_WORKFLOW.md` | 舊系統同步策略、排程、資料來源改變 | 同步與轉換規則 |
@@ -48,11 +49,14 @@
 | 外部入口 / LIFF / 表單公開頁 | `SYSTEM_ARCHITECTURE`、`API_CATALOG`、`TEST_MATRIX` |
 | 工具 / 部署流程 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、`HANDOFF` |
 | 除錯雷點 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、必要時 `HANDOFF` |
+| 災難復原 / 重建 | `DISASTER_RECOVERY_REBUILD`、`WORKFLOW`、`SYSTEM_ARCHITECTURE`、`HANDOFF` |
 
 ## 已固定處理的常見雷點
 
 - PowerShell Execution Policy 可能阻擋直接執行 `.ps1`。專案應優先使用 `.cmd` wrapper；沒有專用 wrapper 時使用 `tools\run-ps1.cmd <script.ps1>`。
 - PowerShell 管線結果在單筆資料時可能被 unwrap，造成 `.Count` 判斷不穩。Smoke test 請用 `Get-StableCount` 或 `Measure-Object`。
+- PowerShell 原生命令接 pipeline 後，`$LASTEXITCODE` 判斷容易受後續處理干擾；先保存 `$exitCode = $LASTEXITCODE` 再判斷。
+- NAS API recreate container 後，第一次 `/health` 可能遇到短暫連線中斷；先等 3 秒重試，再判斷是否真的異常。
 
 ## 每週文件更新排程內容
 
@@ -67,6 +71,7 @@
 7. 檢查 `TEST_MATRIX` 是否漏掉新流程。
 8. 將新踩到的雷點補入 `WORKFLOW` 或 `TOPCHURCHPLUS_SKILL`。
 9. 如有文件更新，commit 並 push GitHub。
+10. 每月災難復原維護需執行 `.\tools\check-rebuild-readiness.cmd -RunSmoke`，並確認最近 30 天內有可用 DB 備份。
 
 ## 原則
 

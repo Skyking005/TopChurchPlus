@@ -43,8 +43,10 @@ foreach ($check in $checks) {
     continue
   }
   try {
-    & $check.Command @($check.Args) | Select-Object -First 3
-    if ($LASTEXITCODE -ne 0) { $failed += $check.Name }
+    $output = & $check.Command @($check.Args) 2>&1
+    $exitCode = $LASTEXITCODE
+    $output | Select-Object -First 3
+    if ($exitCode -ne 0) { $failed += $check.Name }
   } catch {
     Write-Host $_.Exception.Message
     $failed += $check.Name

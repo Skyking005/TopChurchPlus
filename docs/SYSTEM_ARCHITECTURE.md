@@ -156,10 +156,24 @@ Google Apps Script：
 4. Git commit + push。
 5. Push Apps Script，讓 deployment description 帶最新 commit。
 
+## 災難復原
+
+重建方案與每月維護檢查位於：
+
+- `docs/DISASTER_RECOVERY_REBUILD.md`
+- `tools/check-rebuild-readiness.cmd`
+
+每月執行：
+
+```powershell
+.\tools\check-rebuild-readiness.cmd -RunSmoke
+```
+
 ## 相關文件
 
 - `docs/HANDOFF.md`
 - `docs/WORKFLOW.md`
+- `docs/DISASTER_RECOVERY_REBUILD.md`
 - `docs/core_platform_architecture.md`
 - `docs/DATABASE_MIGRATION_WORKFLOW.md`
 - `docs/LEGACY_MSSQL_SYNC_WORKFLOW.md`

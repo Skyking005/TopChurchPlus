@@ -20,6 +20,7 @@
 7. API 部署使用 `deploy-api.cmd`，Google Apps Script 推送使用 `push-to-google.cmd`。
 8. 完成前依 `DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
 9. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。
+10. 每月或災難復原相關任務需參照 `docs/DISASTER_RECOVERY_REBUILD.md`，並執行 `tools\check-rebuild-readiness.cmd -RunSmoke`。
 
 ## 固定工具
 
@@ -37,6 +38,7 @@
 - PowerShell 不要用 `Get-Content | Set-Content` 批次重寫中文檔案。
 - PowerShell 不要直接執行 `.ps1`；優先使用 `.cmd` wrapper。臨時腳本用 `tools\run-ps1.cmd <script.ps1>`，避免 Execution Policy 中斷。
 - PowerShell smoke test 不要直接依賴 `Where-Object` 結果的 `.Count`；用 `Get-StableCount` 或 `Measure-Object`，避免單筆結果被 unwrap 後誤判。
+- PowerShell 呼叫原生命令後，先保存 `$LASTEXITCODE` 到 `$exitCode`，再進行 pipeline 或輸出裁切。
 - PowerShell inline SQL 若包含 `||`、複雜引號或中文，應改用 `.sql` 檔傳到 NAS 執行。
 - API 測試若要送中文 JSON，使用 UTF-8 明確工具或 Node/.NET client，送完要讀回確認中文未變成 `????`。
 - 每次 DB 變更要檢查外鍵與常用查詢索引。
