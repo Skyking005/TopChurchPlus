@@ -188,6 +188,43 @@
             <input id="lineBotNotifyCheckInOut" class="form-control" type="password" placeholder="留空則不覆蓋">
             <div id="lineBotNotifyCheckInOutStatus" class="text-muted small mt-1"></div>
           </div>
+          <div class="col-12">
+            <div class="border rounded p-3 bg-light">
+              <div class="fw-semibold mb-1">LINE API 串接預備</div>
+              <div class="text-muted small mb-3">此區目前只保存未來串接設定；未切換為正式呼叫前，不會主動呼叫 LINE API 或自動切換 Rich Menu。</div>
+              <div class="row g-2">
+                <div class="col-12 col-md-3">
+                  <label class="form-label">串接模式</label>
+                  <select id="lineBotLineApiMode" class="form-select">
+                    <option value="prepare">僅預備設定</option>
+                    <option value="dry_run">演練模式</option>
+                    <option value="live">正式呼叫</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Webhook 簽章</label>
+                  <select id="lineBotWebhookSignatureMode" class="form-select">
+                    <option value="log_only">只記錄不阻擋</option>
+                    <option value="off">暫不檢查</option>
+                    <option value="enforce">強制驗證</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-3">
+                  <div class="form-check form-switch mt-4">
+                    <input id="lineBotLineApiEnabled" class="form-check-input" type="checkbox">
+                    <label class="form-check-label" for="lineBotLineApiEnabled">允許 LINE API 呼叫</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-3">
+                  <div class="form-check form-switch mt-4">
+                    <input id="lineBotAutoRichMenuSwitch" class="form-check-input" type="checkbox">
+                    <label class="form-check-label" for="lineBotAutoRichMenuSwitch">允許自動切換 Rich Menu</label>
+                  </div>
+                </div>
+              </div>
+              <div id="lineBotLineApiReadiness" class="text-muted small mt-2">尚未檢查 LINE API 預備狀態</div>
+            </div>
+          </div>
           <div class="col-12 col-md-3">
             <div class="form-check form-switch mt-4">
               <input id="lineBotChannelIsActive" class="form-check-input" type="checkbox" checked>
@@ -209,6 +246,7 @@
               <th>Webhook</th>
               <th>Token</th>
               <th>Secret</th>
+              <th>API 預備</th>
               <th>狀態</th>
               <th>功能</th>
             </tr>

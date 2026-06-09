@@ -1,6 +1,7 @@
 const { pool } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
+const { getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
 
 const PAGE_SIZE = 20;
 
@@ -50,6 +51,16 @@ function registerLineBotRoutes(app) {
       const currentUser = req.body.currentUser || {};
       await assertFeatureEditable(currentUser, 'linebot');
       res.json(await saveLineBotChannel(req.params.channelId, req.body.channel || {}));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/linebot/channels/:channelId/line-api-readiness', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineBotChannelApiReadiness(req.params.channelId));
     } catch (err) {
       next(err);
     }
@@ -310,6 +321,23 @@ async function saveLineBotChannel(channelId, payload) {
   return { success: true, message: channelId ? 'LINE Channel 設定已更新' : 'LINE Channel 設定已新增', channel: mapLineBotChannel(result.rows[0]) };
 }
 
+async function getLineBotChannelApiReadiness(channelId) {
+  const result = await pool.query(
+    `SELECT channel_id, channel_key, channel_name, metadata
+     FROM line_bot_channels
+     WHERE channel_id = $1`,
+    [channelId]
+  );
+  if (!result.rowCount) throw new Error('找不到 LINE Channel 設定');
+  const row = result.rows[0];
+  return {
+    channelId: row.channel_id,
+    channelKey: row.channel_key,
+    channelName: row.channel_name,
+    readiness: getLineApiReadiness(row.metadata || {})
+  };
+}
+
 async function getLineBotLinks(query = {}) {
   const page = Math.max(1, Number(query.page || 1));
   const pageSize = Math.min(100, Math.max(1, Number(query.pageSize || PAGE_SIZE)));
@@ -530,6 +558,31 @@ function normalizeLineBotChannel(payload) {
   const liffIds = payload.liffIds && typeof payload.liffIds === 'object' ? payload.liffIds : {};
   const richMenuIds = payload.richMenuIds && typeof payload.richMenuIds === 'object' ? payload.richMenuIds : {};
   const notifyTokens = payload.notifyTokens && typeof payload.notifyTokens === 'object' ? payload.notifyTokens : {};
+  const hasLineApiPayload = payload.lineApi && typeof payload.lineApi === 'object';
+  const metadata = {
+    channelAccessToken: normalizeText(payload.channelAccessToken),
+    channelSecret: normalizeText(payload.channelSecret),
+    loginClientId: normalizeText(payload.loginClientId),
+    loginClientSecret: normalizeText(payload.loginClientSecret),
+    loginRedirectUri: normalizeText(payload.loginRedirectUri),
+    liffIds: {
+      portal: normalizeText(liffIds.portal),
+      rollcall: normalizeText(liffIds.rollcall),
+      spiritualLife: normalizeText(liffIds.spiritualLife),
+      selfCheckIn: normalizeText(liffIds.selfCheckIn),
+      qtOrder: normalizeText(liffIds.qtOrder)
+    },
+    richMenuIds: {
+      unbound: normalizeText(richMenuIds.unbound),
+      bound: normalizeText(richMenuIds.bound),
+      advanced: normalizeText(richMenuIds.advanced)
+    },
+    notifyTokens: {
+      administrative: normalizeText(notifyTokens.administrative),
+      checkInOut: normalizeText(notifyTokens.checkInOut)
+    }
+  };
+  if (hasLineApiPayload) metadata.lineApi = normalizeLineApiConfig(payload.lineApi);
   return {
     channelKey,
     channelName,
@@ -537,29 +590,7 @@ function normalizeLineBotChannel(payload) {
     webhookUrl: normalizeText(payload.webhookUrl),
     liffBaseUrl: normalizeText(payload.liffBaseUrl),
     isActive: payload.isActive !== false,
-    metadata: {
-      channelAccessToken: normalizeText(payload.channelAccessToken),
-      channelSecret: normalizeText(payload.channelSecret),
-      loginClientId: normalizeText(payload.loginClientId),
-      loginClientSecret: normalizeText(payload.loginClientSecret),
-      loginRedirectUri: normalizeText(payload.loginRedirectUri),
-      liffIds: {
-        portal: normalizeText(liffIds.portal),
-        rollcall: normalizeText(liffIds.rollcall),
-        spiritualLife: normalizeText(liffIds.spiritualLife),
-        selfCheckIn: normalizeText(liffIds.selfCheckIn),
-        qtOrder: normalizeText(liffIds.qtOrder)
-      },
-      richMenuIds: {
-        unbound: normalizeText(richMenuIds.unbound),
-        bound: normalizeText(richMenuIds.bound),
-        advanced: normalizeText(richMenuIds.advanced)
-      },
-      notifyTokens: {
-        administrative: normalizeText(notifyTokens.administrative),
-        checkInOut: normalizeText(notifyTokens.checkInOut)
-      }
-    }
+    metadata
   };
 }
 
@@ -569,7 +600,8 @@ function mergeLineBotSecretMetadata(existing, incoming) {
     ...incoming,
     liffIds: { ...(incoming.liffIds || {}) },
     richMenuIds: { ...(incoming.richMenuIds || {}) },
-    notifyTokens: { ...(existing.notifyTokens || {}), ...(incoming.notifyTokens || {}) }
+    notifyTokens: { ...(existing.notifyTokens || {}), ...(incoming.notifyTokens || {}) },
+    lineApi: incoming.lineApi ? { ...(existing.lineApi || {}), ...(incoming.lineApi || {}) } : existing.lineApi
   };
   [
     'channelAccessToken',
@@ -643,6 +675,8 @@ function mapLineBotChannel(row) {
     hasLoginClientSecret: Boolean(metadata.loginClientSecret),
     hasAdministrativeNotifyToken: Boolean(metadata.notifyTokens?.administrative),
     hasCheckInOutNotifyToken: Boolean(metadata.notifyTokens?.checkInOut),
+    lineApi: normalizeLineApiConfig(metadata.lineApi || {}),
+    lineApiReadiness: getLineApiReadiness(metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

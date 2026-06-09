@@ -520,6 +520,16 @@ function getLineBotChannels(currentUser) {
   return apiRequest('get', '/linebot/channels', null, null, currentUser);
 }
 
+function getLineBotChannelApiReadiness(channelId, currentUser) {
+  return apiRequest(
+    'get',
+    `/linebot/channels/${encodeURIComponent(channelId)}/line-api-readiness`,
+    null,
+    null,
+    currentUser
+  );
+}
+
 function saveLineBotChannel(payload) {
   const channelId = payload.channelId || payload.channel?.channelId || '';
   if (channelId) {

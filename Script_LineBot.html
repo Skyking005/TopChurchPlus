@@ -132,7 +132,7 @@ function renderLineBotChannels() {
   body.innerHTML = '';
   document.getElementById('saveLineBotChannelBtn').classList.toggle('d-none', !canEdit);
   if (!lineBotChannels.length) {
-    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚未建立 LINE Channel 設定</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">尚未建立 LINE Channel 設定</td></tr>';
     return;
   }
   lineBotChannels.forEach(row => {
@@ -146,6 +146,7 @@ function renderLineBotChannels() {
       <td>${row.webhookUrl ? `<a href="${escapeAttr(row.webhookUrl)}" target="_blank" rel="noopener">${escapeHtml(truncateLineBotText(row.webhookUrl, 42))}</a>` : ''}</td>
       <td>${formatLineBotSecretStatus(row.hasChannelAccessToken)}</td>
       <td>${formatLineBotSecretStatus(row.hasChannelSecret)}</td>
+      <td>${formatLineBotLineApiStatus(row.lineApiReadiness || row.lineApi)}</td>
       <td>${row.isActive ? '<span class="badge bg-success">啟用</span>' : '<span class="badge bg-secondary">停用</span>'}</td>
       <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotChannel('${escapeAttr(row.channelId)}')">編輯</button>` : ''}</td>
     `;
@@ -170,6 +171,11 @@ function editLineBotChannel(channelId) {
   document.getElementById('lineBotRichMenuUnbound').value = row.richMenuIds?.unbound || '';
   document.getElementById('lineBotRichMenuBound').value = row.richMenuIds?.bound || '';
   document.getElementById('lineBotRichMenuAdvanced').value = row.richMenuIds?.advanced || '';
+  document.getElementById('lineBotLineApiEnabled').checked = row.lineApi?.enabled === true;
+  document.getElementById('lineBotLineApiMode').value = row.lineApi?.mode || 'prepare';
+  document.getElementById('lineBotAutoRichMenuSwitch').checked = row.lineApi?.autoRichMenuSwitch === true;
+  document.getElementById('lineBotWebhookSignatureMode').value = row.lineApi?.webhookSignatureMode || 'log_only';
+  renderLineBotLineApiReadiness(row.lineApiReadiness || {});
   document.getElementById('lineBotChannelIsActive').checked = row.isActive !== false;
   ['lineBotChannelAccessToken', 'lineBotChannelSecret', 'lineBotLoginClientId', 'lineBotLoginClientSecret', 'lineBotNotifyAdministrative', 'lineBotNotifyCheckInOut'].forEach(id => {
     document.getElementById(id).value = '';
@@ -214,6 +220,12 @@ function submitLineBotChannel() {
       administrative: document.getElementById('lineBotNotifyAdministrative').value.trim(),
       checkInOut: document.getElementById('lineBotNotifyCheckInOut').value.trim()
     },
+    lineApi: {
+      enabled: document.getElementById('lineBotLineApiEnabled').checked,
+      mode: document.getElementById('lineBotLineApiMode').value,
+      autoRichMenuSwitch: document.getElementById('lineBotAutoRichMenuSwitch').checked,
+      webhookSignatureMode: document.getElementById('lineBotWebhookSignatureMode').value
+    },
     isActive: document.getElementById('lineBotChannelIsActive').checked
   };
   setButtonLoading(btn, true, '儲存中...');
@@ -235,6 +247,17 @@ function resetLineBotChannelSecrets() {
   ['lineBotChannelAccessToken', 'lineBotChannelSecret', 'lineBotLoginClientId', 'lineBotLoginClientSecret', 'lineBotNotifyAdministrative', 'lineBotNotifyCheckInOut'].forEach(id => {
     document.getElementById(id).value = '';
   });
+}
+
+function renderLineBotLineApiReadiness(readiness) {
+  const box = document.getElementById('lineBotLineApiReadiness');
+  if (!box) return;
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  const status = readiness.canCallLineApi ? '可正式呼叫 LINE API' : '目前不會呼叫 LINE API';
+  box.innerHTML = `
+    <span class="${readiness.canCallLineApi ? 'text-success' : 'text-muted'}">${escapeHtml(status)}</span>
+    ${warnings.length ? `<div>${warnings.map(escapeHtml).join('<br>')}</div>` : ''}
+  `;
 }
 
 function loadLineBotLinks(page = 1) {
@@ -578,6 +601,13 @@ function setLineBotSecretStatus(elementId, hasValue) {
 
 function formatLineBotSecretStatus(hasValue) {
   return hasValue ? '<span class="badge bg-success-subtle text-success">已設定</span>' : '<span class="badge bg-secondary-subtle text-secondary">未設定</span>';
+}
+
+function formatLineBotLineApiStatus(readiness) {
+  if (!readiness || readiness.enabled !== true) return '<span class="badge bg-secondary-subtle text-secondary">未啟用</span>';
+  if (readiness.canCallLineApi) return '<span class="badge bg-success-subtle text-success">可正式呼叫</span>';
+  if (readiness.mode === 'dry_run') return '<span class="badge bg-info-subtle text-info">演練模式</span>';
+  return '<span class="badge bg-warning-subtle text-warning">預備中</span>';
 }
 
 function formatLineBotChannelType(value) {
