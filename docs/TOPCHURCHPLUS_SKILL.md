@@ -20,7 +20,7 @@
 7. API 部署使用 `deploy-api.cmd`，Google Apps Script 推送使用 `push-to-google.cmd`。
 8. 完成前依 `DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
 9. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。
-10. 每月或災難復原相關任務需參照 `docs/DISASTER_RECOVERY_REBUILD.md`，並執行 `tools\check-rebuild-readiness.cmd -RunSmoke`。
+10. 每月或災難復原相關任務需參照 `docs/DISASTER_RECOVERY_REBUILD.md` 與 `docs/RECOVERY_SECRETS_CHECKLIST.md`，並執行 `tools\check-rebuild-readiness.cmd -RunSmoke`。
 
 ## 固定工具
 

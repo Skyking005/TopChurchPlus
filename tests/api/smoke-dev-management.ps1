@@ -20,6 +20,10 @@ $rebuild = (Invoke-TopChurchPlusApi -Method GET -Path '/dev-management/documents
 Assert-True ($rebuild.content.Length -gt 0) 'DISASTER_RECOVERY_REBUILD content should not be empty.'
 Write-Host 'PASS dev-management disaster recovery document'
 
+$secretsChecklist = (Invoke-TopChurchPlusApi -Method GET -Path '/dev-management/documents/RECOVERY_SECRETS_CHECKLIST' -CurrentUser $currentUser).Json
+Assert-True ($secretsChecklist.content.Length -gt 0) 'RECOVERY_SECRETS_CHECKLIST content should not be empty.'
+Write-Host 'PASS dev-management recovery secrets checklist'
+
 $issues = (Invoke-TopChurchPlusApi -Method GET -Path '/dev-management/issues?page=1&pageSize=20' -CurrentUser $currentUser).Json
 Assert-True ($issues.pageSize -eq 20) 'Dev management issues should use pageSize 20.'
 Write-Host 'PASS dev-management issues list'

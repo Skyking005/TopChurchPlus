@@ -20,6 +20,7 @@ TopChurchPlus 是卓越行道會行政與會友服務整合系統，目前採漸
 - NAS API 實體路徑：`/volume1/docker/project-api`
 - Docker service/container：`project-api`
 - 災難復原與重建方案：`docs/DISASTER_RECOVERY_REBUILD.md`
+- 復原私密資料保管檢查表：`docs/RECOVERY_SECRETS_CHECKLIST.md`
 - 每月重建能力檢查：`.\tools\check-rebuild-readiness.cmd -RunSmoke`
 - Apps Script 部署作業 ID：`AKfycbwqO5FTVL_5iWCwHPGQH0ZhXM9IOH4U17UnTGKm7SVrP0NqZd4wEer-1z82B7HFTKkw`
 - 最新 Apps Script 版本：`@127`

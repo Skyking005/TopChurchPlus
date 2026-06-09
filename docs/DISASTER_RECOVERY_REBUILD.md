@@ -16,7 +16,7 @@
 
 - GitHub 是程式碼與文件的主要還原來源。
 - NAS PostgreSQL 備份是資料還原來源。
-- `.env`、API key、Line token、Google token、SSH private key 不進 Git，需另行安全保存。
+- `.env`、API key、Line token、Google token、SSH private key 不進 Git，需依 `docs/RECOVERY_SECRETS_CHECKLIST.md` 另行安全保存。
 - 每月執行一次 rebuild readiness check，確認真的需要重建時不會臨時找不到工具或文件。
 
 ## 每月維護指令
@@ -180,17 +180,11 @@ clasp.cmd status
 
 ## 私密資料保管清單
 
-這些資料不進 Git，但重建時一定需要：
+完整人工保管清單請見：
 
-- NAS API `.env`。
-- 本機 API `.env`。
-- PostgreSQL 使用者、密碼與 container 名稱。
-- Apps Script 專案擁有者 Google 帳號登入權限。
-- clasp 登入或可重新登入的 Google 帳號。
-- SSH private key `%USERPROFILE%\.ssh\project_api_deploy`。
-- LINE / LIFF / external service token。
+- `docs/RECOVERY_SECRETS_CHECKLIST.md`
 
-建議每月由超級管理員確認這份清單仍可取得。
+這份檢查表只列出需要保管的項目與責任，不記錄任何實際密碼、token、API key 或 private key。
 
 ## 災難復原演練標準
 
@@ -200,6 +194,6 @@ clasp.cmd status
 2. 確認 GitHub `main` 是最新。
 3. 確認 NAS `/volume1/docker/project-api/backups/` 最近 30 天內有可用 DB 備份。
 4. 確認 `docs/HANDOFF.md`、`docs/SYSTEM_ARCHITECTURE.md`、`docs/API_CATALOG.md`、`docs/DATABASE_SCHEMA.md` 已更新。
-5. 確認 `.env`、SSH key、Google/clasp 權限、LINE token 有安全保存，不只存在單一電腦。
+5. 依 `docs/RECOVERY_SECRETS_CHECKLIST.md` 確認 `.env`、SSH key、Google/clasp 權限、LINE token 有安全保存，不只存在單一電腦。
 
 若任一項失敗，建立系統開發管理 issue，類型 `maintain`、優先度依風險設定。

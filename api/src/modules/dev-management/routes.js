@@ -15,6 +15,7 @@ const REVIEW_DOCUMENTS = [
   { key: 'HANDOFF', title: 'HANDOFF 交接文件', path: 'docs/HANDOFF.md', group: '交接' },
   { key: 'DOCUMENTATION_MAINTENANCE', title: 'DOCUMENTATION_MAINTENANCE 文件維護矩陣', path: 'docs/DOCUMENTATION_MAINTENANCE.md', group: '流程' },
   { key: 'DISASTER_RECOVERY_REBUILD', title: 'DISASTER_RECOVERY_REBUILD 災難復原與重建', path: 'docs/DISASTER_RECOVERY_REBUILD.md', group: '流程' },
+  { key: 'RECOVERY_SECRETS_CHECKLIST', title: 'RECOVERY_SECRETS_CHECKLIST 復原私密資料保管檢查表', path: 'docs/RECOVERY_SECRETS_CHECKLIST.md', group: '流程' },
   { key: 'SYSTEM_ARCHITECTURE', title: 'SYSTEM_ARCHITECTURE 系統架構', path: 'docs/SYSTEM_ARCHITECTURE.md', group: '架構' },
   { key: 'DATABASE_SCHEMA', title: 'DATABASE_SCHEMA 資料庫結構', path: 'docs/DATABASE_SCHEMA.md', group: '資料庫' },
   { key: 'API_CATALOG', title: 'API_CATALOG API 目錄', path: 'docs/API_CATALOG.md', group: 'API' },

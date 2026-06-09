@@ -32,6 +32,7 @@
 | `docs/TOPCHURCHPLUS_SKILL.md` | Codex 開發習慣、固定工具、任務完成規則改變 | Skill 摘要與注意事項 |
 | `docs/SYSTEM_ARCHITECTURE.md` | 系統邊界、前端/API/DB/外部入口架構改變 | 架構關係與責任邊界 |
 | `docs/DISASTER_RECOVERY_REBUILD.md` | 本機、NAS、DB、Apps Script 重建方式或月維護流程改變 | 重建步驟、必備備份、演練標準 |
+| `docs/RECOVERY_SECRETS_CHECKLIST.md` | 重建所需私密資料類型、責任或保管規則改變 | 只列項目與責任，不寫實際 secret |
 | `docs/core_platform_architecture.md` | 底層平台能力如權限、檔案、簽核、稽核、參數模式改變 | 共用底層設計 |
 | `docs/DATABASE_MIGRATION_WORKFLOW.md` | DB migration 工作流程、MSSQL 對應策略改變 | DB 變更流程 |
 | `docs/LEGACY_MSSQL_SYNC_WORKFLOW.md` | 舊系統同步策略、排程、資料來源改變 | 同步與轉換規則 |
@@ -49,7 +50,7 @@
 | 外部入口 / LIFF / 表單公開頁 | `SYSTEM_ARCHITECTURE`、`API_CATALOG`、`TEST_MATRIX` |
 | 工具 / 部署流程 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、`HANDOFF` |
 | 除錯雷點 | `WORKFLOW`、`TOPCHURCHPLUS_SKILL`、必要時 `HANDOFF` |
-| 災難復原 / 重建 | `DISASTER_RECOVERY_REBUILD`、`WORKFLOW`、`SYSTEM_ARCHITECTURE`、`HANDOFF` |
+| 災難復原 / 重建 | `DISASTER_RECOVERY_REBUILD`、`RECOVERY_SECRETS_CHECKLIST`、`WORKFLOW`、`SYSTEM_ARCHITECTURE`、`HANDOFF` |
 
 ## 已固定處理的常見雷點
 

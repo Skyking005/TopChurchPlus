@@ -161,6 +161,7 @@ Google Apps Script：
 重建方案與每月維護檢查位於：
 
 - `docs/DISASTER_RECOVERY_REBUILD.md`
+- `docs/RECOVERY_SECRETS_CHECKLIST.md`
 - `tools/check-rebuild-readiness.cmd`
 
 每月執行：
@@ -174,6 +175,7 @@ Google Apps Script：
 - `docs/HANDOFF.md`
 - `docs/WORKFLOW.md`
 - `docs/DISASTER_RECOVERY_REBUILD.md`
+- `docs/RECOVERY_SECRETS_CHECKLIST.md`
 - `docs/core_platform_architecture.md`
 - `docs/DATABASE_MIGRATION_WORKFLOW.md`
 - `docs/LEGACY_MSSQL_SYNC_WORKFLOW.md`
