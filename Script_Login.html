@@ -498,7 +498,7 @@ function renderFeatureMenu() {
 
   features.forEach((feature, index) => {
     const card = document.createElement('div');
-    card.className = `feature-option${feature.pinned ? ' feature-option-pinned' : ''}`;
+    card.className = `feature-option${feature.pinned ? ' feature-option-pinned' : ''}${feature.key === lastMovedFeatureKey ? ' feature-option-moved' : ''}`;
     card.tabIndex = 0;
     card.role = 'button';
     card.dataset.featureKey = feature.key;
@@ -606,6 +606,8 @@ function getRenderedFeatureKeys() {
     .filter(Boolean);
 }
 
+let lastMovedFeatureKey = '';
+
 function toggleFeaturePin(featureKey) {
   const preferences = getFeaturePreferences();
   const pinned = new Set(preferences.pinned);
@@ -618,6 +620,7 @@ function toggleFeaturePin(featureKey) {
     }
   }
   preferences.pinned = [...pinned];
+  lastMovedFeatureKey = featureKey;
   saveFeaturePreferences(preferences);
   renderFeatureMenu();
 }
@@ -630,6 +633,7 @@ function moveFeatureOrder(featureKey, direction) {
   [keys[index], keys[targetIndex]] = [keys[targetIndex], keys[index]];
   const preferences = getFeaturePreferences();
   preferences.order = keys;
+  lastMovedFeatureKey = featureKey;
   saveFeaturePreferences(preferences);
   renderFeatureMenu();
 }

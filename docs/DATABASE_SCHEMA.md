@@ -305,7 +305,10 @@ Zoom：
 行政物資：
 
 - `database/20260606_admin_supplies.sql`
-- 總庫存與各會堂庫存。
+- `database/20260609_admin_supply_issue_2_3.sql`
+- 總庫存與各會堂/倉庫位置庫存。
+- `admin_supply_movements.handover_to_name` 記錄交接人。
+- `churches.code = GIANT_WAREHOUSE` 作為行政物資專用倉庫位置，不列入一般本會會堂選單。
 
 ## MSSQL 同步
 

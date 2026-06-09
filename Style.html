@@ -554,6 +554,25 @@
     background: #fbfdff;
   }
 
+  .feature-option-moved {
+    animation: featureMovePulse 0.42s ease;
+  }
+
+  @keyframes featureMovePulse {
+    0% {
+      transform: translateY(8px) scale(0.98);
+      box-shadow: var(--tc-shadow-sm);
+    }
+    55% {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: var(--tc-shadow-md);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+      box-shadow: var(--tc-shadow-sm);
+    }
+  }
+
   .feature-card-head {
     display: flex;
     align-items: center;

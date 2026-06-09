@@ -73,10 +73,11 @@ function registerAdminSupplyRoutes(app) {
 async function getOptions() {
   const [churches, categories, units] = await Promise.all([
     pool.query(
-      `SELECT id, name
+      `SELECT id, name, church_type
        FROM churches
-       WHERE church_type = '本會'
-       ORDER BY sort_order, id`
+       WHERE is_active
+         AND (church_type = '本會' OR code = 'GIANT_WAREHOUSE')
+       ORDER BY CASE WHEN code = 'GIANT_WAREHOUSE' THEN 1 ELSE 0 END, sort_order, id`
     ),
     pool.query(
       `SELECT DISTINCT category
@@ -93,7 +94,11 @@ async function getOptions() {
   ]);
 
   return {
-    churches: churches.rows.map(row => ({ churchId: row.id, churchName: row.name })),
+    churches: churches.rows.map(row => ({
+      churchId: row.id,
+      churchName: row.name,
+      locationType: row.church_type === '倉庫' ? 'warehouse' : 'church'
+    })),
     categories: mergeDefaults(categories.rows.map(row => row.category), ['文具用品', '清潔用品', '紙品耗材', '行政耗材', '活動耗材', '其他']),
     units: mergeDefaults(units.rows.map(row => row.unit), ['個', '包', '盒', '瓶', '袋', '組', '卷', '箱'])
   };
@@ -133,14 +138,15 @@ async function getItems(query = {}) {
               jsonb_build_object(
                 'churchId', c.id,
                 'churchName', c.name,
+                'locationType', CASE WHEN c.church_type = '倉庫' THEN 'warehouse' ELSE 'church' END,
                 'quantity', COALESCE(s.quantity, 0)
               )
-              ORDER BY c.sort_order, c.id
+              ORDER BY CASE WHEN c.code = 'GIANT_WAREHOUSE' THEN 1 ELSE 0 END, c.sort_order, c.id
             ) FILTER (WHERE c.id IS NOT NULL), '[]'::jsonb) AS stocks
      FROM admin_supply_items i
      CROSS JOIN churches c
      LEFT JOIN admin_supply_stocks s ON s.supply_id = i.supply_id AND s.church_id = c.id
-     ${whereSql ? `${whereSql} AND c.church_type = '本會'` : "WHERE c.church_type = '本會'"}
+     ${whereSql ? `${whereSql} AND c.is_active AND (c.church_type = '本會' OR c.code = 'GIANT_WAREHOUSE')` : "WHERE c.is_active AND (c.church_type = '本會' OR c.code = 'GIANT_WAREHOUSE')"}
      GROUP BY i.supply_id
      ORDER BY i.is_active DESC, i.category, i.name
      LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
@@ -209,6 +215,7 @@ async function createMovement(movement, currentUser) {
   const toChurchId = movement.toChurchId ? Number(movement.toChurchId) : null;
   const reason = String(movement.reason || '').trim();
   const note = String(movement.note || '').trim();
+  const handoverToName = String(movement.handoverToName || '').trim();
 
   validateMovementTarget(movementType, fromChurchId, toChurchId);
 
@@ -225,8 +232,8 @@ async function createMovement(movement, currentUser) {
     const { rows } = await client.query(
       `INSERT INTO admin_supply_movements (
          movement_type, supply_id, from_church_id, to_church_id, quantity,
-         reason, note, handled_by_staff_id, handled_by_name
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         reason, note, handled_by_staff_id, handled_by_name, handover_to_name
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING movement_id`,
       [
         movementType,
@@ -237,7 +244,8 @@ async function createMovement(movement, currentUser) {
         reason,
         note,
         currentUser.staffId ? String(currentUser.staffId) : null,
-        [currentUser.name, currentUser.position].filter(Boolean).join(' ')
+        [currentUser.name, currentUser.position].filter(Boolean).join(' '),
+        handoverToName
       ]
     );
     return { success: true, message: '庫存異動已建立', movementId: rows[0].movement_id };
@@ -345,6 +353,7 @@ async function getMovements(query = {}) {
     reason: row.reason || '',
     note: row.note || '',
     handledByName: row.handled_by_name || '',
+    handoverToName: row.handover_to_name || '',
     createdAt: row.created_at
   }));
 }
@@ -408,6 +417,7 @@ function toItem(row) {
     stocks: stocks.map(stock => ({
       churchId: stock.churchId,
       churchName: stock.churchName,
+      locationType: stock.locationType || 'church',
       quantity: Number(stock.quantity || 0),
       isLowStock: Number(stock.quantity || 0) < Number(row.min_stock || 0)
     })),

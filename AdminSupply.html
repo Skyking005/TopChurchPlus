@@ -2,7 +2,7 @@
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
     <div>
       <h5 class="mb-1">行政物資管理</h5>
-      <div class="text-muted small">維護行政消耗品、各分堂庫存、入庫、領用、調撥與低庫存提醒。</div>
+      <div class="text-muted small">維護行政消耗品、各分堂與倉庫庫存、入庫、領用、調撥與低庫存提醒。</div>
     </div>
     <div class="d-flex gap-2">
       <button id="adminSupplyAddItemBtn" type="button" class="btn btn-success" onclick="openAdminSupplyItemEditor()">新增物資</button>
@@ -96,7 +96,8 @@
               <th>目的</th>
               <th class="text-end">數量</th>
               <th>原因</th>
-              <th>經手人</th>
+              <th>異動人</th>
+              <th>交接人</th>
             </tr>
           </thead>
           <tbody id="adminSupplyMovementTableBody"></tbody>
@@ -176,11 +177,11 @@
               <select id="adminSupplyMovementType" class="form-select" onchange="updateAdminSupplyMovementFields()"></select>
             </div>
             <div class="col-md-6 admin-supply-from-field">
-              <label class="form-label">來源會堂</label>
+              <label class="form-label">來源位置</label>
               <select id="adminSupplyMovementFromChurch" class="form-select"></select>
             </div>
             <div class="col-md-6 admin-supply-to-field">
-              <label class="form-label">目的/調整會堂</label>
+              <label class="form-label">目的/調整位置</label>
               <select id="adminSupplyMovementToChurch" class="form-select"></select>
             </div>
             <div class="col-md-4">
@@ -190,6 +191,10 @@
             <div class="col-md-8">
               <label class="form-label">原因</label>
               <input id="adminSupplyMovementReason" class="form-control" placeholder="例：例行補貨、活動領用、分堂調撥">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">交接人</label>
+              <input id="adminSupplyMovementHandoverToName" class="form-control" placeholder="例：北大行政同工、活動窗口姓名">
             </div>
             <div class="col-md-12">
               <label class="form-label">備註</label>
