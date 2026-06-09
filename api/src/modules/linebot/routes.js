@@ -2,6 +2,7 @@ const { pool } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
 const { getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
+const { getLiffSecurityReadiness, normalizeLiffSecurityConfig } = require('../liff/security');
 
 const PAGE_SIZE = 20;
 
@@ -559,6 +560,7 @@ function normalizeLineBotChannel(payload) {
   const richMenuIds = payload.richMenuIds && typeof payload.richMenuIds === 'object' ? payload.richMenuIds : {};
   const notifyTokens = payload.notifyTokens && typeof payload.notifyTokens === 'object' ? payload.notifyTokens : {};
   const hasLineApiPayload = payload.lineApi && typeof payload.lineApi === 'object';
+  const hasLiffSecurityPayload = payload.liffSecurity && typeof payload.liffSecurity === 'object';
   const metadata = {
     channelAccessToken: normalizeText(payload.channelAccessToken),
     channelSecret: normalizeText(payload.channelSecret),
@@ -583,6 +585,7 @@ function normalizeLineBotChannel(payload) {
     }
   };
   if (hasLineApiPayload) metadata.lineApi = normalizeLineApiConfig(payload.lineApi);
+  if (hasLiffSecurityPayload) metadata.liffSecurity = normalizeLiffSecurityConfig(payload.liffSecurity);
   return {
     channelKey,
     channelName,
@@ -601,7 +604,8 @@ function mergeLineBotSecretMetadata(existing, incoming) {
     liffIds: { ...(incoming.liffIds || {}) },
     richMenuIds: { ...(incoming.richMenuIds || {}) },
     notifyTokens: { ...(existing.notifyTokens || {}), ...(incoming.notifyTokens || {}) },
-    lineApi: incoming.lineApi ? { ...(existing.lineApi || {}), ...(incoming.lineApi || {}) } : existing.lineApi
+    lineApi: incoming.lineApi ? { ...(existing.lineApi || {}), ...(incoming.lineApi || {}) } : existing.lineApi,
+    liffSecurity: incoming.liffSecurity ? { ...(existing.liffSecurity || {}), ...(incoming.liffSecurity || {}) } : existing.liffSecurity
   };
   [
     'channelAccessToken',
@@ -677,6 +681,8 @@ function mapLineBotChannel(row) {
     hasCheckInOutNotifyToken: Boolean(metadata.notifyTokens?.checkInOut),
     lineApi: normalizeLineApiConfig(metadata.lineApi || {}),
     lineApiReadiness: getLineApiReadiness(metadata),
+    liffSecurity: normalizeLiffSecurityConfig(metadata.liffSecurity || {}),
+    liffSecurityReadiness: getLiffSecurityReadiness(metadata),
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

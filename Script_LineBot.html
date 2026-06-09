@@ -176,6 +176,12 @@ function editLineBotChannel(channelId) {
   document.getElementById('lineBotAutoRichMenuSwitch').checked = row.lineApi?.autoRichMenuSwitch === true;
   document.getElementById('lineBotWebhookSignatureMode').value = row.lineApi?.webhookSignatureMode || 'log_only';
   renderLineBotLineApiReadiness(row.lineApiReadiness || {});
+  document.getElementById('lineBotLiffSecuritySessionDays').value = row.liffSecurity?.sessionDays || 7;
+  document.getElementById('lineBotLiffSecurityOriginMode').value = row.liffSecurity?.originMode || 'monitor';
+  document.getElementById('lineBotLiffSecuritySessionBinding').value = row.liffSecurity?.sessionClientBinding || 'monitor';
+  document.getElementById('lineBotLiffSecurityRequireHttps').checked = row.liffSecurity?.requireHttps === true;
+  document.getElementById('lineBotLiffSecurityAllowedOrigins').value = (row.liffSecurity?.allowedOrigins || []).join('\n');
+  renderLineBotLiffSecurityReadiness(row.liffSecurityReadiness || {});
   document.getElementById('lineBotChannelIsActive').checked = row.isActive !== false;
   ['lineBotChannelAccessToken', 'lineBotChannelSecret', 'lineBotLoginClientId', 'lineBotLoginClientSecret', 'lineBotNotifyAdministrative', 'lineBotNotifyCheckInOut'].forEach(id => {
     document.getElementById(id).value = '';
@@ -226,6 +232,16 @@ function submitLineBotChannel() {
       autoRichMenuSwitch: document.getElementById('lineBotAutoRichMenuSwitch').checked,
       webhookSignatureMode: document.getElementById('lineBotWebhookSignatureMode').value
     },
+    liffSecurity: {
+      sessionDays: Number(document.getElementById('lineBotLiffSecuritySessionDays').value || 7),
+      requireHttps: document.getElementById('lineBotLiffSecurityRequireHttps').checked,
+      originMode: document.getElementById('lineBotLiffSecurityOriginMode').value,
+      sessionClientBinding: document.getElementById('lineBotLiffSecuritySessionBinding').value,
+      allowedOrigins: document.getElementById('lineBotLiffSecurityAllowedOrigins').value
+        .split(/\r?\n|,/)
+        .map(v => v.trim())
+        .filter(Boolean)
+    },
     isActive: document.getElementById('lineBotChannelIsActive').checked
   };
   setButtonLoading(btn, true, '儲存中...');
@@ -256,6 +272,16 @@ function renderLineBotLineApiReadiness(readiness) {
   const status = readiness.canCallLineApi ? '可正式呼叫 LINE API' : '目前不會呼叫 LINE API';
   box.innerHTML = `
     <span class="${readiness.canCallLineApi ? 'text-success' : 'text-muted'}">${escapeHtml(status)}</span>
+    ${warnings.length ? `<div>${warnings.map(escapeHtml).join('<br>')}</div>` : ''}
+  `;
+}
+
+function renderLineBotLiffSecurityReadiness(readiness) {
+  const box = document.getElementById('lineBotLiffSecurityReadiness');
+  if (!box) return;
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  box.innerHTML = `
+    <span class="${readiness.hardened ? 'text-success' : 'text-muted'}">${readiness.hardened ? 'LIFF 安全設定已強化' : 'LIFF 安全設定目前為預備/監控狀態'}</span>
     ${warnings.length ? `<div>${warnings.map(escapeHtml).join('<br>')}</div>` : ''}
   `;
 }

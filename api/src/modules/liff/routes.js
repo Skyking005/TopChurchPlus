@@ -2,8 +2,14 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const { pool } = require('../../db');
+const {
+  assertLiffRequestAllowed,
+  assertLiffSessionAllowed,
+  getLiffRequestFingerprint,
+  getLiffSecurityReadiness,
+  normalizeLiffSecurityConfig
+} = require('./security');
 
-const SESSION_DAYS = 7;
 const DEFAULT_CHANNEL_KEY = 'main';
 
 function registerLiffRoutes(app) {
@@ -80,6 +86,7 @@ async function getActiveChannel(channelKey) {
 
 async function getLiffConfig(channel) {
   const metadata = channel.metadata || {};
+  const security = getLiffSecurityReadiness(metadata);
   const modules = await pool.query(
     `SELECT module_key, module_name, description, is_enabled, sort_order
      FROM line_bot_module_settings
@@ -93,6 +100,13 @@ async function getLiffConfig(channel) {
     liffBaseUrl: channel.liff_base_url || '',
     liffId: metadata.liffIds?.portal || '',
     fallbackLiffIds: metadata.liffIds || {},
+    security: {
+      sessionDays: security.sessionDays,
+      requireHttps: security.requireHttps,
+      originMode: security.originMode,
+      sessionClientBinding: security.sessionClientBinding,
+      hardened: security.hardened
+    },
     modules: modules.rows.map(row => ({
       key: row.module_key,
       name: row.module_name,
@@ -105,6 +119,8 @@ async function getLiffConfig(channel) {
 async function createLiffSession(payload, req) {
   const channel = await getActiveChannel(payload.channelKey);
   const metadata = channel.metadata || {};
+  const security = normalizeLiffSecurityConfig(metadata.liffSecurity || {});
+  assertLiffRequestAllowed(req, security);
   const clientId = normalizeText(metadata.loginClientId);
   if (!clientId) throw configurationError('尚未設定 LINE Login Client ID，無法驗證 LIFF 身分');
 
@@ -140,7 +156,7 @@ async function createLiffSession(payload, req) {
 
   const sessionToken = crypto.randomBytes(32).toString('base64url');
   const sessionHash = hashToken(sessionToken);
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + security.sessionDays * 24 * 60 * 60 * 1000);
 
   await pool.query(
     `INSERT INTO line_liff_sessions (
@@ -153,7 +169,13 @@ async function createLiffSession(payload, req) {
       expiresAt,
       JSON.stringify({
         ipAddress: getIpAddress(req),
-        userAgent: req.get('user-agent') || ''
+        userAgent: req.get('user-agent') || '',
+        fingerprint: getLiffRequestFingerprint(req),
+        securityMode: {
+          originMode: security.originMode,
+          sessionClientBinding: security.sessionClientBinding,
+          requireHttps: security.requireHttps
+        }
       })
     ]
   );
@@ -188,6 +210,12 @@ async function verifyLineIdToken(idToken, clientId) {
   if (!response.ok) {
     throw unauthorized(data.error_description || data.error || 'LINE Token 驗證失敗');
   }
+  if (data.aud && String(data.aud) !== String(clientId)) {
+    throw unauthorized('LINE Token 的 Client ID 不符合目前 Channel 設定');
+  }
+  if (data.exp && Number(data.exp) * 1000 <= Date.now()) {
+    throw unauthorized('LINE Token 已過期，請重新開啟 Line App');
+  }
   return data;
 }
 
@@ -201,10 +229,15 @@ async function requireLiffSession(req) {
      WHERE session_token_hash = $1
        AND is_active
        AND expires_at > now()
-     RETURNING session_id, line_user_id, channel_key, expires_at`,
+     RETURNING session_id, line_user_id, channel_key, expires_at, metadata`,
     [hashToken(token)]
   );
   if (!rows[0]) throw unauthorized('LIFF Session 已失效，請重新開啟 Line App');
+
+  const channel = await getActiveChannel(rows[0].channel_key);
+  const security = normalizeLiffSecurityConfig(channel.metadata?.liffSecurity || {});
+  assertLiffRequestAllowed(req, security);
+  assertLiffSessionAllowed(req, rows[0].metadata || {}, security);
   return rows[0];
 }
 
