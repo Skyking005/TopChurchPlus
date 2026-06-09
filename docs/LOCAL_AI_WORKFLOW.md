@@ -76,13 +76,27 @@ Local AI 不負責：
 
 ## 建議的新任務流程
 
-1. 先執行 Local AI preflight：
+1. 先依任務大小決定是否執行 Local AI preflight。
+
+   必須先跑 preflight：
+
+   - 跨模組功能或大範圍 UI 調整。
+   - 資料庫設計、migration、索引、資料搬移。
+   - 權限架構、系統框架、共用服務、檔案管理、稽核紀錄。
+   - 全系統測試、效能分析、文件盤點、舊系統轉移分析。
+
+   可略過 preflight：
+
+   - 單一檔案小修、明確錯誤訊息、小範圍文字或樣式調整。
+   - 使用者已指定完整檔案、函式與預期修改。
+
+2. 執行 Local AI preflight：
 
    ```powershell
    .\tools\local-ai-preflight.cmd -Task "<本次任務描述>"
    ```
 
-2. Codex 優先讀：
+3. Codex 優先讀：
 
    ```text
    tmp/local-ai/task_context.md
@@ -90,15 +104,16 @@ Local AI 不負責：
    docs/HANDOFF.md
    ```
 
-3. 再依 Local AI 建議讀相關文件，例如：
+4. 再依 Local AI 建議讀相關文件，例如：
 
    - `docs/MODULES.md`
    - `docs/API_CATALOG.md`
    - `docs/DATABASE_SCHEMA.md`
    - `docs/TEST_MATRIX.md`
 
-4. Codex 使用 `rg` / `ast-grep` 精準定位檔案。
-5. Codex 小範圍修改、測試、部署、更新文件、commit、push。
+5. Codex 使用 `rg` / `ast-grep` 精準定位檔案。
+6. Codex 小範圍修改、測試、部署、更新文件、commit、push。
+7. Commit body 記錄是否有使用 Local/Remote AI，以及 Remote compute 的 Token 節省估算。
 
 ## 檢查 Ollama 狀態
 

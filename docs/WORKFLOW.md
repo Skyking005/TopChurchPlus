@@ -90,15 +90,24 @@ npm run dev:sqlfluff -- --version
 
 為降低大型專案任務的 Token 消耗，開發時請優先使用以下順序：
 
+任務分流規則：
+
+- 小修、單一檔案、明確錯誤訊息、文字或樣式微調：可由 Codex 直接讀相關檔案後處理，不強制跑 Local/Remote AI。
+- 跨模組、大範圍 UI、資料庫設計或 migration、權限架構、全系統檢查、舊系統資料搬移、文件盤點：先跑 Local AI preflight；若本地模型不足或需要較大上下文，再改用 Remote AI preflight。
+- Local/Remote AI 只做前置分析與檔案定位，不直接修改程式、不碰資料庫、不部署、不讀 secret。
+
+標準順序：
+
 1. 先讀 `AGENTS.md`、`docs/NEW_THREAD_GUIDE.md`、`docs/HANDOFF.md`，再依任務類型讀 `docs/DOCUMENTATION_MAINTENANCE.md` 指定的相關文件。
-2. 用 `rg` 找相關檔案、函式、feature key、endpoint。
-3. 用 `ast-grep` 找同類程式碼或可安全套用的結構模式。
-4. 小範圍修改，避免批次格式化。
-5. 用 `jq` 檢查 API JSON 回應，避免貼整包 JSON。
-6. 有 UI 變更時，用 Playwright 跑瀏覽器流程或產生測試。
-7. 有 SQL 變更時，用 SQLFluff 與資料庫備份流程檢查。
-8. 提交前依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
-9. 跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
+2. 依任務分流規則決定是否執行 `tools\local-ai-preflight.cmd`。若已產出 `tmp/local-ai/task_context.md`，Codex 需優先讀取該摘要。
+3. 用 `rg` 找相關檔案、函式、feature key、endpoint。
+4. 用 `ast-grep` 找同類程式碼或可安全套用的結構模式。
+5. 小範圍修改，避免批次格式化。
+6. 用 `jq` 檢查 API JSON 回應，避免貼整包 JSON。
+7. 有 UI 變更時，用 Playwright 跑瀏覽器流程或產生測試。
+8. 有 SQL 變更時，用 SQLFluff 與資料庫備份流程檢查。
+9. 提交前依 `docs/DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
+10. 跑最小驗證、commit、push，必要時部署 NAS API 與 Google Apps Script。
 
 任務完成後，Token 與 Remote 運算紀錄寫在 GitHub commit body，不放在系統介面。若無法取得精準 Token 值，需註明「未取得」；若沒有調用 Remote 運算，註明「未使用」。若有使用 Remote 運算，需記錄任務、估算節省 Token 與估算依據。
 

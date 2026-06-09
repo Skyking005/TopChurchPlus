@@ -14,13 +14,14 @@
 1. 先讀 `AGENTS.md`、`NEW_THREAD_GUIDE.md`、`HANDOFF.md`，再依任務類型讀相關文件。
 2. 先設 PowerShell UTF-8，再用 `rg` / `rg -g` 搜尋相關檔案。
 3. 修改前確認相關區塊沒有 mojibake。
-4. 手動修改優先使用 `apply_patch`，避免批次重寫中文檔案。
-5. API 端用 Node 語法檢查，前端 HTML script partial 用 Node `new Function` 檢查。
-6. 有 DB 異動時，先備份 NAS PostgreSQL，再套 migration，並確認索引與代表資料。
-7. API 部署使用 `deploy-api.cmd`，Google Apps Script 推送使用 `push-to-google.cmd`。
-8. 完成前依 `DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
-9. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。Token 與 Remote 運算紀錄寫在 commit body；若無法取得 Token，註明未取得。
-10. 每月或災難復原相關任務需參照 `docs/DISASTER_RECOVERY_REBUILD.md` 與 `docs/RECOVERY_SECRETS_CHECKLIST.md`，並執行 `tools\check-rebuild-readiness.cmd -RunSmoke`。
+4. 小修可直接處理；跨模組、資料庫、架構、全系統檢查與舊系統搬移任務，先跑 Local AI preflight，必要時使用 Remote AI preflight。
+5. 手動修改優先使用 `apply_patch`，避免批次重寫中文檔案。
+6. API 端用 Node 語法檢查，前端 HTML script partial 用 Node `new Function` 檢查。
+7. 有 DB 異動時，先備份 NAS PostgreSQL，再套 migration，並確認索引與代表資料。
+8. API 部署使用 `deploy-api.cmd`，Google Apps Script 推送使用 `push-to-google.cmd`。
+9. 完成前依 `DOCUMENTATION_MAINTENANCE.md` 更新相關系統文件。
+10. 完成後提交 GitHub，並在回覆中記錄測試、部署版本、DB 備份路徑與 commit。Token 與 Remote 運算紀錄寫在 commit body；若無法取得 Token，註明未取得。
+11. 每月或災難復原相關任務需參照 `docs/DISASTER_RECOVERY_REBUILD.md` 與 `docs/RECOVERY_SECRETS_CHECKLIST.md`，並執行 `tools\check-rebuild-readiness.cmd -RunSmoke`。
 
 ## 固定工具
 

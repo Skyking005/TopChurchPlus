@@ -41,6 +41,28 @@
 
 遠端主機需讓 Ollama API 只在 Tailscale 網路可連線。不要直接對外開放 `11434`。
 
+## 何時使用 Remote AI
+
+Remote AI 是 Local AI preflight 的升級方案，不是每次任務都要用。
+
+建議使用：
+
+- 本地模型摘要不完整，或任務需要較大上下文。
+- 跨模組架構分析、舊系統搬移、資料庫設計、全系統效能或風險盤點。
+- 需要先整理大量文件或程式碼關聯，但還不到實際修改階段。
+
+不建議使用：
+
+- 單一檔案小修、明確錯誤訊息、簡單 UI 或文字調整。
+- 需要 secret、production DB、部署權限或瀏覽器登入狀態的工作。
+
+使用 Remote AI 後，Codex commit body 需記錄：
+
+```text
+Remote compute: 已使用（任務與模型）
+Remote token saving: 估算節省值與依據
+```
+
 遠端主機可設定：
 
 ```powershell
