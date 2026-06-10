@@ -17,7 +17,12 @@ function createApp() {
     }
   }));
   app.use(cors({ origin: true }));
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({
+    limit: '15mb',
+    verify: (req, res, buf) => {
+      req.rawBody = Buffer.from(buf);
+    }
+  }));
   return app;
 }
 
