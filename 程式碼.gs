@@ -13,7 +13,7 @@ function renderIndex_(params) {
   template.publicEditToken = String(params.token || '');
   return template
     .evaluate()
-    .setTitle('卓越行道會行政系統')
+    .setTitle('TopChurchPlus')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -93,11 +93,11 @@ function sendLoginVerificationEmail(email, code, expiresAt) {
     : '10 分鐘內';
   MailApp.sendEmail({
     to: email,
-    subject: '卓越行道會行政系統登入驗證碼',
+    subject: 'TopChurchPlus 登入驗證碼',
     body:
 `您好：
 
-系統偵測到陌生裝置登入卓越行道會行政系統。
+系統偵測到陌生裝置登入 TopChurchPlus。
 
 本次登入驗證碼：${code}
 有效期限：${expiresText}
