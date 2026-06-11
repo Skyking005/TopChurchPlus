@@ -6,6 +6,7 @@ const { recordAuditLog } = require('../../shared/audit');
 const { formatDate, formatDateTime } = require('../../shared/format');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { hasAnyRole, parseUser } = require('../../shared/users');
+const { generateId } = require('../../shared/id-rules');
 
 const PASTORAL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const PASTORAL_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
@@ -179,6 +180,7 @@ async function getPastoralMembers(query, currentUser) {
     values.push(`%${keyword}%`);
     where.push(`(
       lower(pm.name) LIKE $${values.length}
+      OR lower(coalesce(pm.member_code, '')) LIKE $${values.length}
       OR lower(coalesce(pc.mobile_phone, '')) LIKE $${values.length}
       OR lower(coalesce(pm.line_user_id, '')) LIKE $${values.length}
       OR lower(coalesce(g.path, '')) LIKE $${values.length}
@@ -229,6 +231,7 @@ async function getPastoralMembers(query, currentUser) {
   const { rows } = await pool.query(
     `SELECT DISTINCT
        pm.id,
+       pm.member_code,
        pm.name,
        pm.gender,
        pm.created_date,
@@ -435,22 +438,26 @@ async function savePastoralMember(memberId, payload, currentUser) {
   return tx(async client => {
     const isNew = !memberId;
     const id = isNew ? await generatePastoralMemberId(client) : Number(memberId);
+    let memberCode = '';
     if (!Number.isInteger(id)) throw new Error('會友編號格式錯誤');
 
     if (!isNew) {
-      const existing = await client.query('SELECT church_id FROM pastoral_members WHERE id = $1 AND is_active', [id]);
+      const existing = await client.query('SELECT church_id, member_code FROM pastoral_members WHERE id = $1 AND is_active', [id]);
       if (!existing.rows[0]) throw new Error('找不到會友資料');
       await assertChurchWritable(existing.rows[0].church_id, currentUser);
+      memberCode = existing.rows[0].member_code || '';
     }
+    if (!memberCode) memberCode = await generateId('member', { client, table: 'pastoral_members', column: 'member_code' });
 
     await client.query(
       `INSERT INTO pastoral_members (
-         id, church_id, name, gender, birthday, membership_category_code, title_id,
+         id, member_code, church_id, name, gender, birthday, membership_category_code, title_id,
          profession_id, profession_note, source_text, marital_status_id, marital_note,
          line_display_id, line_user_id, light_status, followup_staff_id, created_date,
          baptized_date, note, is_active, updated_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,true,now())
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,true,now())
        ON CONFLICT (id) DO UPDATE SET
+         member_code = COALESCE(pastoral_members.member_code, EXCLUDED.member_code),
          church_id = EXCLUDED.church_id,
          name = EXCLUDED.name,
          gender = EXCLUDED.gender,
@@ -473,6 +480,7 @@ async function savePastoralMember(memberId, payload, currentUser) {
          updated_at = now()`,
       [
         id,
+        memberCode,
         normalized.base.churchId,
         normalized.base.name,
         normalized.base.gender,
@@ -880,6 +888,7 @@ function toPastoralGroupItem(row) {
 function toPastoralMemberListItem(row) {
   return {
     memberId: row.id,
+    memberCode: row.member_code || '',
     name: row.name,
     gender: formatGender(row.gender),
     createdDate: formatDate(row.created_date),
@@ -902,6 +911,7 @@ function toPastoralMemberListItem(row) {
 function toPastoralMemberDetail(row) {
   return {
     memberId: row.id,
+    memberCode: row.member_code || '',
     name: row.name,
     churchId: row.church_id,
     gender: formatGender(row.gender),

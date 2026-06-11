@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS params (
   UNIQUE (category, value)
 );
 
+CREATE TABLE IF NOT EXISTS id_rules (
+  entity_key TEXT PRIMARY KEY,
+  entity_label TEXT NOT NULL,
+  prefix TEXT NOT NULL DEFAULT '',
+  include_year_month BOOLEAN NOT NULL DEFAULT true,
+  sequence_digits INTEGER NOT NULL DEFAULT 4,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS projects (
   project_id TEXT PRIMARY KEY,
   login_user TEXT NOT NULL,
@@ -95,7 +107,7 @@ CREATE TABLE IF NOT EXISTS projects (
 
 CREATE TABLE IF NOT EXISTS project_people (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE CASCADE,
   duty TEXT,
   person TEXT,
   item TEXT,
@@ -105,7 +117,7 @@ CREATE TABLE IF NOT EXISTS project_people (
 
 CREATE TABLE IF NOT EXISTS project_income (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE CASCADE,
   unit TEXT,
   item TEXT,
   quantity NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -116,7 +128,7 @@ CREATE TABLE IF NOT EXISTS project_income (
 
 CREATE TABLE IF NOT EXISTS project_budget (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE CASCADE,
   unit TEXT,
   item TEXT,
   quantity NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -127,7 +139,7 @@ CREATE TABLE IF NOT EXISTS project_budget (
 
 CREATE TABLE IF NOT EXISTS project_permissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  project_id TEXT NOT NULL REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE CASCADE,
   staff_id TEXT NOT NULL REFERENCES accounts(staff_id),
   name TEXT NOT NULL,
   permission TEXT NOT NULL,
@@ -137,7 +149,7 @@ CREATE TABLE IF NOT EXISTS project_permissions (
 
 CREATE TABLE IF NOT EXISTS meetings (
   meeting_id TEXT PRIMARY KEY,
-  project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
+  project_id TEXT REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE SET NULL,
   meeting_time TIMESTAMPTZ,
   topic TEXT,
   agenda TEXT,
@@ -164,7 +176,7 @@ CREATE TABLE IF NOT EXISTS purchases (
   hall TEXT,
   department TEXT,
   purchase_type TEXT,
-  project_id TEXT REFERENCES projects(project_id) ON DELETE SET NULL,
+  project_id TEXT REFERENCES projects(project_id) ON UPDATE CASCADE ON DELETE SET NULL,
   applicant TEXT NOT NULL,
   request_date DATE NOT NULL DEFAULT CURRENT_DATE,
   summary TEXT NOT NULL,
@@ -324,6 +336,20 @@ INSERT INTO departments (department_name, sort_order, is_active) VALUES
 ON CONFLICT (department_name) DO UPDATE SET
   sort_order = EXCLUDED.sort_order,
   is_active = EXCLUDED.is_active,
+  updated_at = now();
+
+INSERT INTO id_rules (entity_key, entity_label, prefix, include_year_month, sequence_digits, sort_order)
+VALUES
+  ('project', '專案', 'PJ', true, 2, 10),
+  ('course', '課程', 'CL', true, 4, 20),
+  ('member', '會友', 'TOP', true, 5, 30),
+  ('meeting', '會議', 'M', true, 4, 40)
+ON CONFLICT (entity_key) DO UPDATE SET
+  entity_label = EXCLUDED.entity_label,
+  prefix = EXCLUDED.prefix,
+  include_year_month = EXCLUDED.include_year_month,
+  sequence_digits = EXCLUDED.sequence_digits,
+  sort_order = EXCLUDED.sort_order,
   updated_at = now();
 
 INSERT INTO account_roles (staff_id, role)

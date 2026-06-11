@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS pastoral_group_closure (
 
 CREATE TABLE IF NOT EXISTS pastoral_members (
   id integer PRIMARY KEY,
+  member_code text UNIQUE,
   church_id integer REFERENCES churches(id),
   name text NOT NULL,
   gender integer,

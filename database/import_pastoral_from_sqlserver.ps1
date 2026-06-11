@@ -216,8 +216,9 @@ foreach ($row in $tables["Members"].Rows) {
   if ($maritalId -eq 1) { $maritalId = 6 } elseif ($maritalId -eq 2) { $maritalId = 2 }
   $memberName = [string](Col $row "Newcomer028")
   if ([string]::IsNullOrWhiteSpace($memberName)) { $memberName = "未填姓名#$id" }
-  Add-Insert $lines "pastoral_members" @("id","church_id","name","gender","birthday","membership_category_code","title_id","profession_id","profession_note","source_text","marital_status_id","marital_note","line_display_id","line_user_id","light_status","followup_staff_id","created_date","baptized_date","note") @(
-    $id,$churchId,$memberName,(Get-IntOrNull (Col $row "Newcomer004")),(Col $row "Newcomer007"),(Col $row "Newcomer025"),(Get-IntOrNull (Col $row "Newcomer034")),(Get-IntOrNull (Col $row "Newcomer014")),(Col $row "Newcomer015"),(Col $row "Newcomer032"),$maritalId,(Col $row "Newcomer006"),(Col $row "Newcomer035"),(Col $row "Newcomer042"),(Get-IntOrNull (Col $row "Newcomer026")),(Get-IntOrNull (Col $row "Newcomer027")),(Col $row "Newcomer002"),(Col $row "Newcomer036"),(Col $row "Newcomer041")
+  $memberCode = "TOP$($id.ToString('00000'))"
+  Add-Insert $lines "pastoral_members" @("id","member_code","church_id","name","gender","birthday","membership_category_code","title_id","profession_id","profession_note","source_text","marital_status_id","marital_note","line_display_id","line_user_id","light_status","followup_staff_id","created_date","baptized_date","note") @(
+    $id,$memberCode,$churchId,$memberName,(Get-IntOrNull (Col $row "Newcomer004")),(Col $row "Newcomer007"),(Col $row "Newcomer025"),(Get-IntOrNull (Col $row "Newcomer034")),(Get-IntOrNull (Col $row "Newcomer014")),(Col $row "Newcomer015"),(Col $row "Newcomer032"),$maritalId,(Col $row "Newcomer006"),(Col $row "Newcomer035"),(Col $row "Newcomer042"),(Get-IntOrNull (Col $row "Newcomer026")),(Get-IntOrNull (Col $row "Newcomer027")),(Col $row "Newcomer002"),(Col $row "Newcomer036"),(Col $row "Newcomer041")
   )
   Add-Insert $lines "pastoral_member_contacts" @("member_id","email","home_phone","office_phone","mobile_phone","preferred_contact_time","referrer_name","referrer_phone") @(
     $id,(Col $row "Newcomer008"),(Col $row "Newcomer009"),(Col $row "Newcomer010"),(Col $row "Newcomer011"),(Col $row "Newcomer012"),(Col $row "Newcomer016"),(Col $row "Newcomer017")

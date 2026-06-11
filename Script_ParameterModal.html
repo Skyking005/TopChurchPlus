@@ -5,6 +5,7 @@ let featurePermissions = [];
 let systemPastoralOptions = null;
 let shortLinks = [];
 let systemLogs = [];
+let idRules = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -38,6 +39,7 @@ function openSystemManagement() {
   document.getElementById('zoomView').classList.add('d-none');
   document.getElementById('pastoralView').classList.add('d-none');
   document.getElementById('attendanceView').classList.add('d-none');
+  document.getElementById('meetingsView').classList.add('d-none');
   document.getElementById('formsView').classList.add('d-none');
   document.getElementById('educationView').classList.add('d-none');
   document.getElementById('qtView').classList.add('d-none');
@@ -50,11 +52,17 @@ function openSystemManagement() {
 }
 
 function setupSystemManagement() {
+  hideSystemShortLinkTab();
   renderParameterTypeOptions();
   renderSystemPositionOptions();
   renderSystemDepartmentOptions();
   renderSystemLogOptions();
   loadParameterItems();
+}
+
+function hideSystemShortLinkTab() {
+  const tab = document.querySelector('[data-bs-target="#shortLinkManagePane"]');
+  if (tab) tab.closest('.nav-item')?.classList.add('d-none');
 }
 
 function getSystemFeatureOptions() {
@@ -166,6 +174,73 @@ function refreshParametersAfterChange() {
   google.script.run.withSuccessHandler(data => { initialData = data; setupSearchOptions(); setupDetailOptions(); renderSystemPositionOptions(); renderSystemDepartmentOptions(); loadParameterItems(); })
     .withFailureHandler(err => { document.getElementById('parameterModalError').textContent = err.message || err; })
     .getInitialData();
+}
+
+function loadIdRules() {
+  const errorBox = document.getElementById('idRuleError');
+  if (errorBox) errorBox.textContent = '';
+  setListLoading('idRuleTableBody', true, '編碼規則載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      idRules = data?.rows || [];
+      renderIdRules();
+    })
+    .withFailureHandler(err => {
+      if (errorBox) errorBox.textContent = err.message || err;
+    })
+    .getIdRules(currentUser);
+}
+
+function renderIdRules() {
+  const body = document.getElementById('idRuleTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!idRules.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚未建立編碼規則</td></tr>';
+    return;
+  }
+  idRules.forEach(rule => {
+    const key = escapeAttr(rule.entityKey);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="fw-semibold">${escapeHtml(rule.entityLabel || rule.entityKey)}</div>
+        <div class="text-muted small">${escapeHtml(rule.entityKey)}</div>
+      </td>
+      <td><input class="form-control form-control-sm" id="idRulePrefix_${key}" value="${escapeAttr(rule.prefix || '')}" maxlength="12"></td>
+      <td class="text-center"><input class="form-check-input" type="checkbox" id="idRuleYm_${key}" ${rule.includeYearMonth ? 'checked' : ''}></td>
+      <td><input class="form-control form-control-sm text-end" type="number" min="1" max="12" id="idRuleDigits_${key}" value="${escapeAttr(rule.sequenceDigits || 4)}"></td>
+      <td class="text-center"><input class="form-check-input" type="checkbox" id="idRuleActive_${key}" ${rule.isActive !== false ? 'checked' : ''}></td>
+      <td class="text-end"><button type="button" class="btn btn-sm btn-primary" onclick="saveIdRule('${key}')">儲存</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function saveIdRule(entityKey) {
+  const rule = idRules.find(item => item.entityKey === entityKey);
+  if (!rule) return;
+  const payload = {
+    currentUser,
+    rule: {
+      entityLabel: rule.entityLabel || entityKey,
+      prefix: document.getElementById(`idRulePrefix_${entityKey}`).value.trim().toUpperCase(),
+      includeYearMonth: document.getElementById(`idRuleYm_${entityKey}`).checked,
+      sequenceDigits: Number(document.getElementById(`idRuleDigits_${entityKey}`).value || 4),
+      isActive: document.getElementById(`idRuleActive_${entityKey}`).checked
+    }
+  };
+  google.script.run
+    .withSuccessHandler(res => {
+      idRules = res.rows || idRules;
+      alert(res.message);
+      renderIdRules();
+    })
+    .withFailureHandler(err => {
+      const errorBox = document.getElementById('idRuleError');
+      if (errorBox) errorBox.textContent = err.message || err;
+    })
+    .saveIdRule(entityKey, payload);
 }
 
 function loadLocationItems() {

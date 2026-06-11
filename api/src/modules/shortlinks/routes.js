@@ -2,7 +2,7 @@ const crypto = require('crypto');
 
 const { pool, tx } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
-const { parseUser } = require('../../shared/users');
+const { hasAnyRole, parseUser } = require('../../shared/users');
 
 const SHORT_CODE_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
 const SHORT_LINK_STATUSES = new Set(['active', 'disabled', 'expired']);
@@ -11,7 +11,7 @@ function registerShortLinkRoutes(app) {
   app.get('/short-links', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
-      await assertFeatureReadable(currentUser, 'system');
+      await assertShortLinkAdmin(currentUser, 'read');
       res.json(await getShortLinks(req.query));
     } catch (err) {
       next(err);
@@ -21,7 +21,7 @@ function registerShortLinkRoutes(app) {
   app.post('/short-links', async (req, res, next) => {
     try {
       const currentUser = req.body.currentUser || {};
-      await assertFeatureEditable(currentUser, 'system');
+      await assertShortLinkAdmin(currentUser, 'edit');
       res.json(await saveShortLink(null, req.body.link || {}, currentUser));
     } catch (err) {
       next(err);
@@ -31,7 +31,7 @@ function registerShortLinkRoutes(app) {
   app.put('/short-links/:linkId', async (req, res, next) => {
     try {
       const currentUser = req.body.currentUser || {};
-      await assertFeatureEditable(currentUser, 'system');
+      await assertShortLinkAdmin(currentUser, 'edit');
       res.json(await saveShortLink(req.params.linkId, req.body.link || {}, currentUser));
     } catch (err) {
       next(err);
@@ -56,6 +56,14 @@ function registerShortLinkRoutes(app) {
       next(err);
     }
   });
+}
+
+async function assertShortLinkAdmin(currentUser, accessLevel) {
+  const isAdmin = Boolean(currentUser && (currentUser.isAdmin || currentUser.isSuperAdmin))
+    || hasAnyRole(currentUser, ['管理員', '超級管理者']);
+  if (!isAdmin) throw new Error('短連結管理限管理者以上層級操作');
+  if (accessLevel === 'edit') return assertFeatureEditable(currentUser, 'forms');
+  return assertFeatureReadable(currentUser, 'forms');
 }
 
 async function getShortLinks(query) {

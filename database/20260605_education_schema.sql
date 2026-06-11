@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS education_course_categories (
 
 CREATE TABLE IF NOT EXISTS education_courses (
   course_id integer PRIMARY KEY,
+  course_code text UNIQUE,
   category_id integer REFERENCES education_course_categories(category_id) ON DELETE SET NULL,
   course_name text NOT NULL,
   start_date date,

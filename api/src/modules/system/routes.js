@@ -1,5 +1,6 @@
 const { pool, tx } = require('../../db');
 const { PARAM_CATEGORIES, SYSTEM_FEATURES } = require('../core/catalog');
+const { getIdRules, saveIdRule } = require('../../shared/id-rules');
 
 function registerSystemRoutes(app) {
   app.get('/initial-data', async (req, res, next) => {
@@ -133,6 +134,25 @@ function registerSystemRoutes(app) {
     try {
       assertSuperAdmin(parseUser(req));
       res.json(await getSystemLogs(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/system/id-rules', async (req, res, next) => {
+    try {
+      assertSuperAdmin(parseUser(req));
+      res.json({ rows: await getIdRules() });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/system/id-rules/:entityKey', async (req, res, next) => {
+    try {
+      assertSuperAdmin(req.body.currentUser);
+      const rule = await saveIdRule(Object.assign({}, req.body.rule || {}, { entityKey: req.params.entityKey }));
+      res.json({ success: true, message: '編碼規則已儲存', rule, rows: await getIdRules() });
     } catch (err) {
       next(err);
     }

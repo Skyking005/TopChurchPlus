@@ -8,6 +8,14 @@
       <button type="button" class="btn btn-primary" id="addFormBtn" onclick="newForm()">新增表單</button>
     </div>
 
+    <div id="formsShortLinkAdminBlock" class="d-none mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0">短連結管理</h6>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="loadShortLinks()">重新整理</button>
+      </div>
+      <div id="formsShortLinkHost"></div>
+    </div>
+
     <div id="formsListView">
       <div class="row g-2 align-items-end mb-3">
         <div class="col-12 col-md-6">

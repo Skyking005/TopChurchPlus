@@ -4,6 +4,7 @@ const { getParams } = require('../../shared/params');
 const { assertDesktop, hasAnyRole, parseQueryUser, parseUser } = require('../../shared/users');
 const { formatDate, formatDateTime, splitCsv } = require('../../shared/format');
 const { normalizeFileInput, saveFileWithLink, toDataUrl } = require('../../shared/files');
+const { generateId } = require('../../shared/id-rules');
 
 const MEETING_RECORD_PDF_MAX_BYTES = 15 * 1024 * 1024;
 
@@ -105,6 +106,16 @@ function registerProjectRoutes(app) {
   }
 });
 
+  app.get('/meetings', async (req, res, next) => {
+  try {
+    const currentUser = parseUser(req);
+    await assertFeatureReadable(currentUser, 'meeting');
+    res.json(await getAllMeetings(req.query));
+  } catch (err) {
+    next(err);
+  }
+});
+
   app.get('/projects/:projectId/meetings/:meetingId/record-pdfs/:fileId', async (req, res, next) => {
   try {
     const currentUser = parseUser(req);
@@ -155,8 +166,9 @@ function registerProjectRoutes(app) {
   try {
     const { currentUser, meeting } = req.body;
     const projectId = meeting['計畫編號'];
-    await assertFullControl(projectId, currentUser);
-    const meetingId = await generateMeetingId();
+    if (projectId) await assertFullControl(projectId, currentUser);
+    else await assertFeatureEditable(currentUser, 'meeting');
+    const meetingId = await generateId('meeting', { table: 'meetings', column: 'meeting_id' });
 
     await tx(async client => {
       await client.query(
@@ -164,7 +176,7 @@ function registerProjectRoutes(app) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         meetingId,
-        projectId,
+        projectId || null,
         meeting['會議時間'] || null,
         meeting['會議主題'] || '',
         meeting['討論議題'] || '',
@@ -265,7 +277,7 @@ async function saveProject(payload) {
     let oldProject = null;
 
     if (!projectId) {
-      projectId = await generateProjectId(client);
+      projectId = await generateId('project', { client, table: 'projects', column: 'project_id' });
       project['計畫編號'] = projectId;
       isNew = true;
     } else {
@@ -427,6 +439,41 @@ async function getMeetings(projectId) {
   const meetingIds = rows.map(row => row.meeting_id);
   const attachmentMap = meetingIds.length ? await getMeetingRecordPdfMap(meetingIds) : new Map();
   return rows.map(row => toMeetingRow(row, attachmentMap.get(row.meeting_id) || []));
+}
+
+async function getAllMeetings(query = {}) {
+  const keyword = String(query.keyword || '').trim().toLowerCase();
+  const status = String(query.status || '').trim();
+  const projectMode = String(query.projectMode || '').trim();
+  const where = [];
+  const values = [];
+
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(m.meeting_id) LIKE $${values.length}
+      OR lower(coalesce(m.topic, '')) LIKE $${values.length}
+      OR lower(coalesce(m.agenda, '')) LIKE $${values.length}
+      OR lower(coalesce(p.project_name, '')) LIKE $${values.length}
+    )`);
+  }
+  if (status) {
+    values.push(status);
+    where.push(`m.status = $${values.length}`);
+  }
+  if (projectMode === 'standalone') where.push('m.project_id IS NULL');
+  if (projectMode === 'project') where.push('m.project_id IS NOT NULL');
+
+  const { rows } = await pool.query(
+    `SELECT m.*, p.project_name
+     FROM meetings m
+     LEFT JOIN projects p ON p.project_id = m.project_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY m.meeting_time DESC NULLS LAST, m.meeting_id DESC
+     LIMIT 200`,
+    values
+  );
+  return { rows: rows.map(row => Object.assign(toMeetingRow(row), { projectName: row.project_name || '' })) };
 }
 
 async function replaceRows(client, table, projectId, rows, insertFn) {

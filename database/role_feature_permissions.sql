@@ -12,6 +12,7 @@ CREATE INDEX IF NOT EXISTS idx_role_feature_permissions_role ON role_feature_per
 WITH defaults(role, feature_key, access_level) AS (
   VALUES
     ('超級管理者', 'project', 'edit'),
+    ('超級管理者', 'meeting', 'edit'),
     ('超級管理者', 'finance', 'edit'),
     ('超級管理者', 'asset', 'edit'),
     ('超級管理者', 'venue', 'edit'),
@@ -28,6 +29,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('超級管理者', 'system', 'edit'),
     ('超級管理者', 'dev_management', 'edit'),
     ('管理員', 'project', 'edit'),
+    ('管理員', 'meeting', 'edit'),
     ('管理員', 'finance', 'edit'),
     ('管理員', 'asset', 'edit'),
     ('管理員', 'venue', 'edit'),
@@ -42,6 +44,7 @@ WITH defaults(role, feature_key, access_level) AS (
     ('管理員', 'attendance', 'edit'),
     ('管理員', 'serving', 'edit'),
     ('全職同工', 'project', 'edit'),
+    ('全職同工', 'meeting', 'edit'),
     ('全職同工', 'finance', 'edit'),
     ('全職同工', 'venue', 'edit'),
     ('全職同工', 'forms', 'edit'),

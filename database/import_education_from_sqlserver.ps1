@@ -63,7 +63,9 @@ $command = $connection.CreateCommand()
 $command.CommandText = 'SELECT Course001, Course002, Course003, Course004, Course005 FROM dbo.Course ORDER BY Course001'
 $reader = $command.ExecuteReader()
 while ($reader.Read()) {
-  $lines.Add("INSERT INTO education_courses (course_id, category_id, course_name, start_date, end_date) VALUES ($($reader.GetValue(0)), $($reader.GetValue(1)), $(ConvertTo-PgText $reader.GetValue(2)), $(ConvertTo-PgDate $reader.GetValue(3)), $(ConvertTo-PgDate $reader.GetValue(4))) ON CONFLICT (course_id) DO UPDATE SET category_id = EXCLUDED.category_id, course_name = EXCLUDED.course_name, start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, updated_at = now();")
+  $courseId = $reader.GetValue(0)
+  $courseCode = "'CL$(([int]$courseId).ToString('00000'))'"
+  $lines.Add("INSERT INTO education_courses (course_id, course_code, category_id, course_name, start_date, end_date) VALUES ($courseId, $courseCode, $($reader.GetValue(1)), $(ConvertTo-PgText $reader.GetValue(2)), $(ConvertTo-PgDate $reader.GetValue(3)), $(ConvertTo-PgDate $reader.GetValue(4))) ON CONFLICT (course_id) DO UPDATE SET course_code = COALESCE(education_courses.course_code, EXCLUDED.course_code), category_id = EXCLUDED.category_id, course_name = EXCLUDED.course_name, start_date = EXCLUDED.start_date, end_date = EXCLUDED.end_date, updated_at = now();")
 }
 $reader.Close()
 

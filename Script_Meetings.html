@@ -1,0 +1,109 @@
+<script>
+let meetings = [];
+
+function openMeetingsSystem() {
+  recordFeatureUsage('meeting');
+  const canEdit = getFeatureAccess('meeting') === 'edit' && currentUser.deviceType !== 'mobile';
+  document.getElementById('mainTitle').textContent = '會議管理';
+  MAIN_VIEW_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('d-none');
+  });
+  document.getElementById('meetingsView').classList.remove('d-none');
+  document.getElementById('addStandaloneMeetingBtn').classList.toggle('d-none', !canEdit);
+  setupMeetingOptions();
+  loadMeetings();
+}
+
+function setupMeetingOptions() {
+  const statuses = initialData?.params?.meetingStatus || [];
+  ['standaloneMeetingStatus', 'meetingStatusFilter'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = id === 'meetingStatusFilter' ? '<option value="">全部</option>' : '';
+    statuses.forEach(status => {
+      const opt = document.createElement('option');
+      opt.value = status;
+      opt.textContent = status;
+      select.appendChild(opt);
+    });
+    if (currentValue) select.value = currentValue;
+  });
+}
+
+function loadMeetings() {
+  setListLoading('meetingsTableBody', true, '會議載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      meetings = data?.rows || [];
+      renderMeetingsManagementTable();
+    })
+    .withFailureHandler(showError)
+    .getMeetings({
+      keyword: document.getElementById('meetingKeyword')?.value || '',
+      status: document.getElementById('meetingStatusFilter')?.value || '',
+      projectMode: document.getElementById('meetingProjectMode')?.value || ''
+    }, currentUser);
+}
+
+function renderMeetingsManagementTable() {
+  const body = document.getElementById('meetingsTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!meetings.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">尚無會議</td></tr>';
+    return;
+  }
+  meetings.forEach(meeting => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(meeting['會議編號'] || meeting.meetingId || '')}</td>
+      <td>${escapeHtml(meeting['會議時間'] || '')}</td>
+      <td>${escapeHtml(meeting['會議主題'] || '')}</td>
+      <td>${escapeHtml([meeting['計畫編號'], meeting.projectName].filter(Boolean).join(' '))}</td>
+      <td>${escapeHtml(meeting['與會者'] || '')}</td>
+      <td>${escapeHtml(meeting['會議狀態'] || '')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function saveStandaloneMeeting() {
+  const btn = document.getElementById('addStandaloneMeetingBtn');
+  const meeting = {
+    '計畫編號': '',
+    '會議時間': document.getElementById('standaloneMeetingTime').value,
+    '會議主題': document.getElementById('standaloneMeetingTopic').value.trim(),
+    '討論議題': document.getElementById('standaloneMeetingAgenda').value.trim(),
+    '會議決議': '',
+    '與會者': document.getElementById('standaloneMeetingAttendees').value.trim(),
+    '會議狀態': document.getElementById('standaloneMeetingStatus').value
+  };
+  if (!meeting['會議主題']) return alert('請填寫會議主題');
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message);
+      resetStandaloneMeetingForm();
+      loadMeetings();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .addMeeting({ currentUser, meeting });
+}
+
+function resetStandaloneMeetingForm() {
+  ['standaloneMeetingTime', 'standaloneMeetingTopic', 'standaloneMeetingAgenda', 'standaloneMeetingAttendees'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function handleMeetingSearchKey(event) {
+  if (event.key === 'Enter') loadMeetings();
+}
+</script>

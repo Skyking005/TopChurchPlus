@@ -899,6 +899,15 @@ function getProjectMeetings(projectId, currentUser) {
   return apiRequest('get', `/projects/${encodeURIComponent(projectId)}/meetings`, null, null, currentUser);
 }
 
+function getMeetings(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/meetings', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || '',
+    projectMode: filters.projectMode || ''
+  }, currentUser);
+}
+
 function exportProjectDoc(projectId, currentUser) {
   if (!projectId) throw new Error('缺少專案編號');
 
@@ -1080,6 +1089,18 @@ function getSystemLogs(filters, currentUser) {
     staffId: filters.staffId || '',
     limit: filters.limit || 100
   }, currentUser);
+}
+
+function getIdRules(currentUser) {
+  return apiRequest('get', '/system/id-rules', null, null, currentUser);
+}
+
+function saveIdRule(entityKey, payload) {
+  return apiRequest(
+    'put',
+    `/system/id-rules/${encodeURIComponent(entityKey)}`,
+    payload
+  );
 }
 
 function getDevManagementIssues(filters, currentUser) {

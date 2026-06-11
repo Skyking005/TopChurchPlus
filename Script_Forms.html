@@ -27,7 +27,7 @@ function openFormsSystem() {
   const canEdit = getFeatureAccess('forms') === 'edit' && currentUser.deviceType !== 'mobile';
   isPublicFormMode = false;
   document.getElementById('mainTitle').textContent = '表單系統';
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'meetingsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -39,8 +39,28 @@ function openFormsSystem() {
   document.getElementById('copyPublicFormLinkBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('viewFormResponsesBtn').classList.toggle('d-none', !canEdit);
   document.getElementById('viewFormStatisticsBtn').classList.toggle('d-none', !canEdit);
+  mountFormsShortLinkAdmin();
   backToFormsList(false);
   loadForms();
+}
+
+function isShortLinkAdminUser() {
+  const roles = Array.isArray(currentUser?.roles) ? currentUser.roles : [];
+  return Boolean(currentUser?.isAdmin || currentUser?.isSuperAdmin || roles.includes('管理員') || roles.includes('超級管理者'));
+}
+
+function mountFormsShortLinkAdmin() {
+  const block = document.getElementById('formsShortLinkAdminBlock');
+  const host = document.getElementById('formsShortLinkHost');
+  const pane = document.getElementById('shortLinkManagePane');
+  if (!block || !host || !pane) return;
+  const canManage = isShortLinkAdminUser();
+  block.classList.toggle('d-none', !canManage);
+  if (!canManage) return;
+  host.appendChild(pane);
+  pane.classList.add('show', 'active');
+  pane.classList.remove('fade');
+  loadShortLinks();
 }
 
 function openPublicFormFill(formId) {
@@ -50,7 +70,7 @@ function openPublicFormFill(formId) {
   document.getElementById('loginView')?.classList.add('d-none');
   document.getElementById('mainView')?.classList.remove('d-none');
   document.querySelector('.topbar')?.classList.add('d-none');
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'meetingsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });
@@ -80,7 +100,7 @@ function openPublicFormEdit(formId, responseId, token) {
   document.getElementById('loginView')?.classList.add('d-none');
   document.getElementById('mainView')?.classList.remove('d-none');
   document.querySelector('.topbar')?.classList.add('d-none');
-  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
+  ['featureSelectionView', 'overviewView', 'purchaseView', 'assetView', 'venueView', 'zoomView', 'pastoralView', 'attendanceView', 'meetingsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'detailView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

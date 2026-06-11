@@ -9,6 +9,7 @@ const SYSTEM_FEATURES = [
   { key: 'venue', icon: 'map', title: '場地預約系統', desc: '設定可借用場地，查看預約、借用狀態與場地使用安排。', action: 'openVenueSystem' },
   { key: 'zoom', icon: 'video', title: 'Zoom帳號管理系統', desc: '以行事曆方式查看與借用教會 Zoom 帳號，避免會議時段衝突。', action: 'openZoomSystem' },
   { key: 'sunday_message', icon: 'message', title: '主日信息管理系統', desc: '管理主日信息主題，追蹤各會堂、特會與其他場合的分享狀況。', action: 'openSundayMessageSystem' },
+  { key: 'meeting', icon: 'calendar', title: '會議管理', desc: '管理獨立會議與專案會議，追蹤會議時間、主題、與會者與狀態。', action: 'openMeetingsSystem' },
   { key: 'forms', icon: 'form', title: '表單系統', desc: '建立問卷、活動報名與公開填寫表單，並檢視回覆與統計。', action: 'openFormsSystem' },
   { key: 'counter', icon: 'counter', title: '櫃台工作台', desc: '提供志工櫃台使用，處理現場繳費、QT 領取與報名服務。', action: 'openCounterWorkbench' },
   { key: 'qrcode', icon: 'qrcode', title: 'QRCode 活動管理', desc: '建立活動報到櫃台，搭配 Line QRCode 掃描並檢視出席名單。', action: 'openQrcodeSystem' },
@@ -23,9 +24,9 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system', 'dev_management'],
-  '管理員': ['project', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
-  '全職同工': ['project', 'finance', 'admin_supply', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system', 'dev_management'],
+  '管理員': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '全職同工': ['project', 'meeting', 'finance', 'admin_supply', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
   '教育同工': ['education'],
@@ -45,6 +46,7 @@ const MAIN_VIEW_IDS = [
   'sundayMessageView',
   'pastoralView',
   'attendanceView',
+  'meetingsView',
   'formsView',
   'educationView',
   'qtView',
@@ -414,7 +416,7 @@ function updateUserInfo(user) {
 }
 
 function resetAppToLogin() {
-  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'adminSupplyView', 'assetView', 'venueView', 'zoomView', 'sundayMessageView', 'pastoralView', 'attendanceView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
+  ['mainView', 'featureSelectionView', 'overviewView', 'detailView', 'purchaseView', 'adminSupplyView', 'assetView', 'venueView', 'zoomView', 'sundayMessageView', 'pastoralView', 'attendanceView', 'meetingsView', 'formsView', 'educationView', 'qtView', 'lineBotView', 'qrcodeView', 'counterWorkbenchView', 'systemView'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.add('d-none');
   });

@@ -3,6 +3,7 @@ const { recordDomainEvent } = require('../../shared/cross-system');
 const { formatDate } = require('../../shared/format');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
+const { generateId } = require('../../shared/id-rules');
 
 function registerEducationRoutes(app) {
   app.get('/education/course-categories', async (req, res, next) => {
@@ -90,7 +91,7 @@ async function getCourses(query) {
 
   if (keyword) {
     values.push(`%${keyword}%`);
-    where.push(`(lower(c.course_name) LIKE $${values.length} OR lower(coalesce(cat.category_name, '')) LIKE $${values.length})`);
+    where.push(`(lower(c.course_name) LIKE $${values.length} OR lower(coalesce(c.course_code, '')) LIKE $${values.length} OR lower(coalesce(cat.category_name, '')) LIKE $${values.length})`);
   }
   if (categoryId) {
     values.push(categoryId);
@@ -107,6 +108,7 @@ async function getCourses(query) {
     `SELECT
        c.course_id,
        c.course_name,
+       c.course_code,
        c.start_date,
        c.end_date,
        c.status,
@@ -253,20 +255,25 @@ async function saveCourse(courseId, payload, currentUser) {
     const id = isNew ? await generateCourseId(client) : Number(courseId);
     if (!Number.isInteger(id)) throw new Error('課程編號格式錯誤');
 
+    const existing = isNew ? null : (await client.query('SELECT course_code FROM education_courses WHERE course_id = $1', [id])).rows[0];
+    const courseCode = existing?.course_code || await generateId('course', { client, table: 'education_courses', column: 'course_code' });
+
     const result = await client.query(
       `INSERT INTO education_courses (
-         course_id, category_id, course_name, start_date, end_date, status, updated_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,now())
+         course_id, course_code, category_id, course_name, start_date, end_date, status, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,now())
        ON CONFLICT (course_id) DO UPDATE SET
+         course_code = COALESCE(education_courses.course_code, EXCLUDED.course_code),
          category_id = EXCLUDED.category_id,
          course_name = EXCLUDED.course_name,
          start_date = EXCLUDED.start_date,
          end_date = EXCLUDED.end_date,
          status = EXCLUDED.status,
          updated_at = now()
-       RETURNING course_id`,
+       RETURNING course_id, course_code`,
       [
         id,
+        courseCode,
         normalized.categoryId,
         normalized.courseName,
         normalized.startDate,
@@ -320,6 +327,7 @@ function matchesEducationStage(courseText, patterns) {
 function toCourseListItem(row) {
   return {
     courseId: row.course_id,
+    courseCode: row.course_code || '',
     courseName: row.course_name,
     categoryId: row.category_id,
     categoryName: row.category_name,
@@ -334,6 +342,7 @@ function toCourseListItem(row) {
 function toCourseDetail(row) {
   return {
     courseId: row.course_id,
+    courseCode: row.course_code || '',
     courseName: row.course_name,
     categoryId: row.category_id,
     categoryName: row.category_name,
