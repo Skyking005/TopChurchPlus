@@ -887,8 +887,7 @@ function getProjects(filters, currentUser) {
   return apiRequest('get', '/projects', null, {
     keyword: filters.keyword || '',
     projectType: filters.projectType || '',
-    unit: filters.unit || '',
-    currentUser: currentUser ? Utilities.base64EncodeWebSafe(JSON.stringify(currentUser)) : ''
+    unit: filters.unit || ''
   }, currentUser);
 }
 
