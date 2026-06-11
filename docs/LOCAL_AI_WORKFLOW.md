@@ -2,6 +2,8 @@
 
 本文件說明 TopChurchPlus 如何使用本機 Ollama 做任務前置分析。因本機模型效能與摘要品質有限，大型任務預設優先使用 Remote AI preflight；Local AI 主要作為快速小摘要、關鍵字初篩、低風險搜尋整理，或 Remote AI 不可用時的備援。
 
+本地 AI 的任務角色、輸出格式、風險標記與 prompt 範本，請先讀 `docs/LOCAL_AI_TASK_GUIDE.md`。
+
 ## 目前設定
 
 - 本機 AI 工具：Ollama
