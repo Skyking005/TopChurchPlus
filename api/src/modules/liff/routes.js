@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 const { pool } = require('../../db');
+const { recordAuditLog } = require('../../shared/audit');
+const { recordNotificationLog, renderNotification } = require('../../shared/notifications');
 const {
   assertLiffRequestAllowed,
   assertLiffSessionAllowed,
@@ -317,13 +319,61 @@ async function bindLiffMember(session, payload, req) {
     values
   );
 
-  if (candidates.rows.length === 0) throw notFound('找不到符合條件的會友資料，請洽櫃台或牧養同工協助');
-  if (candidates.rows.length > 1) throw validationError('找到多筆相同資料，請洽櫃台或牧養同工協助確認');
+  if (candidates.rows.length === 0) {
+    const request = await createLineBindingRequest(session, payload, {
+      name,
+      mobilePhone,
+      reason: 'member_not_found'
+    });
+    return {
+      success: true,
+      status: 'pending_review',
+      message: '找不到符合條件的會友資料，已建立綁定申請，請等候同工審核。',
+      request
+    };
+  }
+  if (candidates.rows.length > 1) {
+    const request = await createLineBindingRequest(session, payload, {
+      name,
+      mobilePhone,
+      reason: 'duplicate_member_candidates'
+    });
+    return {
+      success: true,
+      status: 'pending_review',
+      message: '找到多筆相同資料，已建立綁定申請，請等候同工協助確認。',
+      request
+    };
+  }
 
   const member = candidates.rows[0];
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const pastoralBind = await client.query(
+      `UPDATE pastoral_members
+       SET line_user_id = $1,
+           updated_at = now()
+       WHERE id = $2
+         AND (coalesce(line_user_id, '') = '' OR line_user_id = $1)
+       RETURNING id`,
+      [session.line_user_id, member.id]
+    );
+    if (!pastoralBind.rowCount) {
+      const request = await createLineBindingRequest(session, payload, {
+        name,
+        mobilePhone,
+        reason: 'member_bound_to_other_line',
+        client
+      });
+      await client.query('COMMIT');
+      return {
+        success: true,
+        status: 'pending_review',
+        message: '此會友資料已綁定其他 LINE 帳號，已建立綁定申請，請等候同工協助確認。',
+        request
+      };
+    }
     const account = await client.query(
       `INSERT INTO member_accounts (member_id, login_identifier, display_name, last_login_at, updated_at)
        VALUES ($1,$2,$3,now(),now())
@@ -355,18 +405,48 @@ async function bindLiffMember(session, payload, req) {
         session.line_user_id
       ]
     );
-    const pastoralBind = await client.query(
-      `UPDATE pastoral_members
-       SET line_user_id = $1,
-           updated_at = now()
-       WHERE id = $2
-         AND (coalesce(line_user_id, '') = '' OR line_user_id = $1)
-       RETURNING id`,
-      [session.line_user_id, member.id]
+    await client.query(
+      `INSERT INTO identity_providers (
+         pastoral_member_id, provider_type, provider_user_id, display_name,
+         picture_url, email, status, linked_at, last_login_at, updated_at
+       )
+       SELECT $1, 'LINE', lu.line_user_id, lu.display_name, lu.picture_url,
+         lu.metadata->>'email', 'ACTIVE', now(), now(), now()
+       FROM line_users lu
+       WHERE lu.line_user_id = $2
+       ON CONFLICT (provider_type, provider_user_id) DO UPDATE SET
+         pastoral_member_id = EXCLUDED.pastoral_member_id,
+         display_name = EXCLUDED.display_name,
+         picture_url = EXCLUDED.picture_url,
+         email = EXCLUDED.email,
+         status = 'ACTIVE',
+         last_login_at = now(),
+         updated_at = now()`,
+      [member.id, session.line_user_id]
     );
-    if (!pastoralBind.rowCount) {
-      throw validationError('此會友資料已綁定其他 LINE 帳號，請洽櫃台或牧養同工協助');
-    }
+    await recordAuditLog({
+      systemKey: 'line_binding',
+      entityType: 'pastoral_members',
+      entityId: String(member.id),
+      action: 'BIND',
+      memberId: member.id,
+      afterData: {
+        lineUserId: session.line_user_id,
+        memberAccountId: account.rows[0].member_account_id
+      },
+      metadata: {
+        source: 'liff.bind-member',
+        requestId: req.requestId || ''
+      },
+      ipAddress: getIpAddress(req),
+      userAgent: req.get('user-agent') || ''
+    }, client);
+    await recordLineBindingNotification(client, 'LINE_BIND_SUCCESS', {
+      name: member.name,
+      email: normalizeText(payload.email),
+      bindDatetime: new Date().toISOString(),
+      status: 'SENT'
+    });
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -386,6 +466,56 @@ async function bindLiffMember(session, payload, req) {
       mobilePhone: member.mobile_phone || ''
     }
   };
+}
+
+async function createLineBindingRequest(session, payload, options) {
+  const client = options.client || pool;
+  const email = normalizeText(payload.email);
+  const result = await client.query(
+    `INSERT INTO line_binding_requests (
+       line_user_id, display_name, name, zone, mobile, email, status, admin_note, updated_at
+     )
+     SELECT lu.line_user_id, lu.display_name, $2, $3, $4, $5, 'PENDING', $6, now()
+     FROM line_users lu
+     WHERE lu.line_user_id = $1
+     RETURNING id, status, created_at`,
+    [
+      session.line_user_id,
+      options.name,
+      normalizeText(payload.zone),
+      options.mobilePhone,
+      email,
+      `auto:${options.reason}`
+    ]
+  );
+  await recordLineBindingNotification(client, 'LINE_BIND_REQUEST_RECEIVED', {
+    name: options.name,
+    email,
+    bindDatetime: new Date().toISOString(),
+    status: email ? 'PENDING' : 'SKIPPED'
+  });
+  return {
+    requestId: result.rows[0]?.id || '',
+    status: result.rows[0]?.status || 'PENDING',
+    createdAt: result.rows[0]?.created_at || null
+  };
+}
+
+async function recordLineBindingNotification(client, templateCode, payload) {
+  if (!payload.email) return null;
+  const rendered = await renderNotification(templateCode, 'EMAIL', {
+    Name: payload.name,
+    BindDatetime: payload.bindDatetime,
+    OfficialWebsiteUrl: ''
+  }, client);
+  return recordNotificationLog({
+    templateCode,
+    channel: 'EMAIL',
+    recipient: payload.email,
+    subject: rendered.subject,
+    contentSnapshot: rendered.content,
+    status: payload.status || 'PENDING'
+  }, client);
 }
 
 async function getPortalLinks(session) {
