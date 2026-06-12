@@ -14,7 +14,13 @@ function createErrorHandler() {
       stack: err.stack
     }));
 
-    res.status(status).json({ error: message, requestId });
+    res.status(status).json({
+      success: false,
+      errorCode: err.errorCode || 'API_ERROR',
+      message,
+      error: message,
+      requestId
+    });
   };
 }
 

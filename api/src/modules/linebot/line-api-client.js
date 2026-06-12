@@ -87,6 +87,14 @@ function createLineApiClient(metadata = {}, fetchImpl = globalThis.fetch) {
   return {
     readiness,
     getBotInfo: () => request('/info'),
+    getUserProfile: lineUserId => request(`/profile/${encodeURIComponent(lineUserId)}`),
+    replyMessage: (replyToken, messages) => request('/message/reply', {
+      method: 'POST',
+      body: JSON.stringify({
+        replyToken,
+        messages: Array.isArray(messages) ? messages : [messages]
+      })
+    }),
     linkRichMenuToUser: (lineUserId, richMenuId) => request(`/user/${encodeURIComponent(lineUserId)}/richmenu/${encodeURIComponent(richMenuId)}`, { method: 'POST' }),
     unlinkRichMenuFromUser: lineUserId => request(`/user/${encodeURIComponent(lineUserId)}/richmenu`, { method: 'DELETE' })
   };

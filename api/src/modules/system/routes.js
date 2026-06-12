@@ -1,6 +1,8 @@
 const { pool, tx } = require('../../db');
 const { PARAM_CATEGORIES, SYSTEM_FEATURES } = require('../core/catalog');
 const { getIdRules, saveIdRule } = require('../../shared/id-rules');
+const { listConfig, saveConfig } = require('../../shared/config');
+const { sendSuccess } = require('../../shared/api-response');
 
 function registerSystemRoutes(app) {
   app.get('/initial-data', async (req, res, next) => {
@@ -153,6 +155,29 @@ function registerSystemRoutes(app) {
       assertSuperAdmin(req.body.currentUser);
       const rule = await saveIdRule(Object.assign({}, req.body.rule || {}, { entityKey: req.params.entityKey }));
       res.json({ success: true, message: '編碼規則已儲存', rule, rows: await getIdRules() });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/system/config', async (req, res, next) => {
+    try {
+      assertSuperAdmin(parseUser(req));
+      sendSuccess(req, res, { rows: await listConfig() });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/system/config/:configKey', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      assertSuperAdmin(currentUser);
+      const config = await saveConfig({
+        ...(req.body.config || {}),
+        configKey: req.params.configKey
+      }, currentUser);
+      sendSuccess(req, res, { config }, '系統設定已儲存');
     } catch (err) {
       next(err);
     }

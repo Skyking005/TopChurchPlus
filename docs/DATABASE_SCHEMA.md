@@ -1,328 +1,360 @@
-# TopChurchPlus Database Schema Guide
+# TopChurchPlus Database Schema
 
-最後更新：2026-06-09
+最後更新：2026-06-12
 
-本文件是資料表索引與欄位語意指南，不取代 SQL migration。真正欄位定義請以 `database/*.sql` 與實際 PostgreSQL schema 為準。
+本文件是 AI / Codex 快速理解用的資料庫索引，不取代 SQL migration。實際欄位定義以 `database/*.sql` 與 PostgreSQL 實際 schema 為準。
 
 ## 資料庫原則
 
-- 現行主要資料庫為 NAS PostgreSQL。
-- 舊 MSSQL 仍是牧養、課程、QT、點名等正式資料來源或同步來源。
-- 每次 schema 或資料 migration 前都要先備份 NAS PostgreSQL。
-- 新增外鍵欄位時需補 index。
-- 與 MSSQL 搬移有關的欄位，不要隨意改名或改型別。
-- 中文 seed 或測試資料寫入後，要查回確認沒有 mojibake。
+- 主資料庫：NAS PostgreSQL。
+- 過渡來源：舊 MSSQL，仍用於會友、課程、QT、點名等資料匯入或核對。
+- schema 變更前需備份，變更後需查回驗證。
+- 新增 FK 欄位必須補 index。
+- 與 MSSQL 搬移相關的欄位不要任意改名或改型別。
+- 中文 seed 或測試資料寫入後要查回確認無 mojibake。
 
-## 核心資料表
+## Identity Boundary v2
+
+### Administrative Domain
+
+用途：同工後台登入、行政功能入口、系統管理權限。
+
+主要資料表：
+
+- `accounts`
+- `account_roles`
+- `role_feature_permissions`
+- `system_usage_logs`
+- `audit_logs`
+
+規則：
+
+- `role_feature_permissions` 控制 feature key 的 `none/read/edit`。
+- 後台角色只代表行政系統權限，不代表會友身份。
+
+### Pastoral Domain
+
+用途：會友資料、牧養資料範圍、LINE/LIFF 外部身份。
+
+主要資料表：
+
+- `pastoral_members`
+- `pastoral_groups`
+- `account_pastoral_church_permissions`
+- `member_accounts`
+- `line_users`
+- `line_liff_sessions`
+
+硬性規則：
+
+- Pastoral Domain 權限不可依賴後台 Account Role。
+- 會友自助、LINE/LIFF、牧養資料範圍要使用牧養專用權限或外部身份橋接。
+- 不可用 `role_feature_permissions` 決定會友在外部入口可看哪些個人資料。
+
+## Core / Administrative Tables
 
 ### accounts
 
-同工帳號主檔。
-
-常見用途：
-
-- 內部系統登入。
-- 功能權限角色。
-- 職稱、部門、會堂或牧養資料權限。
+同工帳號主檔。用於內部登入、使用者資料、部門、會堂、後台操作人員。
 
 注意：
 
-- 序號排序需用數值排序，不要字串排序，避免 `101` 排在 `2` 前面。
-- 部門已朝多部門方向發展。
+- 部門已朝多選方向發展。
+- `staff_id` 會被多個 audit / creator 欄位引用。
+
+### account_roles
+
+同工角色多值表。用於角色權限矩陣。
 
 ### role_feature_permissions
 
-系統功能入口權限。
+功能入口權限矩陣。
 
 欄位概念：
 
-- role/identity：權限身分，例如超級管理者、管理員、全職同工、義工等。
-- feature_key：系統功能 key。
-- access_level：`none/read/edit`。
+- `role`
+- `feature_key`
+- `access_level`: `none/read/edit`
 
-用途：
+目前包含常見 feature：`project`、`meeting`、`finance`、`admin_supply`、`asset`、`venue`、`zoom`、`forms`、`counter`、`qrcode`、`qt`、`linebot`、`pastoral`、`education`、`attendance`、`workflow`、`system`、`dev_management` 等。
 
-- 決定登入後功能卡片是否顯示。
-- API 端也要用相同規則檢查。
+### id_rules
 
-### system_usage_logs
+中央編碼規則。
 
-系統使用紀錄。
+已使用：
 
-用途：
+- project -> `PJ`
+- course -> `CL`
+- member -> `TOP`
+- meeting -> `M`
 
-- 功能使用頻率。
-- 登入後功能排序。
-- 使用者體驗分析。
+欄位概念：
 
-注意：
-
-- 保留策略建議 180-365 天。
-- 盡量輕量記錄，避免 NAS 壓力。
+- `entity_key`
+- `prefix`
+- `include_year_month`
+- `sequence_digits`
+- `is_active`
 
 ### audit_logs
 
-敏感資料異動稽核。
-
-用途：
-
-- 權限、牧養、財務、系統設定等敏感操作。
-- 未來問題追查。
+敏感操作稽核。Workflow、牧養、財務、系統設定等操作應記錄。
 
 注意：
 
-- 比 system_usage_logs 保存更久。
-- 記錄時避免大量塞完整個人資料。
+- `staff_id` FK 到 `accounts.staff_id`，測試時不要帶不存在的 staffId。
+- 避免大量寫入完整個資，只放必要前後資料與 metadata。
 
-### development_issues
+### system_usage_logs
 
-系統開發 Issue 提案主檔。
+功能使用紀錄，用於入口使用頻率與 UX 分析。
 
-欄位概念：
-
-- issue_no：流水編號，給介面顯示。
-- issue_type：`feature`、`issue`、`maintain`。
-- status：`提案`、`取消`、`完成`。
-- priority：`低`、`中`、`高`。
-- description：使用者描述的需求、問題或維護事項。
-- created_by_staff_id / created_by_name：提交人。
-- completed_at：狀態為完成時記錄完成時間。
-
-索引：
-
-- `status + priority + created_at`：清單排序與篩選。
-- `issue_type`：類型篩選。
-- `created_by_staff_id`：依提交人查詢。
-
-### development_releases
-
-版本更新歷程。
-
-欄位概念：
-
-- commit_hash / commit_message：Git 更新資訊。
-- apps_script_version：Google Apps Script 部署版本。
-- api_deployed / apps_script_deployed：部署註記。
-- summary：本次更新摘要。
-- verification_result：測試、部署、DB 備份等驗證摘要。
-
-索引：
-
-- `created_at`：版本歷程倒序列表。
-- `created_by_staff_id`：依建立人查詢。
-
-### params / param_categories / param_items
-
-參數管理。
-
-現況：
-
-- 舊功能多數仍讀 `params`。
-- 新結構朝 `param_categories` + `param_items` 發展。
-
-建議：
-
-- 純下拉選項用 `param_items`。
-- 有屬性、關聯、統計需求者獨立成主資料表，例如 churches、departments、asset_locations、venues。
-
-## 共用檔案資料表
+## Common Foundation
 
 ### files
 
-檔案主檔。
-
-用途：
-
-- NAS 檔案或產出文件的統一紀錄。
-- 儲存檔名、mime type、大小、路徑、建立者等 metadata。
+共用檔案主檔，記錄檔名、mime type、大小、路徑、上傳者與 metadata。
 
 ### file_links
 
-檔案與業務資料關聯。
+檔案與業務資料的關聯表。
 
-用途：
+原則：
 
-- 將同一個檔案掛到牧養會友、財務請款、資產、表單回覆、專案文件等。
-
-建議欄位語意：
-
-- entity_type：例如 `pastoral_member`、`finance_purchase`、`asset`。
-- entity_id：業務資料 ID。
-- file_type：例如 `member_photo`、`quote_pdf`、`newcomer_form_image`。
-
-## 跨系統關聯
+- 新模組不要輕易新增自己的附件表。
+- 先寫 `files`，再用 `file_links` 掛到 entity。
+- Workflow history 若需要附件，保存 `file_link_ids`。
 
 ### entity_links
 
-記錄跨系統來源與衍生關係。
+跨系統來源與衍生關係。
 
 例：
 
 - project -> finance.purchase
-- finance.purchase -> finance.payment_request
 - finance.payment_request -> asset.asset
-
-用途：
-
-- 避免直接在各模組互塞一堆外部欄位。
-- 後續查資料來源、回溯流程、做統計。
 
 ### domain_events
 
-記錄系統事件。
+跨系統事件紀錄。用於追蹤業務事件，不取代 audit log。
 
-例：
+### param_categories / param_items / params
 
-- 採購單建立。
-- 請款單建立。
-- 資產由請款建立。
+參數系統。
 
-## 牧養相關
+現況：
+
+- 舊功能仍有 `params`。
+- 新結構朝 `param_categories` + `param_items` 發展。
+
+## BPM / Workflow
+
+Migration：`database/20260612_bpm_engine.sql`
+
+### bpm_definitions
+
+流程定義。
+
+欄位概念：
+
+- `id`
+- `name`
+- `definition_key`
+- `owner_role`
+- `is_active`
+- `metadata`
+
+### bpm_instances
+
+流程實例。
+
+欄位概念：
+
+- `definition_id`
+- `entity_type`
+- `entity_id`
+- `entity_code`
+- `status`: `DRAFT|IN_PROGRESS|COMPLETED|CANCELLED`
+- `creator_id`
+- `creator_name`
+
+原則：
+
+- 業務狀態與 BPM 狀態 v1 分離。
+- 不直接改業務表狀態。
+
+### bpm_history
+
+流程歷程。
+
+欄位概念：
+
+- `instance_id`
+- `node_key`
+- `node_name`
+- `approver_id`
+- `approver_name`
+- `action`: `SUBMIT|APPROVE|REJECT|COMMENT|CANCEL`
+- `comment`
+- `file_link_ids`
+
+## Pastoral
 
 主要 migration：
 
 - `database/pastoral_schema.sql`
 - `database/pastoral_permissions_usage.sql`
-- `database/20260605_pastoral_member_images.sql`
 
-核心資料表概念：
+主要資料表：
 
-- pastoral_members：會友主檔。
-- pastoral_member_contacts：電話、Email、Line 等聯絡資料。
-- pastoral_member_addresses：地址，未來可搭配國家、縣市、行政區統計。
-- pastoral_member_faith：信仰狀態、原屬教會、洗禮等。
-- pastoral_member_families：親屬關係。
-- pastoral_groups：牧區/小家階層。
-- account_pastoral_church_permissions：帳號可看哪些會堂會友資料。
+- `pastoral_members`
+- `pastoral_member_contacts`
+- `pastoral_member_addresses`
+- `pastoral_member_faith`
+- `pastoral_groups`
+- `pastoral_group_closure`
+- `pastoral_care_records`
+- `pastoral_member_relationships`
+- `pastoral_member_files`
+- `account_pastoral_church_permissions`
 
 注意：
 
-- `pastoral_members.line_user_id` 與 `line_users` 連動。
-- 會友 CRUD 是其他模組的基礎，修改前要評估 Line App、教育、點名、表單的影響。
+- `member_code` 是 TOP 對外編碼；內部主鍵仍是整數 `id`。
+- 牧養資料會影響 Education、Attendance、Forms、Line App、LIFF。
+- Pastoral Domain 權限不可依賴後台 Account Role。
 
-## 財務相關
+## Project / Meeting
 
-主要資料概念：
+主要資料表：
 
-- purchase / purchase_items：採購與請購詳情。
-- advance / advance_items：預借。
-- expense_proofs / expense_proof_items：支出證明。
-- payment_requests / payment_request_items：請款。
-- 附件透過 `files`、`file_links` 管理，例如報價單 PDF。
+- `projects`
+- `project_people`
+- `project_permissions`
+- `project_income`
+- `project_budget`
+- `meetings`
+
+現況：
+
+- `projects.project_id` 已改 PJ 前綴。
+- `meetings.project_id` 可為 null，用於獨立會議。
+- 會議編碼使用 `id_rules`。
+
+注意：
+
+- 專案權限需由 API 檢查，不只前端隱藏。
+- 專案文件與會議附件應走共用檔案或文件服務。
+
+## Finance
+
+主要資料表：
+
+- `purchases`
+- `purchase_items`
+- `purchase_advances`
+- `purchase_expense_proofs`
+- `purchase_payment_requests`
+- `purchase_payment_items`
 
 注意：
 
 - 請款可獨立申請。
 - 支出證明必須掛請款。
-- 財務資料可衍生資產，應建立 `entity_links`。
+- 財務資料可能衍生資產，需用 `entity_links`。
 
-## 專案相關
+## Forms / Short Links / Counter
 
-主要資料表：
+Forms：
 
-- projects
-- project_people
-- project_permissions
-- project_income
-- project_budget
-- meetings
+- `forms`
+- `form_questions`
+- `form_responses`
+- `form_response_answers`
 
-注意：
+Short Links：
 
-- 專案內容可能包含財務資訊，不是所有全職同工都可看。
-- 儲存專案需允許有完全控制權限的人員，不限專案登入人。
-- 會議與會者需依 accounts / departments 快速選取。
+- 短連結服務主要服務公開表單。
+- 管理 UI 已移到 Forms。
 
-## 表單相關
+Counter：
 
-主要 migration：
+- 櫃台 PIN、交易、報名繳費與 QT 領取。
 
-- `database/20260605_forms_schema.sql`
-- `database/20260605_form_image_upload_schema.sql`
-- `database/20260605_forms_counter_foundation.sql`
+## Education / Attendance / QT
 
-資料概念：
+Education：
 
-- forms：表單主檔。
-- form_questions：題目。
-- form_responses：回覆。
-- form_response_answers：答案。
-- 圖片附件走檔案表。
+- `education_courses`
+- `course_code` 使用 CL 對外編碼。
 
-注意：
+Attendance：
 
-- 外部填寫必填 Email。
-- 停止或過期後，新增/編輯都需阻擋。
-- 回覆需可產生統計表。
+- 聚會統計與小家出席仍與 MSSQL 過渡資料有關。
+
+QT：
+
+- QT 訂購、庫存、調撥與舊系統匯入。
 
 ## Line App / LIFF
 
 主要 migration：
 
-- `database/20260606_linebot_foundation.sql`
 - `database/20260607_liff_foundation.sql`
 - `database/20260609_line_app_member_management.sql`
 
 主要資料表：
 
-- line_bot_channels：Channel、LIFF、LINE API 預備設定、LIFF security metadata。
-- line_bot_module_settings：Line App 會友功能開關。
-- line_bot_rich_menus：Rich Menu 管理與已綁定/未綁定提示。
-- line_bot_links：LINE/LIFF 對外連結。
-- line_users：LINE 使用者。
-- line_liff_sessions：LIFF session。
+- `line_bot_channels`
+- `line_bot_module_settings`
+- `line_bot_rich_menus`
+- `line_bot_links`
+- `line_users`
+- `line_liff_sessions`
+- `member_accounts`
 
 注意：
 
-- 目前 LINE API 正式呼叫預設關閉。
-- LIFF 安全框架預設監控，不阻擋。
-- 正式切換前不要把 mode 改成 live。
+- 技術 key/path 仍是 `linebot`。
+- UI 名稱是 Line App 會友管理系統。
+- Webhook URL 規劃為 `https://api.topchurchplus.com/linebot/webhook`。
+- 外部 HTTPS 未完成前不要切正式模式。
 
-## QT、QRCode、場地、Zoom、行政物資
+## Asset / Venue / Zoom / Admin Supply / Qrcode
 
-QT：
+Asset：
 
-- `database/20260605_qt_inventory_schema.sql`
-- `database/20260605_qt_orders_schema.sql`
-- 與 Line App 下單前庫存檢查相關。
+- 資產主檔、位置、來源關聯。
+- 797 筆正式資產匯入仍需驗證。
 
-QRCode：
+Venue：
 
-- `database/20260605_qrcode_checkin_schema.sql`
-- 櫃台工作站掃碼報到。
-
-場地：
-
-- `database/20260605_venue_schema.sql`
-- `database/20260606_resource_overlap_constraints.sql`
-- 需要同場地同時段排他。
+- 場地資源、預約、衝突檢查。
 
 Zoom：
 
-- `database/20260606_zoom_reservations.sql`
-- 同帳號同時段排他，不同時段可重複借用。
+- Zoom 帳號預約，同帳號同時段排他。
 
-行政物資：
+Admin Supply：
 
-- `database/20260606_admin_supplies.sql`
-- `database/20260609_admin_supply_issue_2_3.sql`
-- 總庫存與各會堂/倉庫位置庫存。
-- `admin_supply_movements.handover_to_name` 記錄交接人。
-- `churches.code = GIANT_WAREHOUSE` 作為行政物資專用倉庫位置，不列入一般本會會堂選單。
+- 行政物資主檔、庫存、異動。
+- `GIANT_WAREHOUSE` 是行政物資專用倉庫位置。
 
-## MSSQL 同步
+Qrcode：
 
-相關文件：
+- 活動報到與櫃台掃描。
 
-- `docs/LEGACY_MSSQL_SYNC_WORKFLOW.md`
-- `database/compare_mssql_postgres_pastoral_education.ps1`
+## MSSQL Migration
+
+相關腳本：
+
 - `database/import_pastoral_from_sqlserver.ps1`
 - `database/import_education_from_sqlserver.ps1`
-- `database/import_qt_from_sqlserver.ps1`
 - `database/import_attendance_from_sqlserver.ps1`
 - `database/run_legacy_weekly_sync.ps1`
 
 注意：
 
-- 舊系統仍有 CRUD 時，新系統需規劃同步策略。
-- 正式切換前，避免兩邊同時寫同一主資料造成衝突。
+- 舊系統仍有正式資料時，不要建立雙寫衝突。
+- 匯入邏輯需保留 TOP / CL 對外編碼。

@@ -9,6 +9,7 @@ const {
   getLiffSecurityReadiness,
   normalizeLiffSecurityConfig
 } = require('./security');
+const { resolveLineChannel } = require('../linebot/config');
 
 const DEFAULT_CHANNEL_KEY = 'main';
 
@@ -81,7 +82,7 @@ async function getActiveChannel(channelKey) {
     [normalizedKey]
   );
   if (!rows[0]) throw notFound('找不到啟用中的 LINE Channel 設定');
-  return rows[0];
+  return resolveLineChannel(rows[0]);
 }
 
 async function getLiffConfig(channel) {

@@ -2,6 +2,7 @@ const { pool } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
 const { getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
+const { resolveLineChannelMetadata } = require('./config');
 const { getLiffSecurityReadiness, normalizeLiffSecurityConfig } = require('../liff/security');
 
 const PAGE_SIZE = 20;
@@ -331,11 +332,12 @@ async function getLineBotChannelApiReadiness(channelId) {
   );
   if (!result.rowCount) throw new Error('找不到 LINE Channel 設定');
   const row = result.rows[0];
+  const metadata = await resolveLineChannelMetadata(row);
   return {
     channelId: row.channel_id,
     channelKey: row.channel_key,
     channelName: row.channel_name,
-    readiness: getLineApiReadiness(row.metadata || {})
+    readiness: getLineApiReadiness(metadata)
   };
 }
 
