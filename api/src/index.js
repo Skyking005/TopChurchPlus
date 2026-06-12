@@ -26,6 +26,7 @@ const { registerShortLinkRoutes } = require('./modules/shortlinks/routes');
 const { registerSystemRoutes } = require('./modules/system/routes');
 const { registerSundayMessageRoutes } = require('./modules/sunday-message/routes');
 const { registerVenueRoutes } = require('./modules/venue/routes');
+const { registerWorkflowRoutes } = require('./modules/workflow/routes');
 const { registerWorkLogRoutes } = require('./modules/worklog/routes');
 const { registerZoomRoutes } = require('./modules/zoom/routes');
 
@@ -55,6 +56,7 @@ registerQtRoutes(app);
 registerShortLinkRoutes(app);
 registerSundayMessageRoutes(app);
 registerVenueRoutes(app);
+registerWorkflowRoutes(app);
 registerWorkLogRoutes(app);
 registerZoomRoutes(app);
 

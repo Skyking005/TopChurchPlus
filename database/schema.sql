@@ -281,6 +281,44 @@ CREATE TABLE IF NOT EXISTS purchase_payment_items (
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS bpm_definitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  definition_key TEXT NOT NULL UNIQUE,
+  owner_role TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT bpm_definitions_key_format CHECK (definition_key ~ '^[a-z][a-z0-9_]{1,60}$')
+);
+
+CREATE TABLE IF NOT EXISTS bpm_instances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  definition_id UUID NOT NULL REFERENCES bpm_definitions(id) ON DELETE RESTRICT,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  entity_code TEXT,
+  status TEXT NOT NULL DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED')),
+  creator_id TEXT REFERENCES accounts(staff_id) ON DELETE SET NULL,
+  creator_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS bpm_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  instance_id UUID NOT NULL REFERENCES bpm_instances(id) ON DELETE CASCADE,
+  node_key TEXT,
+  node_name TEXT,
+  approver_id TEXT REFERENCES accounts(staff_id) ON DELETE SET NULL,
+  approver_name TEXT,
+  action TEXT NOT NULL CHECK (action IN ('SUBMIT', 'APPROVE', 'REJECT', 'COMMENT', 'CANCEL')),
+  comment TEXT,
+  file_link_ids BIGINT[] NOT NULL DEFAULT '{}'::bigint[],
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_purchases_keyword ON purchases USING gin (
   to_tsvector('simple', coalesce(purchase_id, '') || ' ' || coalesce(summary, '') || ' ' || coalesce(applicant, '') || ' ' || coalesce(purchase_type, department, '') || ' ' || coalesce(project_id, ''))
 );
@@ -297,6 +335,12 @@ CREATE INDEX IF NOT EXISTS idx_development_issues_type ON development_issues(iss
 CREATE INDEX IF NOT EXISTS idx_development_issues_created_by_staff ON development_issues(created_by_staff_id);
 CREATE INDEX IF NOT EXISTS idx_development_releases_created_at ON development_releases(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_development_releases_created_by_staff ON development_releases(created_by_staff_id);
+CREATE INDEX IF NOT EXISTS idx_bpm_definitions_active_key ON bpm_definitions(is_active, definition_key);
+CREATE INDEX IF NOT EXISTS idx_bpm_instances_definition_status ON bpm_instances(definition_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bpm_instances_entity ON bpm_instances(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_bpm_instances_creator ON bpm_instances(creator_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bpm_history_instance_time ON bpm_history(instance_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bpm_history_approver_time ON bpm_history(approver_id, created_at DESC);
 
 INSERT INTO params (category, value, sort_order) VALUES
   ('chargeOptions', '是', 1),

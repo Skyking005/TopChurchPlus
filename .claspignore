@@ -16,4 +16,5 @@ docker-compose.yml
 .git/**
 .gitignore
 .venv-tools/**
+CLAUDE_files/**
 push-to-google.cmd

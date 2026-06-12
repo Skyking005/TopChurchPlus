@@ -1072,6 +1072,59 @@ function deleteWorkLog(workLogId, currentUser) {
   return apiRequest('delete', `/work-logs/${encodeURIComponent(workLogId)}`, null, null, currentUser);
 }
 
+function getWorkflowDefinitions(currentUser, includeInactive) {
+  return apiRequest('get', '/workflow/definitions', null, {
+    includeInactive: includeInactive ? 'true' : ''
+  }, currentUser);
+}
+
+function saveWorkflowDefinition(payload) {
+  return apiRequest('post', '/workflow/definitions', {
+    currentUser: payload.currentUser,
+    definition: payload.definition
+  });
+}
+
+function getWorkflowInstances(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/workflow/instances', null, {
+    status: filters.status || '',
+    entityType: filters.entityType || '',
+    keyword: filters.keyword || ''
+  }, currentUser);
+}
+
+function getWorkflowDashboard(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/workflow/dashboard', null, {
+    status: filters.status || 'IN_PROGRESS',
+    entityType: filters.entityType || '',
+    keyword: filters.keyword || ''
+  }, currentUser);
+}
+
+function getWorkflowInstanceDetail(instanceId, currentUser) {
+  return apiRequest('get', `/workflow/instances/${encodeURIComponent(instanceId)}`, null, null, currentUser);
+}
+
+function createWorkflowInstance(payload) {
+  return apiRequest('post', '/workflow/instances', {
+    currentUser: payload.currentUser,
+    instance: payload.instance
+  });
+}
+
+function addWorkflowHistory(payload) {
+  return apiRequest(
+    'post',
+    `/workflow/instances/${encodeURIComponent(payload.instanceId)}/history`,
+    {
+      currentUser: payload.currentUser,
+      history: payload.history
+    }
+  );
+}
+
 function getFeaturePermissions(currentUser) {
   return apiRequest('get', '/system/feature-permissions', null, null, currentUser);
 }
