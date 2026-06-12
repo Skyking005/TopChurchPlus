@@ -528,6 +528,39 @@ function getLineBotUsers(filters, currentUser) {
   }, currentUser);
 }
 
+function getLineBotBindingRequests(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/binding-requests', null, {
+    keyword: filters.keyword || '',
+    status: filters.status || 'PENDING',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function approveLineBotBindingRequest(payload) {
+  return apiRequest(
+    'post',
+    `/linebot/binding-requests/${encodeURIComponent(payload.requestId)}/approve`,
+    {
+      currentUser: payload.currentUser,
+      memberId: payload.memberId,
+      adminNote: payload.adminNote || ''
+    }
+  );
+}
+
+function rejectLineBotBindingRequest(payload) {
+  return apiRequest(
+    'post',
+    `/linebot/binding-requests/${encodeURIComponent(payload.requestId)}/reject`,
+    {
+      currentUser: payload.currentUser,
+      adminNote: payload.adminNote || ''
+    }
+  );
+}
+
 function getLineBotChannels(currentUser) {
   return apiRequest('get', '/linebot/channels', null, null, currentUser);
 }

@@ -2,6 +2,7 @@
 let lineBotDashboard = null;
 let lineBotActiveTab = 'dashboard';
 let lineBotUsersState = { page: 1, pageSize: 20, total: 0, rows: [] };
+let lineBotBindingRequestsState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotLinksState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotEventsState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotModules = [];
@@ -22,10 +23,11 @@ function switchLineBotTab(tab) {
   document.querySelectorAll('[data-linebot-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.linebotTab === tab);
   });
-  ['dashboard', 'users', 'settings', 'links', 'richMenus', 'modules', 'events'].forEach(key => {
+  ['dashboard', 'users', 'bindingRequests', 'settings', 'links', 'richMenus', 'modules', 'events'].forEach(key => {
     document.getElementById(`lineBot${capitalizeLineBotKey(key)}Pane`).classList.toggle('d-none', key !== tab);
   });
   if (tab === 'users') loadLineBotUsers(lineBotUsersState.page || 1);
+  if (tab === 'bindingRequests') loadLineBotBindingRequests(lineBotBindingRequestsState.page || 1);
   if (tab === 'settings') loadLineBotChannels();
   if (tab === 'links') loadLineBotLinks(lineBotLinksState.page || 1);
   if (tab === 'richMenus') loadLineBotRichMenus();
@@ -113,6 +115,93 @@ function renderLineBotUsers() {
     });
   }
   renderLineBotPager('lineBotUsersPager', lineBotUsersState, 'loadLineBotUsers');
+}
+
+function loadLineBotBindingRequests(page = 1) {
+  lineBotBindingRequestsState.page = page;
+  setListLoading('lineBotBindingRequestsBody', true, 'LINE 綁定申請載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotBindingRequestsState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderLineBotBindingRequests();
+    })
+    .withFailureHandler(showError)
+    .getLineBotBindingRequests({
+      keyword: document.getElementById('lineBotBindingRequestKeyword').value,
+      status: document.getElementById('lineBotBindingRequestStatus').value,
+      page,
+      pageSize: 20
+    }, currentUser);
+}
+
+function renderLineBotBindingRequests() {
+  const body = document.getElementById('lineBotBindingRequestsBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = '';
+  if (!lineBotBindingRequestsState.rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">沒有符合條件的 LINE 綁定申請</td></tr>';
+  } else {
+    lineBotBindingRequestsState.rows.forEach(row => {
+      const isPending = row.status === 'PENDING';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div class="fw-semibold">${escapeHtml(row.name || '')}</div>
+          <div class="text-muted small">${escapeHtml(row.zone || '')}</div>
+        </td>
+        <td>
+          <div>${escapeHtml(row.mobile || '')}</div>
+          <div class="text-muted small">${escapeHtml(row.email || '')}</div>
+        </td>
+        <td>
+          <div>${escapeHtml(row.displayName || '')}</div>
+          <code>${escapeHtml(row.lineUserId || '')}</code>
+        </td>
+        <td>
+          ${formatLineBotBindingRequestStatus(row.status)}
+          ${row.adminNote ? `<div class="text-muted small mt-1">${escapeHtml(row.adminNote)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(formatLineBotDateTime(row.createdAt) || '')}</td>
+        <td>
+          ${canEdit && isPending ? `
+            <div class="btn-group btn-group-sm">
+              <button type="button" class="btn btn-outline-success" onclick="approveLineBotBindingRequestItem('${escapeAttr(row.requestId)}')">通過</button>
+              <button type="button" class="btn btn-outline-danger" onclick="rejectLineBotBindingRequestItem('${escapeAttr(row.requestId)}')">拒絕</button>
+            </div>
+          ` : ''}
+        </td>
+      `;
+      body.appendChild(tr);
+    });
+  }
+  renderLineBotPager('lineBotBindingRequestsPager', lineBotBindingRequestsState, 'loadLineBotBindingRequests');
+}
+
+function approveLineBotBindingRequestItem(requestId) {
+  const memberId = prompt('請輸入要綁定的牧養會友 ID');
+  if (!memberId) return;
+  const adminNote = prompt('審核備註，可留空') || '';
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message || 'LINE 綁定申請已通過');
+      loadLineBotBindingRequests(lineBotBindingRequestsState.page || 1);
+      loadLineBotDashboard();
+    })
+    .withFailureHandler(showError)
+    .approveLineBotBindingRequest({ requestId, memberId, adminNote, currentUser });
+}
+
+function rejectLineBotBindingRequestItem(requestId) {
+  const adminNote = prompt('請輸入拒絕原因或備註，可留空') || '';
+  if (!confirm('確定要拒絕這筆 LINE 綁定申請？')) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message || 'LINE 綁定申請已拒絕');
+      loadLineBotBindingRequests(lineBotBindingRequestsState.page || 1);
+      loadLineBotDashboard();
+    })
+    .withFailureHandler(showError)
+    .rejectLineBotBindingRequest({ requestId, adminNote, currentUser });
 }
 
 function loadLineBotChannels() {
@@ -597,6 +686,10 @@ function handleLineBotUsersSearchKey(event) {
   if (event.key === 'Enter') loadLineBotUsers(1);
 }
 
+function handleLineBotBindingRequestsSearchKey(event) {
+  if (event.key === 'Enter') loadLineBotBindingRequests(1);
+}
+
 function handleLineBotLinksSearchKey(event) {
   if (event.key === 'Enter') loadLineBotLinks(1);
 }
@@ -658,6 +751,15 @@ function formatLineBotVisibility(value) {
 
 function formatLineBotEventStatus(value) {
   return { received: '已接收', handled: '已處理', failed: '失敗' }[value] || value || '';
+}
+
+function formatLineBotBindingRequestStatus(value) {
+  const map = {
+    PENDING: '<span class="badge bg-warning-subtle text-warning">待審核</span>',
+    APPROVED: '<span class="badge bg-success-subtle text-success">已通過</span>',
+    REJECTED: '<span class="badge bg-danger-subtle text-danger">已拒絕</span>'
+  };
+  return map[value] || escapeHtml(value || '');
 }
 
 function truncateLineBotText(value, length) {

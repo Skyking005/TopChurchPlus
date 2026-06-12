@@ -1,6 +1,8 @@
-const { pool } = require('../../db');
+const { pool, tx } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
+const { recordAuditLog } = require('../../shared/audit');
+const { recordNotificationLog, renderNotification } = require('../../shared/notifications');
 const { getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
 const { resolveLineChannelMetadata } = require('./config');
 const { getLiffSecurityReadiness, normalizeLiffSecurityConfig } = require('../liff/security');
@@ -168,10 +170,40 @@ function registerLineBotRoutes(app) {
       next(err);
     }
   });
+
+  app.get('/linebot/binding-requests', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineBindingRequests(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/binding-requests/:requestId/approve', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await approveLineBindingRequest(req.params.requestId, req.body || {}, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/binding-requests/:requestId/reject', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await rejectLineBindingRequest(req.params.requestId, req.body || {}, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
 }
 
 async function getLineBotDashboard() {
-  const [summary, churchStats, modules, links, events] = await Promise.all([
+  const [summary, churchStats, modules, links, events, pendingRequests] = await Promise.all([
     pool.query(
       `SELECT
          (SELECT count(*)::int FROM line_users) AS line_user_count,
@@ -193,7 +225,8 @@ async function getLineBotDashboard() {
     ),
     getLineBotModules(),
     getLineBotLinks({ page: 1, pageSize: 5, activeOnly: '1' }),
-    getLineBotEvents({ page: 1, pageSize: 5 })
+    getLineBotEvents({ page: 1, pageSize: 5 }),
+    pool.query(`SELECT count(*)::int AS pending_count FROM line_binding_requests WHERE status = 'PENDING'`)
   ]);
 
   const row = summary.rows[0] || {};
@@ -212,7 +245,8 @@ async function getLineBotDashboard() {
     })),
     features: modules.rows,
     recentLinks: links.rows,
-    recentEvents: events.rows
+    recentEvents: events.rows,
+    pendingBindingRequestCount: pendingRequests.rows[0]?.pending_count || 0
   };
 }
 
@@ -537,6 +571,284 @@ async function getLineBotEvents(query = {}) {
   };
 }
 
+async function getLineBindingRequests(query = {}) {
+  const page = Math.max(1, Number(query.page || 1));
+  const pageSize = Math.min(100, Math.max(1, Number(query.pageSize || PAGE_SIZE)));
+  const status = normalizeBindingRequestStatus(query.status || 'PENDING', true);
+  const keyword = normalizeText(query.keyword).toLowerCase();
+  const values = [];
+  const where = [];
+  if (status) {
+    values.push(status);
+    where.push(`lbr.status = $${values.length}`);
+  }
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(lbr.name) LIKE $${values.length}
+      OR lower(lbr.mobile) LIKE $${values.length}
+      OR lower(coalesce(lbr.email, '')) LIKE $${values.length}
+      OR lower(coalesce(lbr.display_name, '')) LIKE $${values.length}
+      OR lower(coalesce(lbr.line_user_id, '')) LIKE $${values.length}
+    )`);
+  }
+  values.push(pageSize);
+  const limitIndex = values.length;
+  values.push((page - 1) * pageSize);
+  const offsetIndex = values.length;
+
+  const result = await pool.query(
+    `SELECT lbr.id, lbr.line_user_id, lbr.display_name, lbr.name, lbr.zone, lbr.mobile,
+       lbr.email, lbr.status, lbr.admin_note, lbr.processed_at, lbr.processed_by,
+       lbr.created_at, lbr.updated_at,
+       lu.picture_url,
+       count(*) OVER()::int AS total_count
+     FROM line_binding_requests lbr
+     LEFT JOIN line_users lu ON lu.line_user_id = lbr.line_user_id
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY lbr.created_at DESC
+     LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+    values
+  );
+
+  return {
+    rows: result.rows.map(mapLineBindingRequest),
+    page,
+    pageSize,
+    total: result.rows[0]?.total_count || 0
+  };
+}
+
+async function approveLineBindingRequest(requestId, payload, currentUser, req) {
+  const memberId = Number(payload.memberId || payload.member_id || payload.pastoralMemberId);
+  if (!Number.isInteger(memberId)) throw new Error('請指定要綁定的會友');
+  const adminNote = normalizeText(payload.adminNote || payload.admin_note);
+
+  const result = await tx(async client => {
+    const request = await lockPendingBindingRequest(client, requestId);
+    const member = await getActivePastoralMemberForBinding(client, memberId);
+    if (!member) throw new Error('找不到可綁定的會友資料');
+
+    const existingLine = await client.query(
+      `SELECT pastoral_member_id
+       FROM identity_providers
+       WHERE provider_type = 'LINE'
+         AND provider_user_id = $1
+         AND status = 'ACTIVE'
+       LIMIT 1`,
+      [request.line_user_id]
+    );
+    if (existingLine.rowCount && Number(existingLine.rows[0].pastoral_member_id) !== memberId) {
+      throw new Error('此 LINE 身份已綁定其他會友');
+    }
+
+    const existingMemberLine = await client.query(
+      `SELECT provider_user_id
+       FROM identity_providers
+       WHERE provider_type = 'LINE'
+         AND pastoral_member_id = $1
+         AND status = 'ACTIVE'
+       LIMIT 1`,
+      [memberId]
+    );
+    if (existingMemberLine.rowCount && existingMemberLine.rows[0].provider_user_id !== request.line_user_id) {
+      throw new Error('此會友已綁定其他 LINE 身份');
+    }
+
+    const pastoralBind = await client.query(
+      `UPDATE pastoral_members
+       SET line_user_id = $1,
+           updated_at = now()
+       WHERE id = $2
+         AND (coalesce(line_user_id, '') = '' OR line_user_id = $1)
+       RETURNING id`,
+      [request.line_user_id, memberId]
+    );
+    if (!pastoralBind.rowCount) throw new Error('此會友已綁定其他 LINE 帳號');
+
+    const account = await client.query(
+      `INSERT INTO member_accounts (member_id, login_identifier, display_name, last_login_at, updated_at)
+       VALUES ($1,$2,$3,now(),now())
+       ON CONFLICT (login_identifier) DO UPDATE SET
+         member_id = EXCLUDED.member_id,
+         display_name = EXCLUDED.display_name,
+         is_active = true,
+         last_login_at = now(),
+         updated_at = now()
+       RETURNING member_account_id`,
+      [memberId, `line:${request.line_user_id}`, member.name]
+    );
+
+    await client.query(
+      `UPDATE line_users
+       SET member_id = $1,
+           member_account_id = $2,
+           bound_at = coalesce(bound_at, now()),
+           last_interaction_at = now(),
+           metadata = metadata || $3::jsonb,
+           updated_at = now()
+       WHERE line_user_id = $4`,
+      [
+        memberId,
+        account.rows[0].member_account_id,
+        JSON.stringify({
+          approvedBy: currentUser.staffId || '',
+          approvedRequestId: request.id,
+          approvedAt: new Date().toISOString()
+        }),
+        request.line_user_id
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO identity_providers (
+         pastoral_member_id, provider_type, provider_user_id, display_name,
+         picture_url, email, status, linked_at, last_login_at, updated_at
+       )
+       SELECT $1, 'LINE', lu.line_user_id, lu.display_name, lu.picture_url,
+         coalesce(nullif($3, ''), lu.metadata->>'email'), 'ACTIVE', now(), now(), now()
+       FROM line_users lu
+       WHERE lu.line_user_id = $2
+       ON CONFLICT (provider_type, provider_user_id) DO UPDATE SET
+         pastoral_member_id = EXCLUDED.pastoral_member_id,
+         display_name = EXCLUDED.display_name,
+         picture_url = EXCLUDED.picture_url,
+         email = EXCLUDED.email,
+         status = 'ACTIVE',
+         last_login_at = now(),
+         updated_at = now()`,
+      [memberId, request.line_user_id, request.email || '']
+    );
+
+    const updated = await client.query(
+      `UPDATE line_binding_requests
+       SET status = 'APPROVED',
+           admin_note = NULLIF($2, ''),
+           processed_at = now(),
+           processed_by = NULLIF($3, ''),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [request.id, adminNote, currentUser.staffId || '']
+    );
+
+    await recordAuditLog({
+      systemKey: 'line_binding',
+      entityType: 'line_binding_requests',
+      entityId: String(request.id),
+      action: 'APPROVE',
+      currentUser,
+      memberId,
+      beforeData: request,
+      afterData: updated.rows[0],
+      metadata: {
+        lineUserId: request.line_user_id,
+        requestId: req.requestId || ''
+      },
+      ipAddress: getIpAddress(req),
+      userAgent: req.get('user-agent') || ''
+    }, client);
+
+    await recordLineBindingRequestNotification(client, 'LINE_BIND_REQUEST_APPROVED', request, member.name, 'SENT');
+    return { request: updated.rows[0], member };
+  });
+
+  return {
+    success: true,
+    message: 'LINE 綁定申請已通過',
+    request: mapLineBindingRequest(result.request),
+    member: {
+      memberId: result.member.id,
+      name: result.member.name
+    }
+  };
+}
+
+async function rejectLineBindingRequest(requestId, payload, currentUser, req) {
+  const adminNote = normalizeText(payload.adminNote || payload.admin_note);
+  const result = await tx(async client => {
+    const request = await lockPendingBindingRequest(client, requestId);
+    const updated = await client.query(
+      `UPDATE line_binding_requests
+       SET status = 'REJECTED',
+           admin_note = NULLIF($2, ''),
+           processed_at = now(),
+           processed_by = NULLIF($3, ''),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING *`,
+      [request.id, adminNote, currentUser.staffId || '']
+    );
+
+    await recordAuditLog({
+      systemKey: 'line_binding',
+      entityType: 'line_binding_requests',
+      entityId: String(request.id),
+      action: 'REJECT',
+      currentUser,
+      beforeData: request,
+      afterData: updated.rows[0],
+      metadata: {
+        lineUserId: request.line_user_id,
+        requestId: req.requestId || ''
+      },
+      ipAddress: getIpAddress(req),
+      userAgent: req.get('user-agent') || ''
+    }, client);
+
+    await recordLineBindingRequestNotification(client, 'LINE_BIND_REQUEST_REJECTED', request, request.name, 'SENT');
+    return updated.rows[0];
+  });
+
+  return {
+    success: true,
+    message: 'LINE 綁定申請已拒絕',
+    request: mapLineBindingRequest(result)
+  };
+}
+
+async function lockPendingBindingRequest(client, requestId) {
+  const result = await client.query(
+    `SELECT *
+     FROM line_binding_requests
+     WHERE id = $1
+     FOR UPDATE`,
+    [requestId]
+  );
+  if (!result.rowCount) throw new Error('找不到 LINE 綁定申請');
+  if (result.rows[0].status !== 'PENDING') throw new Error('此 LINE 綁定申請已處理');
+  return result.rows[0];
+}
+
+async function getActivePastoralMemberForBinding(client, memberId) {
+  const result = await client.query(
+    `SELECT id, name, line_user_id
+     FROM pastoral_members
+     WHERE id = $1
+       AND is_active
+     LIMIT 1`,
+    [memberId]
+  );
+  return result.rows[0] || null;
+}
+
+async function recordLineBindingRequestNotification(client, templateCode, request, fallbackName, status) {
+  if (!request.email) return null;
+  const rendered = await renderNotification(templateCode, 'EMAIL', {
+    Name: request.name || fallbackName || '',
+    BindDatetime: new Date().toISOString(),
+    OfficialWebsiteUrl: ''
+  }, client);
+  return recordNotificationLog({
+    templateCode,
+    channel: 'EMAIL',
+    recipient: request.email,
+    subject: rendered.subject,
+    contentSnapshot: rendered.content,
+    status
+  }, client);
+}
+
 function normalizeLineBotLink(payload) {
   const title = normalizeText(payload.title);
   const url = normalizeText(payload.url);
@@ -688,6 +1000,31 @@ function mapLineBotChannel(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
+}
+
+function mapLineBindingRequest(row) {
+  return {
+    requestId: row.id,
+    lineUserId: row.line_user_id || '',
+    displayName: row.display_name || '',
+    pictureUrl: row.picture_url || '',
+    name: row.name || '',
+    zone: row.zone || '',
+    mobile: row.mobile || '',
+    email: row.email || '',
+    status: row.status,
+    adminNote: row.admin_note || '',
+    processedAt: row.processed_at,
+    processedBy: row.processed_by || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function normalizeBindingRequestStatus(value, allowEmpty = false) {
+  const status = normalizeText(value).toUpperCase();
+  if (!status && allowEmpty) return '';
+  return ['PENDING', 'APPROVED', 'REJECTED'].includes(status) ? status : 'PENDING';
 }
 
 function normalizeKey(value) {

@@ -11,6 +11,7 @@
     <ul class="nav nav-tabs mb-3">
       <li class="nav-item"><button type="button" class="nav-link active" data-linebot-tab="dashboard" onclick="switchLineBotTab('dashboard')">總覽</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="users" onclick="switchLineBotTab('users')">會友綁定</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="bindingRequests" onclick="switchLineBotTab('bindingRequests')">綁定申請</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="settings" onclick="switchLineBotTab('settings')">Channel 設定</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="links" onclick="switchLineBotTab('links')">LINE 連結</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="richMenus" onclick="switchLineBotTab('richMenus')">Rich Menu</button></li>
@@ -108,6 +109,46 @@
         </table>
       </div>
       <div id="lineBotUsersPager" class="d-flex justify-content-between align-items-center mt-2"></div>
+    </div>
+
+    <div id="lineBotBindingRequestsPane" class="d-none">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-md-5">
+          <label class="form-label">關鍵字</label>
+          <input id="lineBotBindingRequestKeyword" class="form-control" placeholder="姓名、手機、Email、LINE ID 或顯示名稱" onkeydown="handleLineBotBindingRequestsSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label">狀態</label>
+          <select id="lineBotBindingRequestStatus" class="form-select">
+            <option value="PENDING">待審核</option>
+            <option value="APPROVED">已通過</option>
+            <option value="REJECTED">已拒絕</option>
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button type="button" class="btn btn-primary" onclick="loadLineBotBindingRequests(1)">搜尋</button>
+        </div>
+        <div class="col-12 col-md-2 d-grid">
+          <button type="button" class="btn btn-outline-secondary" onclick="loadLineBotBindingRequests(lineBotBindingRequestsState.page || 1)">重新整理</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th>申請人</th>
+              <th>聯絡資料</th>
+              <th>LINE</th>
+              <th>狀態</th>
+              <th>申請時間</th>
+              <th>處理</th>
+            </tr>
+          </thead>
+          <tbody id="lineBotBindingRequestsBody"></tbody>
+        </table>
+      </div>
+      <div id="lineBotBindingRequestsPager" class="d-flex justify-content-between align-items-center mt-2"></div>
     </div>
 
     <div id="lineBotSettingsPane" class="d-none">
