@@ -68,6 +68,18 @@ function setApiConfig(apiBaseUrl, apiKey) {
   });
 }
 
+function normalizeApiBaseUrl_(apiBaseUrl) {
+  const value = String(apiBaseUrl || '').replace(/\/$/, '');
+  if (
+    value === 'http://59.120.6.172:3000' ||
+    value === 'http://api.topchurchplus.com:80' ||
+    value === 'http://api.topchurchplus.com'
+  ) {
+    return 'https://api.topchurchplus.com';
+  }
+  return value;
+}
+
 function login(email, deviceType, deviceInfo) {
   const payload = Object.assign({ email, deviceType }, deviceInfo || {});
   const result = apiRequest('post', '/login', payload);
@@ -360,7 +372,7 @@ function getFormStatistics(formId, currentUser) {
 
 function getFormResponseAttachmentData(payload, currentUser) {
   const props = PropertiesService.getScriptProperties();
-  const baseUrl = props.getProperty('API_BASE_URL');
+  const baseUrl = normalizeApiBaseUrl_(props.getProperty('API_BASE_URL'));
   const apiKey = props.getProperty('API_KEY');
   if (!baseUrl || !apiKey) {
     throw new Error('尚未設定 API_BASE_URL / API_KEY，請先執行 setApiConfig。');
@@ -1305,7 +1317,7 @@ function exportPaymentRequestDocx(payload) {
 
 function fetchNasDocx_(path, currentUser, fallbackFileName, message) {
   const props = PropertiesService.getScriptProperties();
-  const baseUrl = props.getProperty('API_BASE_URL');
+  const baseUrl = normalizeApiBaseUrl_(props.getProperty('API_BASE_URL'));
   const apiKey = props.getProperty('API_KEY');
   if (!baseUrl || !apiKey) {
     throw new Error('尚未設定 API_BASE_URL / API_KEY，請先執行 setApiConfig。');
@@ -1600,7 +1612,7 @@ ${String(meeting['與會者'] || '').split(',').map(name => `- ${name.trim()}`).
 
 function apiRequest(method, path, body, query, currentUser) {
   const props = PropertiesService.getScriptProperties();
-  const baseUrl = props.getProperty('API_BASE_URL');
+  const baseUrl = normalizeApiBaseUrl_(props.getProperty('API_BASE_URL'));
   const apiKey = props.getProperty('API_KEY');
 
   if (!baseUrl || !apiKey) {
