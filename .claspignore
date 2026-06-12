@@ -1,6 +1,8 @@
 api/**
 database/**
 docs/**
+css/**
+plan/**
 node_modules/**
 tests/**
 tools/**
@@ -18,3 +20,4 @@ docker-compose.yml
 .venv-tools/**
 CLAUDE_files/**
 push-to-google.cmd
+UI_REFRESH_PHASE1_REPORT.md

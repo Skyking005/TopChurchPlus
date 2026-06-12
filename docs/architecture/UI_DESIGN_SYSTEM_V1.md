@@ -149,7 +149,89 @@ Design tokens 必須使用 CSS Variables 管理。V1 建議 token：
 - 卡片 radius 預設 8px，不任意使用大型圓角。
 - Shadow 應克制，資料密集畫面以 border 優先。
 
-## 4. Button Standard
+## 4. Page Layout Standard
+
+All TopChurchPlus management pages must use a consistent page shell before placing module content. A page is not just a table or a form; it is a structured workspace that lets users scan context, filters, metrics, content, and actions in a predictable order.
+
+### Required Page Structure
+
+```html
+<section class="tc-page">
+  <header class="tc-page-header">
+    ...
+  </header>
+  <div class="tc-page-toolbar">
+    ...
+  </div>
+  <section class="tc-page-kpi-area">
+    ...
+  </section>
+  <section class="tc-page-filter-area">
+    ...
+  </section>
+  <main class="tc-page-content">
+    ...
+  </main>
+  <footer class="tc-page-action-area">
+    ...
+  </footer>
+</section>
+```
+
+### Page Header
+
+- Must contain the page title and, when useful, a short operational subtitle.
+- May include a compact status indicator or last updated time.
+- Must not contain long help text or feature explanations.
+
+### Page Toolbar
+
+- Contains page-level actions such as create, export, refresh, batch update, or mode switches.
+- Primary action should appear first on desktop and remain easy to reach on mobile.
+- Toolbar actions must use the Button Standard and Tabler Icons where icons are needed.
+
+### KPI Area
+
+- Used for dashboard counters, totals, and summary metrics.
+- Must use KPI Card or Summary Card patterns.
+- Should be optional; do not create empty KPI placeholders when the page has no metrics.
+
+### Filter Area
+
+- Contains search fields, date/month filters, status filters, church/department filters, and reset controls.
+- Filters should be visually grouped in a card or filter block, not scattered above a table.
+- Mobile filters should stack vertically and keep submit/reset actions reachable.
+
+### Content Area
+
+- Main tables, detail panels, kanban boards, calendars, or report views belong here.
+- Tables must be wrapped inside `.tc-page-content`; do not place a table directly at the page root.
+- Content area must include loading, empty, and error states when data is fetched asynchronously.
+
+### Action Area
+
+- Used for page-level save/cancel actions, batch operation confirmations, or wizard navigation.
+- For ordinary list pages, actions may live in the toolbar instead and this area can be omitted.
+
+### Recommended Classes
+
+| Class | Purpose |
+| --- | --- |
+| `.tc-page` | Root wrapper for a complete management page. |
+| `.tc-page-header` | Title, subtitle, and compact page metadata. |
+| `.tc-page-toolbar` | Page-level actions and view controls. |
+| `.tc-page-kpi-area` | KPI cards and summary metrics. |
+| `.tc-page-filter-area` | Search and filter controls. |
+| `.tc-page-content` | Primary data/content region. |
+| `.tc-page-action-area` | Save/cancel/batch/wizard actions. |
+
+### Governance
+
+- QT, Finance, Asset, Project, Pastoral, Forms, and future LIFF management pages must follow this structure.
+- Do not place `table`, `form`, or repeated cards directly under the page root.
+- Do not create module-specific page shell classes unless the Design System is updated first.
+
+## 5. Button Standard
 
 ### Types
 
@@ -183,7 +265,44 @@ Design tokens 必須使用 CSS Variables 管理。V1 建議 token：
 - Disabled：opacity 降低且 cursor 不可暗示可點擊。
 - Danger action 需在 destructive 情境使用確認對話或二階段操作。
 
-## 5. Card Standard
+## 6. Status Badge Standard
+
+TopChurchPlus has many operational statuses across project, finance, QT, asset, pastoral, and workflow modules. Status labels must use semantic badge classes instead of module-specific colors or inline styles.
+
+### Badge Classes
+
+| Class | Intended Meaning | Example Status |
+| --- | --- | --- |
+| `.tc-badge-success` | Completed, approved, active, healthy. | 已完成, 已核准, 正常, 已付款 |
+| `.tc-badge-warning` | Pending, waiting, review needed, attention required. | 待審核, 未付款, 進行中, 即將到期 |
+| `.tc-badge-danger` | Failed, rejected, cancelled, blocked, destructive state. | 已退回, 已取消, 異常, 停用 |
+| `.tc-badge-info` | Informational, neutral progress, system note. | 規劃中, 已建立, 已送出 |
+| `.tc-badge-secondary` | Inactive, archived, unknown, low emphasis. | 草稿, 未設定, 歷史資料 |
+
+### Rules
+
+- Use semantic status classes; do not write raw colors such as `background:red`, `background:green`, or `background:blue`.
+- Badge text must be short and scannable. Prefer two to four Chinese characters when possible.
+- Badge color must communicate severity, not module branding.
+- The same business status must use the same badge class across modules.
+- Badges must remain readable on mobile tables and card lists.
+
+### Status Mapping Examples
+
+| Domain | Status | Badge |
+| --- | --- | --- |
+| Project | 規劃中 | `.tc-badge-info` |
+| Project | 進行中 | `.tc-badge-warning` |
+| Project | 已完成 | `.tc-badge-success` |
+| Project | 已取消 | `.tc-badge-danger` |
+| Finance / QT | 待審核 | `.tc-badge-warning` |
+| Finance / QT | 已核准 / 已付款 | `.tc-badge-success` |
+| Finance / QT | 已退回 | `.tc-badge-danger` |
+| Asset | 正常 | `.tc-badge-success` |
+| Asset | 維修中 | `.tc-badge-warning` |
+| Asset | 停用 | `.tc-badge-danger` |
+
+## 7. Card Standard
 
 ### KPI Card
 
@@ -226,7 +345,7 @@ Design tokens 必須使用 CSS Variables 管理。V1 建議 token：
 - 不要卡片包卡片。
 - 不要在操作型 SaaS 頁面使用大型 marketing hero。
 
-## 6. Table Standard
+## 8. Table Standard
 
 TopChurchPlus 的資料密度高，表格需優先支援掃描、排序與狀態辨識。
 
@@ -280,7 +399,7 @@ Empty state 標準：
 - 不使用大型插圖。
 - 可提供單一 primary action，例如「新增表單」。
 
-## 7. Form Standard
+## 9. Form Standard
 
 ### Input / Select
 
@@ -308,7 +427,7 @@ Empty state 標準：
 - 長表單分 section。
 - Submit / Cancel 固定放 footer 或區塊底部右側；mobile 可改為 full width stacked。
 
-## 8. Modal Standard
+## 10. Modal Standard
 
 Modal 用於短流程，不應承載大型工作台。
 
@@ -339,7 +458,68 @@ Modal 用於短流程，不應承載大型工作台。
 - Cancel 在 primary 左側。
 - Destructive action 放左側或使用 danger button，避免誤點。
 
-## 9. Icon Standard
+## 11. Notification Standard
+
+All user feedback must use consistent notification patterns so users can quickly distinguish successful actions, warnings, errors, and informational updates.
+
+### Toast
+
+Use toast notifications for non-blocking operation feedback.
+
+| Type | Usage | Example |
+| --- | --- | --- |
+| Success | Operation completed. | 新增成功, 修改成功, 資料已更新 |
+| Warning | Operation completed with attention needed, or data needs review. | 部分資料未同步, 請確認月份設定 |
+| Error | Operation failed and user must know why. | 操作失敗, 無法儲存資料 |
+| Info | Neutral system update. | 資料載入完成, 已切換檢視 |
+
+Rules:
+
+- Toast text must be short and action-oriented.
+- Toast should not replace validation messages for form fields.
+- Error toasts should include enough context for the user to retry or report the problem.
+- Do not use browser `alert()` for normal operation feedback.
+
+### Alert
+
+Use alerts for page-level or section-level messages that must remain visible until the user acts or context changes.
+
+Examples:
+
+- API unavailable.
+- Current month is not open for QT pickup.
+- A report is generated from incomplete source data.
+
+### Inline Message
+
+Use inline messages near the related field or control.
+
+Examples:
+
+- Validation errors below inputs.
+- Empty state inside a table.
+- Permission note inside a restricted action area.
+
+### Confirmation Dialog
+
+Use confirmation dialogs for destructive or irreversible actions.
+
+Required for:
+
+- Delete.
+- Cancel.
+- Reject.
+- Bulk update.
+- Any action that changes financial, identity, pastoral, or audit-sensitive data.
+
+Confirmation dialog rules:
+
+- Title must state the action.
+- Body must state the consequence.
+- Primary destructive action must use the Danger button style.
+- Cancel must remain available and visually clear.
+
+## 12. Icon Standard
 
 官方圖示庫：Tabler Icons。
 
@@ -361,7 +541,7 @@ Modal 用於短流程，不應承載大型工作台。
 
 - 品牌 logo、第三方平台 logo、既有正式圖片資產可使用自有 SVG / PNG。
 
-## 10. Mobile First Standard
+## 13. Mobile First Standard
 
 TopChurchPlus 主要是行政系統，但手機與平板仍是必要入口。所有新 UI 必須先檢查 mobile。
 
@@ -389,7 +569,7 @@ TopChurchPlus 主要是行政系統，但手機與平板仍是必要入口。所
 - Footer buttons 可 stacked。
 - 不要在 mobile modal 中放大型表格。
 
-## 11. Accessibility Standard
+## 14. Accessibility Standard
 
 ### Contrast
 
@@ -417,7 +597,7 @@ TopChurchPlus 主要是行政系統，但手機與平板仍是必要入口。所
 - Tab order 應符合視覺順序。
 - Button、tab、dropdown 必須可鍵盤操作。
 
-## 12. AI Generation Rules
+## 15. AI Generation Rules
 
 AI Agent 新增或修改 UI 時必須遵守：
 
@@ -431,7 +611,7 @@ AI Agent 新增或修改 UI 時必須遵守：
 - 新 UI 必須檢查 mobile layout。
 - 新 UI 必須檢查 loading / empty / error state。
 
-## 13. Future Roadmap
+## 16. Future Roadmap
 
 ### Phase 1：Bootstrap 5 + Theme Layer
 
@@ -487,7 +667,7 @@ AI Agent 新增或修改 UI 時必須遵守：
 - Component semantics 保持穩定。
 - 不破壞 Apps Script 現有前端。
 
-## 14. Review Checklist
+## 17. Review Checklist
 
 新增 UI 或改版前，確認：
 

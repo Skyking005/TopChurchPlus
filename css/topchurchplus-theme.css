@@ -1,0 +1,71 @@
+body {
+  background: var(--tc-color-bg);
+  color: var(--tc-color-text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0;
+}
+
+.btn {
+  border-radius: var(--tc-radius-md);
+  font-weight: 700;
+}
+
+.btn-primary {
+  background: var(--tc-color-primary);
+  border-color: var(--tc-color-primary);
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background: var(--tc-color-primary-hover);
+  border-color: var(--tc-color-primary-hover);
+}
+
+.btn-outline-primary {
+  color: var(--tc-color-primary);
+  border-color: #9bbcf8;
+  background: #fff;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background: var(--tc-color-primary-soft);
+  border-color: var(--tc-color-primary);
+  color: #1746a2;
+}
+
+.card,
+.section-card,
+.filter-panel {
+  border-color: var(--tc-color-border);
+  border-radius: var(--tc-radius-md);
+  box-shadow: var(--tc-shadow-sm);
+}
+
+.table-responsive {
+  border: 1px solid #e7edf5;
+  border-radius: var(--tc-radius-md);
+  background: var(--tc-color-surface);
+}
+
+.form-control,
+.form-select {
+  border-color: var(--tc-color-border-strong);
+  border-radius: var(--tc-radius-md);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--tc-color-primary);
+  box-shadow: 0 0 0 0.18rem rgba(37, 99, 235, 0.14);
+}
+
+.qt-toolbar {
+  background: var(--tc-color-surface);
+  border-bottom: 1px solid var(--tc-color-border);
+}
+
+.qt-search-row {
+  background: var(--tc-color-surface-soft);
+  border-bottom: 1px solid var(--tc-color-border);
+}

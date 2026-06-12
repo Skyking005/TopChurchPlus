@@ -41,9 +41,9 @@ function showError(err) {
         const tag = el.tagName.toLowerCase();
         if (tag === 'tbody') {
           const colCount = el.closest('table')?.querySelectorAll('thead th').length || 1;
-          el.innerHTML = `<tr><td colspan="${colCount}" class="list-loading-cell"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</td></tr>`;
+          el.innerHTML = `<tr><td colspan="${colCount}" class="list-loading-cell tc-loading-state"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</td></tr>`;
         } else {
-          el.innerHTML = `<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</div>`;
+          el.innerHTML = `<div class="list-loading-box tc-loading-state"><span class="spinner-border spinner-border-sm me-2"></span>${escapeHtml(message)}</div>`;
         }
       }
     });

@@ -1,6 +1,6 @@
-<section id="qtView" class="d-none">
-  <div class="section-card p-0 overflow-hidden">
-    <div class="qt-toolbar">
+<section id="qtView" class="d-none tc-page">
+  <div class="section-card tc-card tc-page-content p-0 overflow-hidden">
+    <div class="qt-toolbar tc-page-toolbar">
       <ul class="nav nav-tabs flex-wrap" id="qtManagementTabs">
         <li class="nav-item">
           <button type="button" class="nav-link active qt-tab-btn" data-qt-tab="orders" onclick="switchQtTab('orders')">訂購管理</button>
@@ -20,27 +20,27 @@
       </ul>
     </div>
 
-    <div class="row g-3 p-3 border-bottom" id="qtDashboardCards">
+    <div class="row g-3 p-3 border-bottom tc-page-kpi-area" id="qtDashboardCards">
       <div class="col-6 col-lg-3">
-        <div class="border rounded p-3 h-100">
+        <div class="tc-kpi-card">
           <div class="text-muted small">訂購總數</div>
           <div class="fs-4 fw-semibold" id="qtDashboardOrderCount">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="border rounded p-3 h-100">
+        <div class="tc-kpi-card">
           <div class="text-muted small">未付款</div>
           <div class="fs-4 fw-semibold text-warning" id="qtDashboardUnpaidCount">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="border rounded p-3 h-100">
+        <div class="tc-kpi-card">
           <div class="text-muted small">待審核</div>
           <div class="fs-4 fw-semibold text-primary" id="qtDashboardPendingReviewCount">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="border rounded p-3 h-100">
+        <div class="tc-kpi-card">
           <div class="text-muted small">已付款</div>
           <div class="fs-4 fw-semibold text-success" id="qtDashboardPaidCount">-</div>
         </div>
@@ -48,14 +48,14 @@
     </div>
 
     <div id="qtOrdersPanel" class="qt-panel">
-      <div class="input-group qt-search-row">
+      <div class="input-group qt-search-row tc-page-filter-area">
         <span class="input-group-text">關鍵字搜尋</span>
         <input id="qtOrderKeyword" class="form-control" placeholder="單號/姓名/電話/牧區搜尋" onkeydown="handleQtOrderSearchKey(event)">
         <button type="button" class="btn btn-outline-secondary" onclick="loadQtOrders(1)">搜尋</button>
       </div>
 
       <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+        <table class="table table-hover tc-table align-middle mb-0">
           <thead>
             <tr>
               <th>數位訂單編號</th>
@@ -102,26 +102,26 @@
 
         <div class="row g-3 mb-3">
           <div class="col-6 col-lg-4">
-            <div class="border rounded p-3 h-100">
+            <div class="tc-kpi-card">
               <div class="text-muted small">本月應領取</div>
               <div class="fs-5 fw-semibold" id="qtDashboardPickupTotal">-</div>
             </div>
           </div>
           <div class="col-6 col-lg-4">
-            <div class="border rounded p-3 h-100">
+            <div class="tc-kpi-card">
               <div class="text-muted small">已領取</div>
               <div class="fs-5 fw-semibold text-success" id="qtDashboardPickupReceived">-</div>
             </div>
           </div>
           <div class="col-12 col-lg-4">
-            <div class="border rounded p-3 h-100">
+            <div class="tc-kpi-card">
               <div class="text-muted small">未領取</div>
               <div class="fs-5 fw-semibold text-warning" id="qtDashboardPickupUnreceived">-</div>
             </div>
           </div>
         </div>
 
-        <div class="row g-2 align-items-end qt-search-row">
+        <div class="row g-2 align-items-end qt-search-row tc-page-filter-area">
           <div class="col-12 col-md-3">
             <label class="form-label">領取月份</label>
             <input id="qtPickupReportMonth" type="month" class="form-control">
@@ -139,7 +139,7 @@
           </div>
         </div>
         <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+          <table class="table table-hover tc-table align-middle mb-0">
             <thead id="qtPickupTableHead"></thead>
             <tbody id="qtPickupTableBody"></tbody>
           </table>
@@ -155,7 +155,7 @@
             <div class="text-muted small">依月份統計訂購數、數量與金額；匯款審核資料模型需 DBA Review 後實作。</div>
           </div>
         </div>
-        <div class="row g-2 align-items-end qt-search-row">
+        <div class="row g-2 align-items-end qt-search-row tc-page-filter-area">
           <div class="col-12 col-md-3">
             <label class="form-label">報表月份</label>
             <input id="qtFinanceReportMonth" type="month" class="form-control">
@@ -165,7 +165,7 @@
           </div>
         </div>
         <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+          <table class="table table-hover tc-table align-middle mb-0">
             <thead id="qtFinanceTableHead"></thead>
             <tbody id="qtFinanceTableBody"></tbody>
           </table>
@@ -175,7 +175,7 @@
 
     <div id="qtReportsPanel" class="qt-panel d-none">
       <div class="p-3 border-top">
-        <div class="row g-2 align-items-end qt-search-row">
+        <div class="row g-2 align-items-end qt-search-row tc-page-filter-area">
           <div class="col-12 col-md-3">
             <label class="form-label">報表類型</label>
             <select id="qtAnalyticsReportType" class="form-select" onchange="loadQtAnalyticsReport()">
@@ -192,7 +192,7 @@
           </div>
         </div>
         <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+          <table class="table table-hover tc-table align-middle mb-0">
             <thead id="qtAnalyticsTableHead"></thead>
             <tbody id="qtAnalyticsTableBody"></tbody>
           </table>
@@ -232,7 +232,7 @@
         <div class="row g-3">
           <div class="col-12 col-xl-7">
             <div class="table-responsive border rounded">
-              <table class="table table-sm table-hover align-middle mb-0">
+              <table class="table table-sm table-hover tc-table align-middle mb-0">
                 <thead>
                   <tr>
                     <th>月份</th>
@@ -249,7 +249,7 @@
           </div>
           <div class="col-12 col-xl-5">
             <div class="table-responsive border rounded">
-              <table class="table table-sm align-middle mb-0">
+              <table class="table table-sm tc-table align-middle mb-0">
                 <thead>
                   <tr>
                     <th>方案</th>
@@ -264,7 +264,7 @@
           </div>
           <div class="col-12">
             <div class="table-responsive border rounded">
-              <table class="table table-sm table-hover align-middle mb-0">
+              <table class="table table-sm table-hover tc-table align-middle mb-0">
                 <thead>
                   <tr>
                     <th>時間</th>

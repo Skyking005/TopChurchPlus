@@ -214,7 +214,7 @@ function renderQtOrders() {
   const body = document.getElementById('qtOrderTableBody');
   body.innerHTML = '';
   if (!qtOrderState.rows.length) {
-    body.innerHTML = '<tr><td colspan="11" class="text-muted text-center py-4">查無 QT 訂購資料</td></tr>';
+    body.innerHTML = '<tr><td colspan="11" class="tc-empty-state">查無 QT 訂購資料</td></tr>';
   } else {
     qtOrderState.rows.forEach(row => {
       const tr = document.createElement('tr');
@@ -250,7 +250,7 @@ function handleQtOrderSearchKey(event) {
 
 function openQtOrderDetail(orderId) {
   const body = document.getElementById('qtOrderDetailBody');
-  body.innerHTML = '<div class="list-loading-box"><span class="spinner-border spinner-border-sm me-2"></span>訂單詳情載入中...</div>';
+  body.innerHTML = '<div class="list-loading-box tc-loading-state"><span class="spinner-border spinner-border-sm me-2"></span>訂單詳情載入中...</div>';
   qtOrderDetailModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('qtOrderDetailModal'));
   qtOrderDetailModalInstance.show();
   google.script.run
@@ -280,11 +280,11 @@ function renderQtOrderDetail(row) {
           ${items.length ? items.map(item => `
             <tr>
               <td>${escapeHtml((item.issueMonth || '').slice(0, 7))}</td>
-              <td>${item.isReceived ? '<span class="badge bg-success-subtle text-success">已領取</span>' : '<span class="badge bg-secondary-subtle text-secondary">未領取</span>'}</td>
+              <td>${item.isReceived ? '<span class="tc-badge-success">已領取</span>' : '<span class="tc-badge-secondary">未領取</span>'}</td>
               <td>${escapeHtml(item.receiverName || '')}</td>
               <td>${escapeHtml(formatQtDateTime(item.receivedAt))}</td>
             </tr>
-          `).join('') : '<tr><td colspan="4" class="text-muted text-center py-3">尚無領取明細</td></tr>'}
+          `).join('') : '<tr><td colspan="4" class="tc-empty-state">尚無領取明細</td></tr>'}
         </tbody>
       </table>
     </div>
@@ -305,7 +305,7 @@ function renderQtReport(type, rows, bodyId) {
   const body = document.getElementById(bodyId);
   body.innerHTML = '';
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">此月份沒有報表資料</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="tc-empty-state">此月份沒有報表資料</td></tr>';
     return;
   }
   rows.forEach(row => {
@@ -337,7 +337,7 @@ function renderQtReport(type, rows, bodyId) {
         <td>${escapeHtml(row.mobilePhone)}</td>
         <td>${escapeHtml(row.orderId)}</td>
         <td>${escapeHtml(row.planName)}</td>
-        <td>${row.isReceived ? '<span class="badge bg-success-subtle text-success">已領取</span>' : '<span class="badge bg-warning-subtle text-warning">未領取</span>'}</td>
+        <td>${row.isReceived ? '<span class="tc-badge-success">已領取</span>' : '<span class="tc-badge-warning">未領取</span>'}</td>
         <td>${escapeHtml(formatQtDateTime(row.receivedAt))}</td>
       `;
     } else {
@@ -413,7 +413,7 @@ function renderQtInventory() {
   const body = document.getElementById('qtInventoryTableBody');
   body.innerHTML = '';
   if (!qtInventoryRows.length) {
-    body.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-4">此月份尚無庫存資料</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" class="tc-empty-state">此月份尚無庫存資料</td></tr>';
     return;
   }
   qtInventoryRows.forEach(row => {
@@ -435,7 +435,7 @@ function renderQtMovements() {
   const body = document.getElementById('qtMovementTableBody');
   body.innerHTML = '';
   if (!qtMovementRows.length) {
-    body.innerHTML = '<tr><td colspan="7" class="text-muted text-center py-4">尚無異動紀錄</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="tc-empty-state">尚無異動紀錄</td></tr>';
     return;
   }
   qtMovementRows.forEach(row => {
@@ -557,16 +557,16 @@ function submitQtTransfer() {
 
 function renderQtOrderStatus(row) {
   if (row.orderStatus === 'cancelled') {
-    return '<span class="badge bg-danger-subtle text-danger">已取消</span>';
+    return '<span class="tc-badge-danger">已取消</span>';
   }
   if (row.financeStatus === 'posted') {
-    return '<span class="badge bg-success-subtle text-success">已付款</span>';
+    return '<span class="tc-badge-success">已付款</span>';
   }
   if (row.financeStatus === 'received') {
-    return '<span class="badge bg-primary-subtle text-primary">待審核</span>';
+    return '<span class="tc-badge-info">待審核</span>';
   }
   if (row.financeStatus === 'unpaid') {
-    return '<span class="badge bg-warning-subtle text-warning">未付款</span>';
+  return '<span class="tc-badge-warning">未付款</span>';
   }
   const statusMap = {
     active: ['進行中', 'bg-success-subtle text-success'],
