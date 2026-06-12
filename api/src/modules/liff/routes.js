@@ -4,6 +4,7 @@ const express = require('express');
 const { pool } = require('../../db');
 const { recordAuditLog } = require('../../shared/audit');
 const { recordNotificationLog, renderNotification } = require('../../shared/notifications');
+const { getConfigValues } = require('../../shared/config');
 const {
   assertLiffRequestAllowed,
   assertLiffSessionAllowed,
@@ -67,6 +68,24 @@ function registerLiffRoutes(app) {
     try {
       const session = await requireLiffSession(req);
       res.json(await getPortalLinks(session));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/liff/member-center', async (req, res, next) => {
+    try {
+      const session = await requireLiffSession(req);
+      res.json(await getLiffMemberCenter(session));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/liff/leader-center', async (req, res, next) => {
+    try {
+      const session = await requireLiffSession(req);
+      res.json(await getLiffLeaderCenter(session));
     } catch (err) {
       next(err);
     }
@@ -521,14 +540,17 @@ async function recordLineBindingNotification(client, templateCode, payload) {
 async function getPortalLinks(session) {
   const me = await getLiffMe(session);
   const visibility = me.member ? ['public', 'members'] : ['public'];
-  const links = await pool.query(
+  const [links, menuItems] = await Promise.all([
+    pool.query(
     `SELECT title, url, link_type, visibility, sort_order, note
      FROM line_bot_links
      WHERE is_active
        AND visibility = ANY($1::text[])
      ORDER BY sort_order, updated_at DESC`,
-    [visibility]
-  );
+      [visibility]
+    ),
+    getMenuItemsForMember(me, ['MEMBER', 'LEADER', 'EXTERNAL'])
+  ]);
   const modules = await pool.query(
     `SELECT module_key, module_name, description, sort_order
      FROM line_bot_module_settings
@@ -537,6 +559,7 @@ async function getPortalLinks(session) {
   );
   return {
     member: me.member,
+    menuItems,
     links: links.rows.map(row => ({
       title: row.title,
       url: row.url,
@@ -551,6 +574,149 @@ async function getPortalLinks(session) {
       description: row.description || '',
       sortOrder: Number(row.sort_order || 0)
     }))
+  };
+}
+
+async function getLiffMemberCenter(session) {
+  const me = await getLiffMe(session);
+  if (!me.member) throw unauthorized('尚未綁定會友資料，無法進入會員中心');
+  const menuItems = await getMenuItemsForMember(me, ['MEMBER', 'EXTERNAL']);
+  return {
+    member: me.member,
+    lineUser: me.lineUser,
+    menuItems
+  };
+}
+
+async function getLiffLeaderCenter(session) {
+  const me = await getLiffMe(session);
+  if (!me.member) throw unauthorized('尚未綁定會友資料，無法進入領袖中心');
+  const scope = await getLeaderScopeForMember(me.member.memberId);
+  if (!scope.isLeader) throw unauthorized('目前帳號沒有領袖中心權限');
+  const [attendance, courses, menuItems] = await Promise.all([
+    pool.query(
+      `SELECT month, total_meetings, attended_count, absent_count, attendance_rate, updated_at
+       FROM attendance_summary
+       WHERE scope_type = $1
+         AND scope_id = $2
+       ORDER BY month DESC
+       LIMIT 12`,
+      [scope.scopeType, scope.scopeId]
+    ),
+    pool.query(
+      `SELECT course_stage, completed_count, required_count, completion_rate, pending_list, updated_at
+       FROM course_summary
+       WHERE scope_type = $1
+         AND scope_id = $2
+       ORDER BY course_stage NULLS LAST
+       LIMIT 50`,
+      [scope.scopeType, scope.scopeId]
+    ),
+    getMenuItemsForMember(me, ['LEADER', 'EXTERNAL'])
+  ]);
+
+  return {
+    member: me.member,
+    scope,
+    menuItems,
+    attendanceSummary: attendance.rows.map(row => ({
+      month: row.month,
+      totalMeetings: Number(row.total_meetings || 0),
+      attendedCount: Number(row.attended_count || 0),
+      absentCount: Number(row.absent_count || 0),
+      attendanceRate: Number(row.attendance_rate || 0),
+      updatedAt: row.updated_at
+    })),
+    courseSummary: courses.rows.map(row => ({
+      courseStage: row.course_stage || '',
+      completedCount: Number(row.completed_count || 0),
+      requiredCount: Number(row.required_count || 0),
+      completionRate: Number(row.completion_rate || 0),
+      pendingList: Array.isArray(row.pending_list) ? row.pending_list : [],
+      updatedAt: row.updated_at
+    }))
+  };
+}
+
+async function getMenuItemsForMember(me, menuTypes) {
+  const bindStatus = me.member ? 'BOUND' : 'UNBOUND';
+  const leaderScope = me.member ? await getLeaderScopeForMember(me.member.memberId) : { isLeader: false };
+  const result = await pool.query(
+    `SELECT menu_code, menu_name, menu_type, target_url, required_role,
+       required_bind_status, display_order, icon, open_type, metadata
+     FROM menu_items
+     WHERE enabled
+       AND menu_type = ANY($1::text[])
+       AND required_bind_status IN ('ANY', $2)
+     ORDER BY display_order, menu_code`,
+    [menuTypes, bindStatus]
+  );
+  const configKeys = [...new Set(result.rows.map(row => row.metadata?.configKey).filter(Boolean))];
+  const configValues = configKeys.length ? await getConfigValues(configKeys, { revealSecrets: true }) : {};
+  return result.rows
+    .filter(row => row.menu_type !== 'LEADER' || leaderScope.isLeader)
+    .map(row => mapMenuItem(row, configValues));
+}
+
+async function getLeaderScopeForMember(memberId) {
+  const result = await pool.query(
+    `SELECT pm.id AS member_id, pt.name AS title_name,
+       pgl.group_id AS leader_group_id,
+       pg.name AS leader_group_name,
+       pg.path AS leader_group_path,
+       pga.group_id AS member_group_id,
+       mga.name AS member_group_name,
+       mga.path AS member_group_path,
+       rule.scope_type
+     FROM pastoral_members pm
+     LEFT JOIN pastoral_titles pt ON pt.id = pm.title_id
+     LEFT JOIN line_leader_scope_rules rule ON rule.title_name = pt.name AND rule.enabled
+     LEFT JOIN pastoral_group_leaders pgl ON pgl.member_id = pm.id AND pgl.is_current
+     LEFT JOIN pastoral_groups pg ON pg.id = pgl.group_id
+     LEFT JOIN pastoral_member_group_assignments pga ON pga.member_id = pm.id AND pga.is_current
+     LEFT JOIN pastoral_groups mga ON mga.id = pga.group_id
+     WHERE pm.id = $1
+       AND pm.is_active
+     LIMIT 1`,
+    [memberId]
+  );
+  const row = result.rows[0];
+  if (!row || !row.scope_type) {
+    return { isLeader: false, scopeType: 'SELF', scopeId: String(memberId), titleName: row?.title_name || '' };
+  }
+  const scopeType = row.scope_type;
+  const groupId = row.leader_group_id || row.member_group_id || memberId;
+  const scopeId = scopeType === 'GLOBAL'
+    ? 'GLOBAL'
+    : scopeType === 'SELF'
+      ? String(memberId)
+      : String(groupId);
+  return {
+    isLeader: true,
+    memberId,
+    titleName: row.title_name || '',
+    scopeType,
+    scopeId,
+    groupId: groupId === memberId ? null : groupId,
+    groupName: row.leader_group_name || row.member_group_name || '',
+    groupPath: row.leader_group_path || row.member_group_path || ''
+  };
+}
+
+function mapMenuItem(row, configValues = {}) {
+  const metadata = row.metadata || {};
+  const configTarget = metadata.configKey ? configValues[metadata.configKey] : '';
+  return {
+    menuCode: row.menu_code,
+    menuName: row.menu_name,
+    menuType: row.menu_type,
+    targetUrl: configTarget || row.target_url || '',
+    requiredRole: row.required_role || '',
+    requiredBindStatus: row.required_bind_status,
+    displayOrder: Number(row.display_order || 0),
+    icon: row.icon || '',
+    openType: row.open_type,
+    metadata
   };
 }
 

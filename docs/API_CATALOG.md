@@ -166,10 +166,27 @@
 - 庫存異動。
 - 調撥。
 - 訂購與庫存檢查。
+- Dashboard 與領取月份設定。
 
 重要 endpoint：
 
+- `GET /qt/options`：QT 類型、價格方案與會堂選項。
+- `GET /qt/dashboard`：訂購、付款與指定月份領取摘要。
+- `GET /qt/settings`：QT 模組設定，目前包含開放領取月份。
+- `PUT /qt/settings`：更新 QT 模組設定，使用既有 `system_config`。
+- `GET /qt/orders`：QT 訂單列表。
+- `GET /qt/orders/:orderId`：QT 訂單明細與領取項目。
+- `GET /qt/reports/:type`：QT 報表，支援 `finance`、`pickup`、`expiring`、`pastoral-summary`。
+- `GET /qt/inventory`：QT 月庫存。
+- `GET /qt/inventory/movements`：QT 庫存異動紀錄。
+- `POST /qt/inventory/movements`：新增 QT 庫存異動。
+- `POST /qt/inventory/transfers`：QT 跨會堂庫存調撥。
 - `GET /qt/stock-check`：未來 Line App / LIFF 下單前檢查庫存。
+
+注意：
+
+- 開放領取月份目前使用 `system_config.QT_OPEN_PICKUP_MONTH`，不需 migration。
+- 匯款證明審核、領取自動扣庫存防重、正式 stock ledger/月結、QT 與 Counter 金流關聯需先看 `docs/reviews/QT_DBA_REVIEW.md`。
 
 ## Asset / Admin Supply
 

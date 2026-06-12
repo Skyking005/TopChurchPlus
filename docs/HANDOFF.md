@@ -6,7 +6,7 @@
 
 ## 現況一句話
 
-TopChurchPlus 目前是 Google Apps Script 前端 + Apps Script bridge + NAS Node.js API + PostgreSQL 的漸進式重構系統；MSSQL 仍保留為部分舊資料來源；LINE/LIFF 與 BPM workflow 已有基礎，但外部 HTTPS 與完整前端工作台仍待完成。
+TopChurchPlus 目前是 Google Apps Script 前端 + Apps Script bridge + NAS Node.js API + PostgreSQL 的漸進式重構系統；MSSQL 仍保留為部分舊資料來源；LINE/LIFF 已有 Phase 0-5 基礎，BPM workflow 已有 v1 engine，但部分報表快取與正式營運驗證仍待完成。
 
 ## 最新重要進度
 
@@ -16,8 +16,11 @@ TopChurchPlus 目前是 Google Apps Script 前端 + Apps Script bridge + NAS Nod
 - Apps Script 最新已知部署：`@138`
 - `Script_Login.html` 第一階段已拆分，靜態常數在 `Script_FeatureConfig.html`。
 - Workflow/BPM v1 已新增 DB、API、Apps Script wrappers。
+- LINE Bot Phase 2-5 初版已新增：動態會員選單、LIFF 會員中心/領袖中心 API、後台管理中心 API、Rich Menu 三層指派策略。
+- LINE Bot Phase 2-5 migration 已套用到 NAS PostgreSQL；套用前已有 DB dump 備份。
 - `tools/check-ai-context-freshness.cmd` 已新增，可檢查 AI context 是否落後 Git HEAD。
 - `.claspignore` 已排除 `CLAUDE_files/**`。
+- QT 管理頁已重整為訂購、領取、財務、報表、庫存五個分頁；領取月份設定使用 `system_config.QT_OPEN_PICKUP_MONTH`；匯款審核、領取扣庫存防重與正式 ledger 請先看 `docs/reviews/QT_DBA_REVIEW.md`。
 
 ## 必讀文件
 
@@ -132,9 +135,14 @@ DB：
 已知：
 
 - LINE webhook receiver 已存在。
+- LIFF `/liff/member-center` 與 `/liff/leader-center` 已存在。
+- `menu_items` 會產生 LIFF 會員中心動態選單。
+- `line_leader_scope_rules` 用職稱對應領袖 scope；`attendance_summary` / `course_summary` 是領袖中心快取來源，目前表結構已建立，資料排程仍待補。
+- 後台 Line App 會友管理系統已有管理中心分頁，可管理 config、notification templates、menu items 與檢視 audit logs。
+- Rich Menu 採 Guest / Member / Leader 三層策略，實際權限仍由 LIFF 後端判斷，不依賴 Rich Menu。
 - 內網 API health 正常。
 - `api.topchurchplus.com` 規劃導向 NAS。
-- 外部 HTTPS 仍待防火牆、憑證、反向代理確認。
+- 外部 HTTPS 曾可通，但正式 LINE webhook/LIFF 營運仍需以 LINE Developers Verify 與真機測試再次確認。
 - Webhook signature mode 先保持準備/記錄模式，未完成外部 HTTPS 前不要切正式。
 
 ## 部署注意

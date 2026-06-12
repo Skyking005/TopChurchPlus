@@ -17,6 +17,9 @@
 - 確認 `api.topchurchplus.com` HTTPS 可連到 `/linebot/webhook`。
 - 從 `log_only` 逐步切到正式 signature 驗證。
 - 完成 LIFF 綁定流程驗證。
+- 驗證 Phase 2-5：會員中心動態選單、領袖中心 summary cache、後台管理中心、Guest/Member/Leader Rich Menu 指派。
+- 補每日更新 `attendance_summary` / `course_summary` 的排程或同步工具。
+- 用真實 LINE 使用者測試 Rich Menu dry-run/live 切換與三層 segment。
 
 ### Pastoral Identity
 

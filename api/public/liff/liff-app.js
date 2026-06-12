@@ -67,6 +67,11 @@
     renderMember(me);
     const portal = await apiGet('/liff/portal-links', true);
     renderPortal(portal);
+    if ((portal.menuItems || []).some(item => item.menuCode === 'LEADER_CENTER')) {
+      await loadLeaderCenter();
+    } else {
+      document.getElementById('leaderPanel').classList.add('d-none');
+    }
     setStatus(me.member ? '已完成會友綁定' : '尚未綁定會友資料');
   }
 
@@ -111,6 +116,7 @@
 
   function renderPortal(portal) {
     document.getElementById('portalPanel').classList.remove('d-none');
+    renderMenuItems(portal.menuItems || []);
     const links = portal.links || [];
     const box = document.getElementById('portalLinks');
     if (!links.length) {
@@ -124,6 +130,58 @@
       `).join('');
     }
     renderModuleList(portal.modules || state.config.modules || []);
+  }
+
+  async function loadLeaderCenter() {
+    try {
+      const leader = await apiGet('/liff/leader-center', true);
+      renderLeaderCenter(leader);
+    } catch (err) {
+      document.getElementById('leaderPanel').classList.add('d-none');
+    }
+  }
+
+  function renderMenuItems(items) {
+    const box = document.getElementById('menuItems');
+    if (!items.length) {
+      box.innerHTML = '';
+      return;
+    }
+    box.innerHTML = items.map(item => `
+      <a class="portal-link" href="${escapeAttr(resolveMenuUrl(item))}" target="_top">
+        <span class="portal-link-title">${escapeHtml(item.menuName)}</span>
+        <span class="portal-link-note">${escapeHtml(formatOpenType(item.openType))}</span>
+      </a>
+    `).join('');
+  }
+
+  function renderLeaderCenter(leader) {
+    document.getElementById('leaderPanel').classList.remove('d-none');
+    const scope = leader.scope || {};
+    document.getElementById('leaderScope').innerHTML = [
+      `<div>職分：${escapeHtml(scope.titleName || '領袖')}</div>`,
+      `<div>範圍：${escapeHtml(formatScopeType(scope.scopeType))}${scope.groupName ? ` / ${escapeHtml(scope.groupName)}` : ''}</div>`
+    ].join('');
+    const attendance = leader.attendanceSummary || [];
+    const courses = leader.courseSummary || [];
+    const latestAttendance = attendance[0];
+    document.getElementById('leaderSummary').innerHTML = [
+      latestAttendance ? `
+        <div class="module-item">
+          <strong>最近出席摘要</strong><br>
+          ${escapeHtml(formatDateMonth(latestAttendance.month))}：
+          ${escapeHtml(latestAttendance.attendedCount)} / ${escapeHtml(latestAttendance.totalMeetings)}
+          (${escapeHtml(latestAttendance.attendanceRate)}%)
+        </div>
+      ` : '<div class="module-item">目前尚未建立出席摘要快取。</div>',
+      courses.length ? courses.map(course => `
+        <div class="module-item">
+          <strong>${escapeHtml(course.courseStage || '課程摘要')}</strong><br>
+          完成 ${escapeHtml(course.completedCount)} / ${escapeHtml(course.requiredCount)}
+          (${escapeHtml(course.completionRate)}%)
+        </div>
+      `).join('') : '<div class="module-item">目前尚未建立課程摘要快取。</div>'
+    ].join('');
   }
 
   function renderModuleList(modules) {
@@ -203,6 +261,41 @@
       custom: '連結'
     };
     return labels[type] || '連結';
+  }
+
+  function formatOpenType(type) {
+    const labels = {
+      LIFF_ROUTE: 'Line App',
+      EXTERNAL_URL: '外部連結',
+      INTERNAL_MODULE: '系統功能'
+    };
+    return labels[type] || '功能入口';
+  }
+
+  function formatScopeType(type) {
+    const labels = {
+      SELF: '個人',
+      CELL_GROUP: '小家',
+      BIG_GROUP: '大家',
+      ZONE: '牧區',
+      GLOBAL: '全域'
+    };
+    return labels[type] || type || '';
+  }
+
+  function formatDateMonth(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value).slice(0, 7);
+    return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function resolveMenuUrl(item) {
+    const url = item.targetUrl || '';
+    if (!url) return '#';
+    if (/^https?:\/\//i.test(url)) return url;
+    if (url.startsWith('/liff/leader')) return '#leaderPanel';
+    return url;
   }
 
   function escapeHtml(value) {

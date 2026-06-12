@@ -4,6 +4,7 @@ let qtInventoryRows = [];
 let qtMovementRows = [];
 let qtOrderState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let qtActiveTab = 'orders';
+let qtSettings = { openPickupMonth: '' };
 let qtMovementModalInstance = null;
 let qtTransferModalInstance = null;
 let qtOrderDetailModalInstance = null;
@@ -15,19 +16,23 @@ function openQtSystem() {
   document.getElementById('qtView').classList.remove('d-none');
   const month = getCurrentIssueMonth();
   if (!document.getElementById('qtIssueMonth').value) document.getElementById('qtIssueMonth').value = month;
-  if (!document.getElementById('qtReportMonth').value) document.getElementById('qtReportMonth').value = month;
+  ['qtPickupReportMonth', 'qtFinanceReportMonth', 'qtAnalyticsReportMonth'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input && !input.value) input.value = month;
+  });
   loadQtSystem();
 }
 
 function loadQtSystem() {
-  setListLoading(['qtOrderTableBody', 'qtInventoryTableBody', 'qtMovementTableBody', 'qtPricePlanTableBody'], true);
+  setListLoading(['qtOrderTableBody', 'qtInventoryTableBody', 'qtMovementTableBody', 'qtPricePlanTableBody', 'qtPickupTableBody', 'qtFinanceTableBody', 'qtAnalyticsTableBody'], true);
+  loadQtSettings();
+  loadQtDashboard();
   google.script.run
     .withSuccessHandler(options => {
       qtOptions = options || { productTypes: [], pricePlans: [], churches: [] };
       setupQtOptions();
       renderQtPricePlans();
       switchQtTab(qtActiveTab || 'orders');
-      loadQtInventory();
     })
     .withFailureHandler(showError)
     .getQtOptions(currentUser);
@@ -37,16 +42,141 @@ function switchQtTab(tab) {
   qtActiveTab = tab || 'orders';
   document.querySelectorAll('.qt-tab-btn').forEach(btn => {
     const active = btn.dataset.qtTab === qtActiveTab;
-    btn.classList.toggle('btn-primary', active);
-    btn.classList.toggle('btn-outline-primary', !active);
+    btn.classList.toggle('active', active);
   });
-  document.getElementById('qtOrdersPanel').classList.toggle('d-none', qtActiveTab !== 'orders');
-  document.getElementById('qtReportPanel').classList.toggle('d-none', qtActiveTab === 'orders');
+  const panels = {
+    orders: 'qtOrdersPanel',
+    pickup: 'qtPickupPanel',
+    finance: 'qtFinancePanel',
+    reports: 'qtReportsPanel',
+    inventory: 'qtInventoryPanel'
+  };
+  Object.values(panels).forEach(id => document.getElementById(id).classList.add('d-none'));
+  document.getElementById(panels[qtActiveTab] || panels.orders).classList.remove('d-none');
+
   if (qtActiveTab === 'orders') {
     loadQtOrders(qtOrderState.page || 1);
-  } else {
-    loadQtReport();
+  } else if (qtActiveTab === 'pickup') {
+    loadQtPickupReport();
+  } else if (qtActiveTab === 'finance') {
+    loadQtFinanceReport();
+  } else if (qtActiveTab === 'reports') {
+    loadQtAnalyticsReport();
+  } else if (qtActiveTab === 'inventory') {
+    loadQtInventory();
+    renderQtPricePlans();
   }
+}
+
+function loadQtSettings() {
+  google.script.run
+    .withSuccessHandler(settings => {
+      qtSettings = settings || { openPickupMonth: getCurrentIssueMonth() };
+      const openMonth = qtSettings.openPickupMonth || getCurrentIssueMonth();
+      const input = document.getElementById('qtOpenPickupMonth');
+      if (input) input.value = openMonth;
+      const pickupMonth = document.getElementById('qtPickupReportMonth');
+      if (pickupMonth && !pickupMonth.value) pickupMonth.value = openMonth;
+    })
+    .withFailureHandler(showError)
+    .getQtSettings(currentUser);
+}
+
+function submitQtSettings() {
+  const btn = document.getElementById('saveQtSettingsBtn');
+  const openPickupMonth = document.getElementById('qtOpenPickupMonth').value || getCurrentIssueMonth();
+  setButtonLoading(btn, true, '儲存中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      qtSettings = res.settings || { openPickupMonth };
+      document.getElementById('qtPickupReportMonth').value = qtSettings.openPickupMonth || openPickupMonth;
+      alert(res.message || 'QT 設定已儲存');
+      loadQtDashboard();
+      loadQtPickupReport();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .saveQtSettings({
+      currentUser,
+      settings: { openPickupMonth }
+    });
+}
+
+function loadQtDashboard() {
+  const issueMonth = document.getElementById('qtOpenPickupMonth')?.value || qtSettings.openPickupMonth || getCurrentIssueMonth();
+  google.script.run
+    .withSuccessHandler(renderQtDashboard)
+    .withFailureHandler(showError)
+    .getQtDashboard({ issueMonth: `${issueMonth}-01` }, currentUser);
+}
+
+function renderQtDashboard(data) {
+  const orders = data?.orders || {};
+  const pickup = data?.pickup || {};
+  setQtText('qtDashboardOrderCount', orders.orderCount || 0);
+  setQtText('qtDashboardUnpaidCount', orders.unpaidCount || 0);
+  setQtText('qtDashboardPendingReviewCount', orders.pendingReviewCount || 0);
+  setQtText('qtDashboardPaidCount', orders.paidCount || 0);
+  setQtText('qtDashboardPickupTotal', pickup.itemCount || 0);
+  setQtText('qtDashboardPickupReceived', pickup.receivedCount || 0);
+  setQtText('qtDashboardPickupUnreceived', pickup.unreceivedCount || 0);
+}
+
+function setQtText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function loadQtReport() {
+  if (qtActiveTab === 'pickup') {
+    loadQtPickupReport();
+  } else if (qtActiveTab === 'finance') {
+    loadQtFinanceReport();
+  } else if (qtActiveTab === 'reports') {
+    loadQtAnalyticsReport();
+  }
+}
+
+function loadQtPickupReport() {
+  loadQtReportTo({
+    type: 'pickup',
+    monthId: 'qtPickupReportMonth',
+    headId: 'qtPickupTableHead',
+    bodyId: 'qtPickupTableBody',
+    filters: { pickupStatus: document.getElementById('qtPickupStatusFilter')?.value || 'unreceived' }
+  });
+}
+
+function loadQtFinanceReport() {
+  loadQtReportTo({
+    type: 'finance',
+    monthId: 'qtFinanceReportMonth',
+    headId: 'qtFinanceTableHead',
+    bodyId: 'qtFinanceTableBody'
+  });
+}
+
+function loadQtAnalyticsReport() {
+  loadQtReportTo({
+    type: document.getElementById('qtAnalyticsReportType')?.value || 'expiring',
+    monthId: 'qtAnalyticsReportMonth',
+    headId: 'qtAnalyticsTableHead',
+    bodyId: 'qtAnalyticsTableBody'
+  });
+}
+
+function loadQtReportTo({ type, monthId, headId, bodyId, filters = {} }) {
+  setListLoading(bodyId, true, 'QT 報表載入中...');
+  setupQtReportHead(type, headId);
+  google.script.run
+    .withSuccessHandler(rows => renderQtReport(type, rows || [], bodyId))
+    .withFailureHandler(showError)
+    .getQtReport(type, Object.assign({
+      issueMonth: `${document.getElementById(monthId).value || getCurrentIssueMonth()}-01`
+    }, filters), currentUser);
 }
 
 function setupQtOptions() {
@@ -161,30 +291,18 @@ function renderQtOrderDetail(row) {
   `;
 }
 
-function loadQtReport() {
-  const type = qtActiveTab;
-  setListLoading('qtReportTableBody', true, 'QT 報表載入中...');
-  setupQtReportHead(type);
-  google.script.run
-    .withSuccessHandler(rows => renderQtReport(type, rows || []))
-    .withFailureHandler(showError)
-    .getQtReport(type, {
-      issueMonth: `${document.getElementById('qtReportMonth').value || getCurrentIssueMonth()}-01`
-    }, currentUser);
-}
-
-function setupQtReportHead(type) {
+function setupQtReportHead(type, headId) {
   const heads = {
     finance: ['會堂', '付款方式', '財務狀態', '訂單數', '數量', '金額'],
     expiring: ['訂單編號', '牧區', '姓名', '電話', '訂購區間', '方案', '狀態'],
     pickup: ['會堂', '牧區', '姓名', '電話', '訂單編號', '方案', '領取狀態', '領取時間'],
     'pastoral-summary': ['會堂', '牧區', '方案', '訂單數', '數量', '金額']
   };
-  document.getElementById('qtReportTableHead').innerHTML = `<tr>${(heads[type] || []).map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
+  document.getElementById(headId).innerHTML = `<tr>${(heads[type] || []).map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
 }
 
-function renderQtReport(type, rows) {
-  const body = document.getElementById('qtReportTableBody');
+function renderQtReport(type, rows, bodyId) {
+  const body = document.getElementById(bodyId);
   body.innerHTML = '';
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">此月份沒有報表資料</td></tr>';
@@ -438,6 +556,18 @@ function submitQtTransfer() {
 }
 
 function renderQtOrderStatus(row) {
+  if (row.orderStatus === 'cancelled') {
+    return '<span class="badge bg-danger-subtle text-danger">已取消</span>';
+  }
+  if (row.financeStatus === 'posted') {
+    return '<span class="badge bg-success-subtle text-success">已付款</span>';
+  }
+  if (row.financeStatus === 'received') {
+    return '<span class="badge bg-primary-subtle text-primary">待審核</span>';
+  }
+  if (row.financeStatus === 'unpaid') {
+    return '<span class="badge bg-warning-subtle text-warning">未付款</span>';
+  }
   const statusMap = {
     active: ['進行中', 'bg-success-subtle text-success'],
     pending: ['待繳費', 'bg-warning-subtle text-warning'],
@@ -458,9 +588,9 @@ function renderQtOrderHistory(row) {
 
 function formatQtFinanceStatus(status) {
   return {
-    unpaid: '待繳費',
-    received: '已收款',
-    posted: '已入帳'
+    unpaid: '未付款',
+    received: '待審核',
+    posted: '已付款'
   }[status] || status || '';
 }
 

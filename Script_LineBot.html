@@ -8,6 +8,10 @@ let lineBotEventsState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let lineBotModules = [];
 let lineBotChannels = [];
 let lineBotRichMenus = [];
+let lineBotConfigRows = [];
+let lineBotTemplateRows = [];
+let lineBotMenuItemRows = [];
+let lineBotAuditLogsState = { page: 1, pageSize: 20, total: 0, rows: [] };
 
 function openLineBotSystem() {
   recordFeatureUsage('linebot');
@@ -23,7 +27,7 @@ function switchLineBotTab(tab) {
   document.querySelectorAll('[data-linebot-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.linebotTab === tab);
   });
-  ['dashboard', 'users', 'bindingRequests', 'settings', 'links', 'richMenus', 'modules', 'events'].forEach(key => {
+  ['dashboard', 'users', 'bindingRequests', 'settings', 'links', 'richMenus', 'adminCenter', 'modules', 'events'].forEach(key => {
     document.getElementById(`lineBot${capitalizeLineBotKey(key)}Pane`).classList.toggle('d-none', key !== tab);
   });
   if (tab === 'users') loadLineBotUsers(lineBotUsersState.page || 1);
@@ -31,6 +35,7 @@ function switchLineBotTab(tab) {
   if (tab === 'settings') loadLineBotChannels();
   if (tab === 'links') loadLineBotLinks(lineBotLinksState.page || 1);
   if (tab === 'richMenus') loadLineBotRichMenus();
+  if (tab === 'adminCenter') loadLineBotAdminCenter();
   if (tab === 'modules') loadLineBotModules();
   if (tab === 'events') loadLineBotEvents(lineBotEventsState.page || 1);
 }
@@ -110,11 +115,184 @@ function renderLineBotUsers() {
         <td>${escapeHtml(row.lineDisplayName || '')}</td>
         <td><code>${escapeHtml(row.lineUserId || '未綁定')}</code></td>
         <td>${escapeHtml(formatLineBotDateTime(row.lastInteractionAt) || '')}</td>
+        <td>${row.lineUserId && getFeatureAccess('linebot') === 'edit' ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="syncLineBotUserRichMenuItem('${escapeAttr(row.lineUserId)}')">同步選單</button>` : ''}</td>
       `;
       body.appendChild(tr);
     });
   }
   renderLineBotPager('lineBotUsersPager', lineBotUsersState, 'loadLineBotUsers');
+}
+
+function loadLineBotAdminCenter() {
+  setListLoading('lineBotConfigBody', true, 'Config 載入中...');
+  setListLoading('lineBotTemplatesBody', true, '模板載入中...');
+  setListLoading('lineBotMenuItemsBody', true, '選單載入中...');
+  setListLoading('lineBotAuditLogsBody', true, 'Audit Log 載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotConfigRows = data?.rows || [];
+      renderLineBotConfigRows();
+    })
+    .withFailureHandler(showError)
+    .getLineBotConfig(currentUser);
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotTemplateRows = data?.rows || [];
+      renderLineBotTemplateRows();
+    })
+    .withFailureHandler(showError)
+    .getLineBotNotificationTemplates({}, currentUser);
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotMenuItemRows = data?.rows || [];
+      renderLineBotMenuItemRows();
+    })
+    .withFailureHandler(showError)
+    .getLineBotMenuItems(currentUser);
+  loadLineBotAuditLogs(1);
+}
+
+function renderLineBotConfigRows() {
+  const body = document.getElementById('lineBotConfigBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = lineBotConfigRows.map(row => `
+    <tr>
+      <td><code>${escapeHtml(row.configKey)}</code><div class="text-muted small">${escapeHtml(row.description || '')}</div></td>
+      <td>${escapeHtml(truncateLineBotText(row.configValue || '', 28))}</td>
+      <td>${row.enabled ? '<span class="badge bg-success-subtle text-success">啟用</span>' : '<span class="badge bg-secondary-subtle text-secondary">停用</span>'}</td>
+      <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotConfig('${escapeAttr(row.configKey)}')">編輯</button>` : ''}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="text-muted text-center py-4">尚無設定</td></tr>';
+}
+
+function renderLineBotTemplateRows() {
+  const body = document.getElementById('lineBotTemplatesBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = lineBotTemplateRows.map(row => `
+    <tr>
+      <td><code>${escapeHtml(row.templateCode)}</code></td>
+      <td>${escapeHtml(row.channel)}</td>
+      <td>${escapeHtml(truncateLineBotText(row.subject || '', 24))}</td>
+      <td>${row.enabled ? '<span class="badge bg-success-subtle text-success">啟用</span>' : '<span class="badge bg-secondary-subtle text-secondary">停用</span>'}</td>
+      <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotTemplate('${escapeAttr(row.templateCode)}','${escapeAttr(row.channel)}')">編輯</button>` : ''}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-muted text-center py-4">尚無模板</td></tr>';
+}
+
+function renderLineBotMenuItemRows() {
+  const body = document.getElementById('lineBotMenuItemsBody');
+  const canEdit = getFeatureAccess('linebot') === 'edit';
+  body.innerHTML = lineBotMenuItemRows.map(row => `
+    <tr>
+      <td><code>${escapeHtml(row.menuCode)}</code></td>
+      <td>${escapeHtml(row.menuName)}</td>
+      <td>${escapeHtml(row.menuType)}</td>
+      <td>${row.enabled ? '<span class="badge bg-success-subtle text-success">啟用</span>' : '<span class="badge bg-secondary-subtle text-secondary">停用</span>'}</td>
+      <td>${canEdit ? `<button type="button" class="btn btn-sm btn-outline-primary" onclick="editLineBotMenuItem('${escapeAttr(row.menuCode)}')">編輯</button>` : ''}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-muted text-center py-4">尚無選單</td></tr>';
+}
+
+function loadLineBotAuditLogs(page = 1) {
+  lineBotAuditLogsState.page = page;
+  google.script.run
+    .withSuccessHandler(data => {
+      lineBotAuditLogsState = Object.assign({ page, pageSize: 20, total: 0, rows: [] }, data || {});
+      renderLineBotAuditLogs();
+    })
+    .withFailureHandler(showError)
+    .getLineBotAuditLogs({ page, pageSize: 20 }, currentUser);
+}
+
+function renderLineBotAuditLogs() {
+  const body = document.getElementById('lineBotAuditLogsBody');
+  body.innerHTML = lineBotAuditLogsState.rows.map(row => `
+    <tr>
+      <td>${escapeHtml(formatLineBotDateTime(row.createdAt))}</td>
+      <td>${escapeHtml(row.systemKey)}</td>
+      <td>${escapeHtml(row.action)}</td>
+      <td>${escapeHtml(row.entityType)} / <code>${escapeHtml(row.entityId)}</code></td>
+    </tr>
+  `).join('') || '<tr><td colspan="4" class="text-muted text-center py-4">尚無 Audit Log</td></tr>';
+  renderLineBotPager('lineBotAuditLogsPager', lineBotAuditLogsState, 'loadLineBotAuditLogs');
+}
+
+function editLineBotConfig(configKey) {
+  const row = lineBotConfigRows.find(item => item.configKey === configKey);
+  if (!row) return;
+  const value = prompt(`${configKey} 新值${row.isSecret ? '（留空不建議覆蓋秘密值）' : ''}`, row.isSecret ? '' : row.configValue || '');
+  if (value === null) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message || '設定已更新');
+      loadLineBotAdminCenter();
+    })
+    .withFailureHandler(showError)
+    .saveLineBotConfig({
+      configKey,
+      config: {
+        configValue: value,
+        description: row.description || '',
+        isSecret: row.isSecret === true,
+        enabled: row.enabled !== false
+      },
+      currentUser
+    });
+}
+
+function editLineBotTemplate(templateCode, channel) {
+  const row = lineBotTemplateRows.find(item => item.templateCode === templateCode && item.channel === channel);
+  if (!row) return;
+  const subject = prompt('通知標題', row.subject || '');
+  if (subject === null) return;
+  const content = prompt('通知內容', row.content || '');
+  if (content === null) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message || '模板已更新');
+      loadLineBotAdminCenter();
+    })
+    .withFailureHandler(showError)
+    .saveLineBotNotificationTemplate({
+      templateCode,
+      channel,
+      template: { subject, content, enabled: row.enabled !== false },
+      currentUser
+    });
+}
+
+function editLineBotMenuItem(menuCode) {
+  const row = lineBotMenuItemRows.find(item => item.menuCode === menuCode);
+  if (!row) return;
+  const menuName = prompt('選單名稱', row.menuName || '');
+  if (menuName === null) return;
+  const targetUrl = prompt('目標網址或 LIFF route', row.targetUrl || '');
+  if (targetUrl === null) return;
+  google.script.run
+    .withSuccessHandler(res => {
+      alert(res.message || '選單已更新');
+      loadLineBotAdminCenter();
+    })
+    .withFailureHandler(showError)
+    .saveLineBotMenuItem({
+      menuCode,
+      menuItem: Object.assign({}, row, { menuName, targetUrl }),
+      currentUser
+    });
+}
+
+function syncLineBotUserRichMenuItem(lineUserId) {
+  google.script.run
+    .withSuccessHandler(res => alert(`Rich Menu 同步：${res.status || '完成'}`))
+    .withFailureHandler(showError)
+    .syncLineBotUserRichMenu({ lineUserId, currentUser });
+}
+
+function syncAllLineBotRichMenusNow() {
+  google.script.run
+    .withSuccessHandler(res => alert(res.message || 'Rich Menu 批次同步完成'))
+    .withFailureHandler(showError)
+    .syncAllLineBotRichMenus({ limit: 50, currentUser });
 }
 
 function loadLineBotBindingRequests(page = 1) {

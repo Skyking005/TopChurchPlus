@@ -15,6 +15,7 @@
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="settings" onclick="switchLineBotTab('settings')">Channel 設定</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="links" onclick="switchLineBotTab('links')">LINE 連結</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="richMenus" onclick="switchLineBotTab('richMenus')">Rich Menu</button></li>
+      <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="adminCenter" onclick="switchLineBotTab('adminCenter')">管理中心</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="modules" onclick="switchLineBotTab('modules')">會友功能</button></li>
       <li class="nav-item"><button type="button" class="nav-link" data-linebot-tab="events" onclick="switchLineBotTab('events')">事件紀錄</button></li>
     </ul>
@@ -103,6 +104,7 @@
               <th>LINE 顯示名稱</th>
               <th>LINE User ID</th>
               <th>最近互動</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody id="lineBotUsersBody"></tbody>
@@ -419,7 +421,10 @@
 
     <div id="lineBotRichMenusPane" class="d-none">
       <div class="linebot-module mb-3">
-        <div class="linebot-module-title">Rich Menu 介面與提示設定</div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="linebot-module-title mb-0">Rich Menu 介面與提示設定</div>
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="syncAllLineBotRichMenusNow()">同步前 50 位</button>
+        </div>
         <div class="text-muted small mb-3">依照未綁定與已綁定狀態設定不同提示內容；Rich Menu ID 仍使用 LINE 官方後台建立後取得的 ID。</div>
         <input type="hidden" id="lineBotRichMenuId">
         <div class="row g-2">
@@ -501,6 +506,59 @@
           </thead>
           <tbody id="lineBotRichMenusBody"></tbody>
         </table>
+      </div>
+    </div>
+
+    <div id="lineBotAdminCenterPane" class="d-none">
+      <div class="row g-3">
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="linebot-module-title mb-0">Config 管理</div>
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="loadLineBotAdminCenter()">重新整理</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>Key</th><th>值</th><th>啟用</th><th>操作</th></tr></thead>
+                <tbody id="lineBotConfigBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="linebot-module-title">Notification Templates</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>代碼</th><th>通道</th><th>標題</th><th>啟用</th><th>操作</th></tr></thead>
+                <tbody id="lineBotTemplatesBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="linebot-module-title">Menu Items</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>代碼</th><th>名稱</th><th>類型</th><th>狀態</th><th>操作</th></tr></thead>
+                <tbody id="lineBotMenuItemsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-xl-6">
+          <div class="linebot-module">
+            <div class="linebot-module-title">Audit Log</div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>時間</th><th>系統</th><th>動作</th><th>對象</th></tr></thead>
+                <tbody id="lineBotAuditLogsBody"></tbody>
+              </table>
+            </div>
+            <div id="lineBotAuditLogsPager" class="d-flex justify-content-between align-items-center mt-2"></div>
+          </div>
+        </div>
       </div>
     </div>
 

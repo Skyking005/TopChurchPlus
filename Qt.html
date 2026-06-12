@@ -1,12 +1,49 @@
 <section id="qtView" class="d-none">
   <div class="section-card p-0 overflow-hidden">
     <div class="qt-toolbar">
-      <div class="btn-group flex-wrap" role="group">
-        <button type="button" class="btn btn-primary qt-tab-btn" data-qt-tab="orders" onclick="switchQtTab('orders')">訂購管理</button>
-        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="finance" onclick="switchQtTab('finance')">財務報表</button>
-        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="expiring" onclick="switchQtTab('expiring')">本月到期報表</button>
-        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="pickup" onclick="switchQtTab('pickup')">每月領取報表</button>
-        <button type="button" class="btn btn-outline-primary qt-tab-btn" data-qt-tab="pastoral-summary" onclick="switchQtTab('pastoral-summary')">牧區訂閱統計</button>
+      <ul class="nav nav-tabs flex-wrap" id="qtManagementTabs">
+        <li class="nav-item">
+          <button type="button" class="nav-link active qt-tab-btn" data-qt-tab="orders" onclick="switchQtTab('orders')">訂購管理</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link qt-tab-btn" data-qt-tab="pickup" onclick="switchQtTab('pickup')">領取管理</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link qt-tab-btn" data-qt-tab="finance" onclick="switchQtTab('finance')">財務管理</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link qt-tab-btn" data-qt-tab="reports" onclick="switchQtTab('reports')">報表分析</button>
+        </li>
+        <li class="nav-item">
+          <button type="button" class="nav-link qt-tab-btn" data-qt-tab="inventory" onclick="switchQtTab('inventory')">庫存管理</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="row g-3 p-3 border-bottom" id="qtDashboardCards">
+      <div class="col-6 col-lg-3">
+        <div class="border rounded p-3 h-100">
+          <div class="text-muted small">訂購總數</div>
+          <div class="fs-4 fw-semibold" id="qtDashboardOrderCount">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="border rounded p-3 h-100">
+          <div class="text-muted small">未付款</div>
+          <div class="fs-4 fw-semibold text-warning" id="qtDashboardUnpaidCount">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="border rounded p-3 h-100">
+          <div class="text-muted small">待審核</div>
+          <div class="fs-4 fw-semibold text-primary" id="qtDashboardPendingReviewCount">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="border rounded p-3 h-100">
+          <div class="text-muted small">已付款</div>
+          <div class="fs-4 fw-semibold text-success" id="qtDashboardPaidCount">-</div>
+        </div>
       </div>
     </div>
 
@@ -45,12 +82,130 @@
           <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeQtOrderPage(1)">下一頁</button>
         </div>
       </div>
+    </div>
 
+    <div id="qtPickupPanel" class="qt-panel d-none">
+      <div class="p-3 border-top">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h6 class="mb-1">開放領取月份</h6>
+            <div class="text-muted small">此設定供 QT 領取管理與櫃台流程驗證使用。</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+              <label class="form-label small mb-1">月份</label>
+              <input id="qtOpenPickupMonth" type="month" class="form-control form-control-sm">
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="saveQtSettingsBtn" onclick="submitQtSettings()">儲存設定</button>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-lg-4">
+            <div class="border rounded p-3 h-100">
+              <div class="text-muted small">本月應領取</div>
+              <div class="fs-5 fw-semibold" id="qtDashboardPickupTotal">-</div>
+            </div>
+          </div>
+          <div class="col-6 col-lg-4">
+            <div class="border rounded p-3 h-100">
+              <div class="text-muted small">已領取</div>
+              <div class="fs-5 fw-semibold text-success" id="qtDashboardPickupReceived">-</div>
+            </div>
+          </div>
+          <div class="col-12 col-lg-4">
+            <div class="border rounded p-3 h-100">
+              <div class="text-muted small">未領取</div>
+              <div class="fs-5 fw-semibold text-warning" id="qtDashboardPickupUnreceived">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-2 align-items-end qt-search-row">
+          <div class="col-12 col-md-3">
+            <label class="form-label">領取月份</label>
+            <input id="qtPickupReportMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">領取狀態</label>
+            <select id="qtPickupStatusFilter" class="form-select">
+              <option value="unreceived">未領取</option>
+              <option value="received">已領取</option>
+              <option value="all">全部</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-primary" onclick="loadQtPickupReport()">查詢</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead id="qtPickupTableHead"></thead>
+            <tbody id="qtPickupTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="qtFinancePanel" class="qt-panel d-none">
+      <div class="p-3 border-top">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h6 class="mb-1">分堂財務報表</h6>
+            <div class="text-muted small">依月份統計訂購數、數量與金額；匯款審核資料模型需 DBA Review 後實作。</div>
+          </div>
+        </div>
+        <div class="row g-2 align-items-end qt-search-row">
+          <div class="col-12 col-md-3">
+            <label class="form-label">報表月份</label>
+            <input id="qtFinanceReportMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-primary" onclick="loadQtFinanceReport()">查詢</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead id="qtFinanceTableHead"></thead>
+            <tbody id="qtFinanceTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="qtReportsPanel" class="qt-panel d-none">
+      <div class="p-3 border-top">
+        <div class="row g-2 align-items-end qt-search-row">
+          <div class="col-12 col-md-3">
+            <label class="form-label">報表類型</label>
+            <select id="qtAnalyticsReportType" class="form-select" onchange="loadQtAnalyticsReport()">
+              <option value="expiring">本月到期提醒</option>
+              <option value="pastoral-summary">牧區訂閱統計</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">報表月份</label>
+            <input id="qtAnalyticsReportMonth" type="month" class="form-control">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-primary" onclick="loadQtAnalyticsReport()">查詢</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead id="qtAnalyticsTableHead"></thead>
+            <tbody id="qtAnalyticsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="qtInventoryPanel" class="qt-panel d-none">
       <div class="p-3 border-top">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
           <div>
             <h6 class="mb-1">會堂月庫存</h6>
-            <div class="text-muted small">供訂購、櫃台與未來 LINE BOT 下單前檢查使用</div>
+            <div class="text-muted small">供訂購、櫃台與未來 Line App 下單前檢查使用。</div>
           </div>
           <div class="btn-group">
             <button type="button" class="btn btn-outline-primary btn-sm" onclick="openQtMovementModal()">新增異動</button>
@@ -126,24 +281,6 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div id="qtReportPanel" class="qt-panel d-none">
-      <div class="row g-2 align-items-end qt-search-row">
-        <div class="col-12 col-md-3">
-          <label class="form-label">報表月份</label>
-          <input id="qtReportMonth" type="month" class="form-control">
-        </div>
-        <div class="col-12 col-md-2 d-grid">
-          <button type="button" class="btn btn-primary" onclick="loadQtReport()">查詢</button>
-        </div>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead id="qtReportTableHead"></thead>
-          <tbody id="qtReportTableBody"></tbody>
-        </table>
       </div>
     </div>
   </div>

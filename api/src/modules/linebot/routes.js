@@ -3,7 +3,8 @@ const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/p
 const { parseUser } = require('../../shared/users');
 const { recordAuditLog } = require('../../shared/audit');
 const { recordNotificationLog, renderNotification } = require('../../shared/notifications');
-const { getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
+const { listConfig, saveConfig } = require('../../shared/config');
+const { createLineApiClient, getLineApiReadiness, normalizeLineApiConfig } = require('./line-api-client');
 const { resolveLineChannelMetadata } = require('./config');
 const { getLiffSecurityReadiness, normalizeLiffSecurityConfig } = require('../liff/security');
 
@@ -171,6 +172,80 @@ function registerLineBotRoutes(app) {
     }
   });
 
+  app.get('/linebot/config', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json({ rows: await listConfig({ revealSecrets: false }) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/linebot/config/:configKey', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      const saved = await saveConfig({
+        ...(req.body.config || {}),
+        configKey: req.params.configKey
+      }, currentUser);
+      res.json({ success: true, message: 'LINE 系統設定已更新', config: saved });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/linebot/notification-templates', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineNotificationTemplates(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/linebot/notification-templates/:templateCode/:channel', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineNotificationTemplate(req.params.templateCode, req.params.channel, req.body.template || {}, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/linebot/menu-items', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineMenuItems());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/linebot/menu-items/:menuCode', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await saveLineMenuItem(req.params.menuCode, req.body.menuItem || {}, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/linebot/audit-logs', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'linebot');
+      res.json(await getLineAuditLogs(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   app.get('/linebot/binding-requests', async (req, res, next) => {
     try {
       const currentUser = parseUser(req);
@@ -196,6 +271,26 @@ function registerLineBotRoutes(app) {
       const currentUser = req.body.currentUser || {};
       await assertFeatureEditable(currentUser, 'linebot');
       res.json(await rejectLineBindingRequest(req.params.requestId, req.body || {}, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/users/:lineUserId/rich-menu/sync', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await syncLineUserRichMenu(req.params.lineUserId, currentUser, req));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/linebot/rich-menus/sync-all', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'linebot');
+      res.json(await syncAllLineUserRichMenus(req.body || {}, currentUser, req));
     } catch (err) {
       next(err);
     }
@@ -849,6 +944,302 @@ async function recordLineBindingRequestNotification(client, templateCode, reques
   }, client);
 }
 
+async function getLineNotificationTemplates(query = {}) {
+  const channel = normalizeText(query.channel).toUpperCase();
+  const values = [];
+  const where = [];
+  if (channel) {
+    values.push(channel);
+    where.push(`channel = $${values.length}`);
+  }
+  const result = await pool.query(
+    `SELECT template_code, channel, subject, content, enabled, updated_by, updated_at
+     FROM notification_templates
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY template_code, channel`,
+    values
+  );
+  return { rows: result.rows.map(mapNotificationTemplate) };
+}
+
+async function saveLineNotificationTemplate(templateCode, channel, payload, currentUser, req) {
+  const normalized = normalizeNotificationTemplate(templateCode, channel, payload);
+  const result = await tx(async client => {
+    const before = await client.query(
+      `SELECT template_code, channel, subject, content, enabled, updated_by, updated_at
+       FROM notification_templates
+       WHERE template_code = $1 AND channel = $2`,
+      [normalized.templateCode, normalized.channel]
+    );
+    const saved = await client.query(
+      `INSERT INTO notification_templates (
+         template_code, channel, subject, content, enabled, updated_by, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,now())
+       ON CONFLICT (template_code, channel) DO UPDATE SET
+         subject = EXCLUDED.subject,
+         content = EXCLUDED.content,
+         enabled = EXCLUDED.enabled,
+         updated_by = EXCLUDED.updated_by,
+         updated_at = now()
+       RETURNING template_code, channel, subject, content, enabled, updated_by, updated_at`,
+      [
+        normalized.templateCode,
+        normalized.channel,
+        normalized.subject,
+        normalized.content,
+        normalized.enabled,
+        currentUser.staffId || null
+      ]
+    );
+    await recordAuditLog({
+      systemKey: 'linebot',
+      entityType: 'notification_templates',
+      entityId: `${normalized.templateCode}:${normalized.channel}`,
+      action: before.rowCount ? 'UPDATE' : 'CREATE',
+      currentUser,
+      beforeData: before.rows[0] || null,
+      afterData: saved.rows[0],
+      metadata: { requestId: req.requestId || '' },
+      ipAddress: getIpAddress(req),
+      userAgent: req.get('user-agent') || ''
+    }, client);
+    return saved.rows[0];
+  });
+  return { success: true, message: '通知模板已更新', template: mapNotificationTemplate(result) };
+}
+
+async function getLineMenuItems() {
+  const result = await pool.query(
+    `SELECT menu_code, menu_name, menu_type, target_url, required_role,
+       required_bind_status, display_order, enabled, icon, open_type, metadata, updated_at
+     FROM menu_items
+     ORDER BY display_order, menu_code`
+  );
+  return { rows: result.rows.map(mapMenuItem) };
+}
+
+async function saveLineMenuItem(menuCode, payload, currentUser, req) {
+  const item = normalizeMenuItem(menuCode, payload);
+  const result = await tx(async client => {
+    const before = await client.query('SELECT * FROM menu_items WHERE menu_code = $1', [item.menuCode]);
+    const saved = await client.query(
+      `INSERT INTO menu_items (
+         menu_code, menu_name, menu_type, target_url, required_role, required_bind_status,
+         display_order, enabled, icon, open_type, metadata, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,now())
+       ON CONFLICT (menu_code) DO UPDATE SET
+         menu_name = EXCLUDED.menu_name,
+         menu_type = EXCLUDED.menu_type,
+         target_url = EXCLUDED.target_url,
+         required_role = EXCLUDED.required_role,
+         required_bind_status = EXCLUDED.required_bind_status,
+         display_order = EXCLUDED.display_order,
+         enabled = EXCLUDED.enabled,
+         icon = EXCLUDED.icon,
+         open_type = EXCLUDED.open_type,
+         metadata = EXCLUDED.metadata,
+         updated_at = now()
+       RETURNING *`,
+      [
+        item.menuCode,
+        item.menuName,
+        item.menuType,
+        item.targetUrl,
+        item.requiredRole || null,
+        item.requiredBindStatus,
+        item.displayOrder,
+        item.enabled,
+        item.icon,
+        item.openType,
+        JSON.stringify(item.metadata)
+      ]
+    );
+    await recordAuditLog({
+      systemKey: 'linebot',
+      entityType: 'menu_items',
+      entityId: item.menuCode,
+      action: before.rowCount ? 'UPDATE' : 'CREATE',
+      currentUser,
+      beforeData: before.rows[0] || null,
+      afterData: saved.rows[0],
+      metadata: { requestId: req.requestId || '' },
+      ipAddress: getIpAddress(req),
+      userAgent: req.get('user-agent') || ''
+    }, client);
+    return saved.rows[0];
+  });
+  return { success: true, message: 'Line App 選單已更新', menuItem: mapMenuItem(result) };
+}
+
+async function getLineAuditLogs(query = {}) {
+  const page = Math.max(1, Number(query.page || 1));
+  const pageSize = Math.min(100, Math.max(1, Number(query.pageSize || PAGE_SIZE)));
+  const values = [['linebot', 'line_binding', 'config']];
+  const where = [`system_key = ANY($1::text[])`];
+  const keyword = normalizeText(query.keyword).toLowerCase();
+  if (keyword) {
+    values.push(`%${keyword}%`);
+    where.push(`(
+      lower(entity_type) LIKE $${values.length}
+      OR lower(entity_id) LIKE $${values.length}
+      OR lower(action) LIKE $${values.length}
+      OR lower(coalesce(staff_id, '')) LIKE $${values.length}
+    )`);
+  }
+  values.push(pageSize);
+  const limitIndex = values.length;
+  values.push((page - 1) * pageSize);
+  const offsetIndex = values.length;
+  const result = await pool.query(
+    `SELECT audit_id, staff_id, member_id, system_key, entity_type, entity_id, action,
+       before_data, after_data, metadata, ip_address, user_agent, created_at,
+       count(*) OVER()::int AS total_count
+     FROM audit_logs
+     WHERE ${where.join(' AND ')}
+     ORDER BY created_at DESC
+     LIMIT $${limitIndex}::int OFFSET $${offsetIndex}::int`,
+    values
+  );
+  return {
+    rows: result.rows.map(row => ({
+      auditId: row.audit_id,
+      staffId: row.staff_id || '',
+      memberId: row.member_id,
+      systemKey: row.system_key,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      action: row.action,
+      beforeData: row.before_data,
+      afterData: row.after_data,
+      metadata: row.metadata || {},
+      ipAddress: row.ip_address || '',
+      userAgent: row.user_agent || '',
+      createdAt: row.created_at
+    })),
+    page,
+    pageSize,
+    total: result.rows[0]?.total_count || 0
+  };
+}
+
+async function syncAllLineUserRichMenus(payload, currentUser, req) {
+  const limit = Math.min(100, Math.max(1, Number(payload.limit || 50)));
+  const result = await pool.query(
+    `SELECT line_user_id
+     FROM line_users
+     WHERE is_active
+     ORDER BY last_interaction_at DESC NULLS LAST, updated_at DESC
+     LIMIT $1`,
+    [limit]
+  );
+  const rows = [];
+  for (const row of result.rows) {
+    rows.push(await syncLineUserRichMenu(row.line_user_id, currentUser, req));
+  }
+  return { success: true, message: `已處理 ${rows.length} 位 LINE 使用者 Rich Menu`, rows };
+}
+
+async function syncLineUserRichMenu(lineUserId, currentUser, req) {
+  const lineUser = await getLineUserRichMenuTarget(lineUserId);
+  if (!lineUser) throw new Error('找不到 LINE 使用者');
+  const channel = await getActiveLineBotChannelForApi();
+  const metadata = await resolveLineChannelMetadata(channel);
+  const client = createLineApiClient(metadata);
+  const target = getRichMenuSegment(lineUser);
+  const richMenuId = getRichMenuIdForSegment(metadata, target.segment);
+  if (!richMenuId) {
+    await upsertRichMenuAssignment(lineUserId, target.segment, '', 'SKIPPED', '尚未設定對應 Rich Menu ID');
+    return { success: true, lineUserId, segment: target.segment, status: 'SKIPPED', message: '尚未設定對應 Rich Menu ID' };
+  }
+
+  let status = 'ASSIGNED';
+  let errorMessage = '';
+  try {
+    const response = await client.linkRichMenuToUser(lineUserId, richMenuId);
+    if (response && response.dryRun) status = 'DRY_RUN';
+  } catch (err) {
+    status = 'FAILED';
+    errorMessage = err.message || String(err);
+  }
+  await upsertRichMenuAssignment(lineUserId, target.segment, richMenuId, status, errorMessage);
+  await recordAuditLog({
+    systemKey: 'linebot',
+    entityType: 'line_rich_menu_assignments',
+    entityId: lineUserId,
+    action: 'SYNC_RICH_MENU',
+    currentUser,
+    afterData: { lineUserId, segment: target.segment, richMenuId, status, errorMessage },
+    metadata: { requestId: req.requestId || '' },
+    ipAddress: getIpAddress(req),
+    userAgent: req.get('user-agent') || ''
+  });
+  return {
+    success: status !== 'FAILED',
+    lineUserId,
+    memberId: lineUser.member_id,
+    segment: target.segment,
+    richMenuId,
+    status,
+    errorMessage
+  };
+}
+
+async function getLineUserRichMenuTarget(lineUserId) {
+  const { rows } = await pool.query(
+    `SELECT lu.line_user_id, lu.member_id, pm.name AS member_name, pt.name AS title_name,
+       rule.scope_type
+     FROM line_users lu
+     LEFT JOIN pastoral_members pm ON pm.id = lu.member_id AND pm.is_active
+     LEFT JOIN pastoral_titles pt ON pt.id = pm.title_id
+     LEFT JOIN line_leader_scope_rules rule ON rule.title_name = pt.name AND rule.enabled
+     WHERE lu.line_user_id = $1
+     LIMIT 1`,
+    [lineUserId]
+  );
+  return rows[0] || null;
+}
+
+async function getActiveLineBotChannelForApi() {
+  const result = await pool.query(
+    `SELECT channel_id, channel_key, channel_name, metadata
+     FROM line_bot_channels
+     WHERE is_active
+     ORDER BY channel_key = 'main' DESC, updated_at DESC
+     LIMIT 1`
+  );
+  if (!result.rowCount) throw new Error('尚未設定啟用中的 LINE Channel');
+  return result.rows[0];
+}
+
+function getRichMenuSegment(lineUser) {
+  if (!lineUser.member_id) return { segment: 'GUEST' };
+  if (lineUser.scope_type) return { segment: 'LEADER' };
+  return { segment: 'MEMBER' };
+}
+
+function getRichMenuIdForSegment(metadata, segment) {
+  const richMenuIds = metadata.richMenuIds || {};
+  if (segment === 'GUEST') return metadata.LINE_RICH_MENU_GUEST_ID || richMenuIds.unbound || '';
+  if (segment === 'LEADER') return metadata.LINE_RICH_MENU_LEADER_ID || richMenuIds.advanced || richMenuIds.bound || '';
+  return metadata.LINE_RICH_MENU_MEMBER_ID || richMenuIds.bound || '';
+}
+
+async function upsertRichMenuAssignment(lineUserId, segment, richMenuId, status, errorMessage) {
+  await pool.query(
+    `INSERT INTO line_rich_menu_assignments (
+       line_user_id, target_segment, line_rich_menu_id, status, error_message, assigned_at, updated_at
+     ) VALUES ($1,$2,$3,$4,NULLIF($5, ''),CASE WHEN $4 IN ('ASSIGNED','DRY_RUN') THEN now() ELSE NULL END,now())
+     ON CONFLICT (line_user_id) DO UPDATE SET
+       target_segment = EXCLUDED.target_segment,
+       line_rich_menu_id = EXCLUDED.line_rich_menu_id,
+       status = EXCLUDED.status,
+       error_message = EXCLUDED.error_message,
+       assigned_at = EXCLUDED.assigned_at,
+       updated_at = now()`,
+    [lineUserId, segment, richMenuId || null, status, errorMessage || '']
+  );
+}
+
 function normalizeLineBotLink(payload) {
   const title = normalizeText(payload.title);
   const url = normalizeText(payload.url);
@@ -1018,6 +1409,72 @@ function mapLineBindingRequest(row) {
     processedBy: row.processed_by || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function mapNotificationTemplate(row) {
+  return {
+    templateCode: row.template_code,
+    channel: row.channel,
+    subject: row.subject || '',
+    content: row.content || '',
+    enabled: row.enabled !== false,
+    updatedBy: row.updated_by || '',
+    updatedAt: row.updated_at
+  };
+}
+
+function mapMenuItem(row) {
+  return {
+    menuCode: row.menu_code,
+    menuName: row.menu_name,
+    menuType: row.menu_type,
+    targetUrl: row.target_url || '',
+    requiredRole: row.required_role || '',
+    requiredBindStatus: row.required_bind_status,
+    displayOrder: Number(row.display_order || 0),
+    enabled: row.enabled !== false,
+    icon: row.icon || '',
+    openType: row.open_type,
+    metadata: row.metadata || {},
+    updatedAt: row.updated_at
+  };
+}
+
+function normalizeNotificationTemplate(templateCode, channel, payload) {
+  const normalizedCode = normalizeText(templateCode).toUpperCase().replace(/[^A-Z0-9_]/g, '');
+  const normalizedChannel = normalizeText(channel).toUpperCase();
+  if (!normalizedCode) throw new Error('請指定通知模板代碼');
+  if (!['EMAIL', 'LINE_PUSH', 'LIFF_NOTICE'].includes(normalizedChannel)) throw new Error('通知通道不支援');
+  const content = String(payload.content || '');
+  if (!content.trim()) throw new Error('請填寫通知內容');
+  return {
+    templateCode: normalizedCode,
+    channel: normalizedChannel,
+    subject: normalizeText(payload.subject),
+    content,
+    enabled: payload.enabled !== false
+  };
+}
+
+function normalizeMenuItem(menuCode, payload) {
+  const code = normalizeText(menuCode || payload.menuCode).toUpperCase().replace(/[^A-Z0-9_]/g, '');
+  if (!code) throw new Error('請指定選單代碼');
+  const menuName = normalizeText(payload.menuName);
+  if (!menuName) throw new Error('請填寫選單名稱');
+  const metadata = payload.metadata && typeof payload.metadata === 'object' ? payload.metadata : {};
+  return {
+    menuCode: code,
+    menuName,
+    menuType: ['MEMBER', 'LEADER', 'EXTERNAL', 'ADMIN'].includes(payload.menuType) ? payload.menuType : 'MEMBER',
+    targetUrl: normalizeText(payload.targetUrl),
+    requiredRole: normalizeText(payload.requiredRole),
+    requiredBindStatus: ['ANY', 'BOUND', 'UNBOUND'].includes(payload.requiredBindStatus) ? payload.requiredBindStatus : 'BOUND',
+    displayOrder: Number.isFinite(Number(payload.displayOrder)) ? Number(payload.displayOrder) : 100,
+    enabled: payload.enabled !== false,
+    icon: normalizeText(payload.icon),
+    openType: ['LIFF_ROUTE', 'EXTERNAL_URL', 'INTERNAL_MODULE'].includes(payload.openType) ? payload.openType : 'LIFF_ROUTE',
+    metadata
   };
 }
 

@@ -2,6 +2,9 @@ const { pool, tx } = require('../../db');
 const { assertFeatureEditable, assertFeatureReadable } = require('../../shared/permissions');
 const { parseUser } = require('../../shared/users');
 const { formatDate } = require('../../shared/format');
+const { getConfigValue, saveConfig } = require('../../shared/config');
+
+const QT_OPEN_PICKUP_MONTH_KEY = 'QT_OPEN_PICKUP_MONTH';
 
 function registerQtRoutes(app) {
   app.get('/qt/options', async (req, res, next) => {
@@ -9,6 +12,36 @@ function registerQtRoutes(app) {
       const currentUser = parseUser(req);
       await assertFeatureReadable(currentUser, 'qt');
       res.json(await getQtOptions());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/qt/dashboard', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'qt');
+      res.json(await getDashboard(req.query));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/qt/settings', async (req, res, next) => {
+    try {
+      const currentUser = parseUser(req);
+      await assertFeatureReadable(currentUser, 'qt');
+      res.json(await getSettings());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/qt/settings', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      await assertFeatureEditable(currentUser, 'qt');
+      res.json(await saveSettings(req.body.settings || {}, currentUser));
     } catch (err) {
       next(err);
     }
@@ -223,6 +256,77 @@ async function getQtOptions() {
   };
 }
 
+async function getDashboard(query) {
+  const settings = await getSettings();
+  const issueMonth = normalizeMonth(query.issueMonth || settings.openPickupMonth || new Date());
+  const [orders, pickup] = await Promise.all([
+    pool.query(
+      `SELECT
+         count(*)::int AS order_count,
+         COALESCE(sum(quantity), 0)::int AS quantity,
+         COALESCE(sum(amount), 0)::int AS amount,
+         count(*) FILTER (WHERE order_status = 'cancelled')::int AS cancelled_count,
+         count(*) FILTER (WHERE order_status <> 'cancelled' AND finance_status = 'unpaid')::int AS unpaid_count,
+         count(*) FILTER (WHERE order_status <> 'cancelled' AND finance_status = 'received')::int AS pending_review_count,
+         count(*) FILTER (WHERE order_status <> 'cancelled' AND finance_status = 'posted')::int AS paid_count
+       FROM qt_orders`
+    ),
+    pool.query(
+      `SELECT
+         count(*)::int AS item_count,
+         count(*) FILTER (WHERE is_received)::int AS received_count,
+         count(*) FILTER (WHERE NOT is_received)::int AS unreceived_count
+       FROM qt_order_items
+       WHERE issue_month = $1`,
+      [issueMonth]
+    )
+  ]);
+
+  const orderRow = orders.rows[0] || {};
+  const pickupRow = pickup.rows[0] || {};
+  return {
+    openPickupMonth: settings.openPickupMonth,
+    issueMonth,
+    orders: {
+      orderCount: Number(orderRow.order_count || 0),
+      quantity: Number(orderRow.quantity || 0),
+      amount: Number(orderRow.amount || 0),
+      unpaidCount: Number(orderRow.unpaid_count || 0),
+      pendingReviewCount: Number(orderRow.pending_review_count || 0),
+      paidCount: Number(orderRow.paid_count || 0),
+      cancelledCount: Number(orderRow.cancelled_count || 0)
+    },
+    pickup: {
+      itemCount: Number(pickupRow.item_count || 0),
+      receivedCount: Number(pickupRow.received_count || 0),
+      unreceivedCount: Number(pickupRow.unreceived_count || 0)
+    }
+  };
+}
+
+async function getSettings() {
+  const openPickupMonth = await getConfigValue(QT_OPEN_PICKUP_MONTH_KEY, { revealSecrets: true });
+  return {
+    openPickupMonth: normalizeYearMonth(openPickupMonth || new Date())
+  };
+}
+
+async function saveSettings(payload, currentUser) {
+  const openPickupMonth = normalizeYearMonth(payload.openPickupMonth || payload.open_pickup_month || new Date());
+  await saveConfig({
+    configKey: QT_OPEN_PICKUP_MONTH_KEY,
+    configValue: openPickupMonth,
+    description: 'QT 開放領取月份，格式 YYYY-MM。此設定供 QT 領取管理與櫃台流程驗證使用。',
+    isSecret: false,
+    enabled: true
+  }, currentUser);
+  return {
+    success: true,
+    message: 'QT 設定已儲存',
+    settings: { openPickupMonth }
+  };
+}
+
 function orderListSelect() {
   return `SELECT
        o.order_id,
@@ -296,6 +400,15 @@ async function getExpiringReport(query) {
 
 async function getPickupReport(query) {
   const issueMonth = normalizeMonth(query.issueMonth || new Date());
+  const pickupStatus = normalizePickupStatus(query.pickupStatus);
+  const values = [issueMonth];
+  const where = ['i.issue_month = $1'];
+  if (pickupStatus === 'received') {
+    where.push('i.is_received');
+  } else if (pickupStatus === 'unreceived') {
+    where.push('NOT i.is_received');
+  }
+
   const { rows } = await pool.query(
     `SELECT c.name AS church_name, pg.name AS pastoral_group_name, m.name AS member_name,
        pc.mobile_phone, o.order_id, p.plan_name, i.issue_month, i.is_received,
@@ -315,10 +428,10 @@ async function getPickupReport(query) {
        ORDER BY g.level_no DESC, g.sort_order DESC, g.id DESC
        LIMIT 1
      ) pg ON true
-     WHERE i.issue_month = $1
+     WHERE ${where.join(' AND ')}
      ORDER BY c.sort_order, pg.name, m.name, o.order_id
      LIMIT 500`,
-    [issueMonth]
+    values
   );
   return rows.map(row => ({
     churchName: row.church_name || '未設定會堂',
@@ -551,6 +664,15 @@ function normalizeMonth(value) {
   const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) throw new Error('月份格式錯誤');
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function normalizeYearMonth(value) {
+  return normalizeMonth(value).slice(0, 7);
+}
+
+function normalizePickupStatus(value) {
+  const status = String(value || 'unreceived').trim();
+  return ['unreceived', 'received', 'all'].includes(status) ? status : 'unreceived';
 }
 
 function toInventoryItem(row) {

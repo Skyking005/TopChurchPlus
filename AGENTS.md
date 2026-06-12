@@ -17,12 +17,40 @@
 
 1. `AGENTS.md`
 2. `docs/HANDOFF.md`
-3. `docs/PROJECT_OVERVIEW.md`
-4. `docs/CURRENT_ARCHITECTURE.md`
-5. `docs/ACTIVE_ROADMAP.md`
-6. 任務相關文件，例如 `docs/DATABASE_SCHEMA.md`、`docs/API_CATALOG.md`、`docs/LOCAL_AI_TASK_GUIDE.md`
+3. `docs/LESSONS_LEARNED.md`
+4. `docs/PROJECT_OVERVIEW.md`
+5. `docs/CURRENT_ARCHITECTURE.md`
+6. `docs/ACTIVE_ROADMAP.md`
+7. 任務相關文件，例如 `docs/DATABASE_SCHEMA.md`、`docs/API_CATALOG.md`、`docs/LOCAL_AI_TASK_GUIDE.md`
 
-若 token 不足，至少讀 `AGENTS.md`、`docs/HANDOFF.md`、`PROJECT_STATE.md`。
+若 token 不足，至少讀 `AGENTS.md`、`docs/HANDOFF.md`、`docs/LESSONS_LEARNED.md`、`PROJECT_STATE.md`。
+
+## Continuous Learning
+
+開始任何任務前，必須閱讀 `docs/LESSONS_LEARNED.md`，並把其中與本次任務相關的 Lesson 套用到實作與驗證流程。
+
+若本次任務發現新的問題或第二次遇到同類型錯誤，必須更新 `docs/LESSONS_LEARNED.md`。適用範圍包含：
+
+- 編碼問題。
+- UTF-8 問題。
+- PowerShell 問題。
+- PostgreSQL 陷阱。
+- Apps Script 限制。
+- Synology 部署陷阱。
+- LINE Bot 整合陷阱。
+- Docker / Container Manager 問題。
+- Reverse Proxy 問題。
+- SSL 憑證問題。
+- AI Agent 常見錯誤。
+
+新增或更新 Lesson 時，必須包含：
+
+- Problem：發生了什麼問題。
+- Root Cause：根因，不只寫表象。
+- Prevention：未來如何避免。
+- Recommended Action：下次遇到時的具體處理步驟。
+
+同類型錯誤第二次出現時，不要只在最終回報提醒，必須新增或修訂對應 Lesson。
 
 ## Encoding And File Editing
 
@@ -49,6 +77,29 @@ TopChurchPlus 必須維持兩個身份邊界：
 - LINE/LIFF 外部入口不可沿用同工後台 session 或 `role_feature_permissions`。
 
 修改 Pastoral、Line App、LIFF、Education、Attendance、Forms 會友資料時，先確認是否跨越此邊界。
+
+## UI / UX Governance
+
+所有 TopChurchPlus 前端模組必須遵循 `docs/architecture/UI_DESIGN_SYSTEM_V1.md`。適用範圍包含：
+
+- Pastoral。
+- QT。
+- Project。
+- Finance。
+- Asset。
+- Forms。
+- Workflow。
+- Line App 後台。
+- Future Member Portal / LIFF。
+
+治理規則：
+
+- Bootstrap 僅作為 layout framework；TopChurchPlus Theme 才是最終視覺來源。
+- 禁止各模組自行建立獨立視覺規範、按鈕風格、卡片風格、表格風格或高飽和主題。
+- 所有新增 UI 元件必須先檢查 Design System 是否已有標準。
+- 若需要新增元件類型或互動模式，先更新 `UI_DESIGN_SYSTEM_V1.md`，再實作。
+- 官方圖示庫為 Tabler Icons；禁止混用 Font Awesome、Bootstrap Icons，禁止使用 emoji 作為系統圖示。
+- 新 UI 必須具備 mobile-friendly layout，並處理 loading、empty、error / validation state。
 
 ## Architecture Snapshot
 

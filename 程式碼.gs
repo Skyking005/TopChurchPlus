@@ -485,6 +485,25 @@ function getQtOptions(currentUser) {
   return apiRequest('get', '/qt/options', null, null, currentUser);
 }
 
+function getQtDashboard(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/dashboard', null, {
+    issueMonth: filters.issueMonth || ''
+  }, currentUser);
+}
+
+function getQtSettings(currentUser) {
+  return apiRequest('get', '/qt/settings', null, null, currentUser);
+}
+
+function saveQtSettings(payload) {
+  payload = payload || {};
+  return apiRequest('put', '/qt/settings', {
+    currentUser: payload.currentUser,
+    settings: payload.settings || {}
+  });
+}
+
 function getQtInventory(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory', null, {
@@ -510,7 +529,8 @@ function getQtOrderDetail(orderId, currentUser) {
 function getQtReport(type, filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/reports/' + encodeURIComponent(type), null, {
-    issueMonth: filters.issueMonth || ''
+    issueMonth: filters.issueMonth || '',
+    pickupStatus: filters.pickupStatus || ''
   }, currentUser);
 }
 
@@ -643,6 +663,78 @@ function getLineBotEvents(filters, currentUser) {
     page: filters.page || 1,
     pageSize: filters.pageSize || 20
   }, currentUser);
+}
+
+function getLineBotConfig(currentUser) {
+  return apiRequest('get', '/linebot/config', null, null, currentUser);
+}
+
+function saveLineBotConfig(payload) {
+  return apiRequest(
+    'put',
+    `/linebot/config/${encodeURIComponent(payload.configKey)}`,
+    {
+      currentUser: payload.currentUser,
+      config: payload.config || {}
+    }
+  );
+}
+
+function getLineBotNotificationTemplates(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/notification-templates', null, {
+    channel: filters.channel || ''
+  }, currentUser);
+}
+
+function saveLineBotNotificationTemplate(payload) {
+  return apiRequest(
+    'put',
+    `/linebot/notification-templates/${encodeURIComponent(payload.templateCode)}/${encodeURIComponent(payload.channel)}`,
+    {
+      currentUser: payload.currentUser,
+      template: payload.template || {}
+    }
+  );
+}
+
+function getLineBotMenuItems(currentUser) {
+  return apiRequest('get', '/linebot/menu-items', null, null, currentUser);
+}
+
+function saveLineBotMenuItem(payload) {
+  return apiRequest(
+    'put',
+    `/linebot/menu-items/${encodeURIComponent(payload.menuCode)}`,
+    {
+      currentUser: payload.currentUser,
+      menuItem: payload.menuItem || {}
+    }
+  );
+}
+
+function getLineBotAuditLogs(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/linebot/audit-logs', null, {
+    keyword: filters.keyword || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 20
+  }, currentUser);
+}
+
+function syncLineBotUserRichMenu(payload) {
+  return apiRequest(
+    'post',
+    `/linebot/users/${encodeURIComponent(payload.lineUserId)}/rich-menu/sync`,
+    { currentUser: payload.currentUser }
+  );
+}
+
+function syncAllLineBotRichMenus(payload) {
+  return apiRequest('post', '/linebot/rich-menus/sync-all', {
+    currentUser: payload.currentUser,
+    limit: payload.limit || 50
+  });
 }
 
 function getLineBotRichMenus(currentUser) {
