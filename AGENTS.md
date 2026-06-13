@@ -172,3 +172,52 @@ ssh -i "$env:USERPROFILE\.ssh\project_api_deploy" cetu@192.168.3.2 "cd /volume1/
 - 驗證結果。
 - 未完成或阻塞事項。
 - 若執行部署，列出 NAS/API/Apps Script 結果。
+
+## AI Development Governance Bootstrap
+
+This section is intentionally written in plain ASCII-friendly English because parts of this file contain mojibake. Follow this section when older text is unclear.
+
+### Required Reading Before Each Task
+
+Read these first, in order:
+
+1. `AGENTS.md`
+2. `docs/INDEX.md`
+3. `docs/HANDOFF.md`
+4. `docs/LESSONS_LEARNED.md`
+5. `docs/PROJECT_OVERVIEW.md`
+6. `docs/CURRENT_ARCHITECTURE.md`
+7. `docs/ACTIVE_ROADMAP.md`
+
+Then read task-specific sources:
+
+- Architecture: `docs/architecture/README.md`
+- UI: `docs/ui/README.md` and `docs/architecture/UI_DESIGN_SYSTEM_V1.md`
+- Modules: `docs/modules/README.md`
+- Operations: `docs/operations/README.md`
+- Planning: `plan/INDEX.md`
+- Schema/API work: `docs/DATABASE_SCHEMA.md` and `docs/API_CATALOG.md`
+
+### Hard Restrictions
+
+- Do not rewrite whole files when a scoped patch is enough.
+- Do not modify schema, migrations, payment flow, fulfillment flow, Line Bot webhook, transfer, forecast, production config, DNS, GoDaddy, firewall, or Synology settings unless the user explicitly authorizes that scope.
+- Do not deploy unless the user explicitly asks for deployment.
+- Do not delete documents. Mark deprecated or move to an archive only with clear approval.
+- Preserve existing user changes. Always check `git status --short` before editing.
+
+### Completion Report Required
+
+Every completed task must report:
+
+1. Modified files.
+2. Verification commands and results.
+3. Risk notes or blockers.
+4. Deployment status, only if deployment was requested.
+5. Whether docs, schema, API, Apps Script, or production code were changed.
+
+### External API Check Policy
+
+- External checks use `https://api.topchurchplus.com/health` and `https://api.topchurchplus.com/linebot/webhook`.
+- Do not test `59.120.6.172:3000`; external direct 3000 port is intentionally closed.
+- If LAN health works but official domain checks fail, investigate Synology Reverse Proxy / Web Station / Portal, DNS, SSL certificate, firewall or 443 forwarding, and accidental routing to DSM 5001.

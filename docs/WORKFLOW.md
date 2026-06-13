@@ -150,7 +150,7 @@ npm run dev:ast-grep -- --pattern "apiRequest($$$ARGS)" --lang js
 檢查 API 語法與 health：
 
 ```powershell
-$env:TOPCHURCHPLUS_API_BASE_URL = 'http://192.168.3.2:3000'
+$env:TOPCHURCHPLUS_API_BASE_URL = 'https://api.topchurchplus.com'
 $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 .\tools\check-api.cmd
 ```
@@ -239,7 +239,7 @@ GET 或沒有 body 的請求可以直接呼叫：
 API smoke test：
 
 ```powershell
-$env:TOPCHURCHPLUS_API_BASE_URL = 'http://192.168.3.2:3000'
+$env:TOPCHURCHPLUS_API_BASE_URL = 'https://api.topchurchplus.com'
 $env:TOPCHURCHPLUS_API_KEY = '<不要提交到 Git 的 API Key>'
 .\tests\api\run-smoke.cmd
 ```

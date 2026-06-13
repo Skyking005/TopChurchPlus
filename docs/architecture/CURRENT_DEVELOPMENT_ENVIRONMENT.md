@@ -10,7 +10,7 @@ TopChurchPlus 目前是以 Google Apps Script Web App 作為主要前端、以 A
 
 資料庫目前是 NAS 上的 PostgreSQL container，已存在大量 SQL migration 與 schema 檔案，涵蓋系統帳號、權限、專案、財務、牧養、表單、資產、LINE/LIFF、BPM workflow 等資料表。migration 目前以 `database/*.sql` 檔案管理，多數採 `BEGIN` / `COMMIT` 與 `CREATE TABLE IF NOT EXISTS`，但尚未有完整自動 migration runner，正式異動前依文件要求先備份 PostgreSQL。
 
-外部入口方面，`api.topchurchplus.com` 已對外回應 `/health` HTTP 200，LINE Messaging API webhook endpoint 位於 `/linebot/webhook`，LINE/LIFF 後端基礎已存在。Reverse Proxy 的 DSM 畫面設定細節不在 repo 中，故細節列為 `UNKNOWN`。
+外部入口方面，正式檢查目標為 `https://api.topchurchplus.com/health` 與 `https://api.topchurchplus.com/linebot/webhook`，LINE/LIFF 後端基礎已存在。Reverse Proxy 的 DSM 畫面設定細節不在 repo 中，故細節列為 `UNKNOWN`。不應再測試 `59.120.6.172:3000`；外部 direct 3000 port 已關閉，逾時是預期結果。
 
 ## 2. Technology Stack
 
@@ -188,10 +188,10 @@ TODO:
 | PostgreSQL port mapping | `0.0.0.0:32770->5432/tcp` | Docker ps current check |
 | Extra container | `linuxserver-librespeed-1` | Docker ps current check |
 | Public API domain | `api.topchurchplus.com` | Docs and current external health check |
-| Public API health | `https://api.topchurchplus.com/health` returns HTTP 200 from external nodes | Current check |
+| Public API health | `https://api.topchurchplus.com/health` | Official external check target |
 | Product domain | `topchurchplus.com` documented as Apps Script forwarding | Existing docs; not verified in this task |
 | Reverse proxy rules | DSM reverse proxy implied; exact source/destination rules not in repo | UNKNOWN |
-| SSL certificate details | Public HTTPS currently works for `/health`; certificate source/renewal not in repo | UNKNOWN |
+| SSL certificate details | `api.topchurchplus.com` should use the correct HTTPS certificate; if Synology/DSM certificate appears, check reverse proxy and certificate binding | UNKNOWN |
 
 Deployment paths:
 
@@ -337,10 +337,9 @@ flowchart TB
 | NAS API source | `/volume1/docker/project-api` | Synology filesystem | Runtime API directory | Active |
 | NAS API container | `project-api` | Node 20 Alpine | Express API | Active |
 | NAS API internal URL | `http://192.168.3.2:3000` | Docker port mapping | Internal API/health/smoke | Active |
-| Public API URL | `https://api.topchurchplus.com` | Synology HTTPS reverse proxy implied | LINE webhook and external API access | Active health, proxy details UNKNOWN |
+| Public API URL | `https://api.topchurchplus.com` | Synology HTTPS reverse proxy implied | LINE webhook and external API access | Official target; proxy details UNKNOWN |
 | PostgreSQL | `TopProject` | `postgres:16` | Main database | Active |
 | DB backups | `/volume1/docker/project-api/backups/` | NAS filesystem | DB backup storage | Active path, policy TODO |
 | API tests | `tests/api/run-smoke.ps1` | PowerShell | Smoke test suite | Active |
 | Database migrations | `database/*.sql` | SQL files | Schema evolution | Active files, runner TODO |
 | Legacy sync/import | `database/*_from_sqlserver.ps1` | PowerShell | MSSQL transition/import | Transitional |
-

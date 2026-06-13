@@ -190,3 +190,11 @@ Invoke-RestMethod -Uri "http://192.168.3.2:3000/health"
 
 - 任務完成若改變架構、部署、DB、身份邊界、AI workflow，必須更新本文件。
 - 不要把每個 commit 都寫進來，只保留下一位接手者需要知道的現況。
+
+## External API Check Policy
+
+- NAS LAN health `http://192.168.3.2:3000/health` only proves the internal container is running.
+- Official external checks must use `https://api.topchurchplus.com/health` and `https://api.topchurchplus.com/linebot/webhook`.
+- Do not test `59.120.6.172:3000`; external direct 3000 port is intentionally closed and timeout is expected.
+- If LINE webhook verification does not reach API logs, focus on Synology Reverse Proxy / Web Station / Portal, DNS, SSL certificate, firewall or 443 forwarding, and accidental routing to DSM 5001.
+- Smoke tests should set `TOPCHURCHPLUS_API_BASE_URL=https://api.topchurchplus.com` and a local `TOPCHURCHPLUS_API_KEY`.

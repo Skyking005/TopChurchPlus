@@ -5,7 +5,7 @@
 ## 執行前設定
 
 ```powershell
-$env:TOPCHURCHPLUS_API_BASE_URL = 'http://192.168.3.2:3000'
+$env:TOPCHURCHPLUS_API_BASE_URL = 'https://api.topchurchplus.com'
 $env:TOPCHURCHPLUS_API_KEY = '<本機環境設定，不要提交到 Git>'
 ```
 
@@ -24,6 +24,8 @@ $env:TOPCHURCHPLUS_API_KEY = '<本機環境設定，不要提交到 Git>'
 目前已包含：
 
 - `smoke-health.ps1`：API health。
+- External smoke tests should target the official domain `https://api.topchurchplus.com`.
+- Do not use `59.120.6.172:3000`; the external direct 3000 port is intentionally closed.
 - `smoke-error-context.ps1`：錯誤回應需包含 `requestId`，方便對照 Docker log。
 - `smoke-admin-supply.ps1`：行政物資選項、20 筆分頁清單、可選擇建立 Demo 物資與庫存異動。
 

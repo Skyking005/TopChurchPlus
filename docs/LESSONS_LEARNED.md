@@ -356,3 +356,21 @@ Prevention
 Recommended Action
 
 若 AI context freshness 失敗，先重建或把 snapshot 當背景參考。遇到不屬於本任務的 dirty files 不要 revert；若文件與程式衝突，以實際程式、schema 與使用者最新要求為準。
+
+## ReverseProxy-002
+
+Problem
+
+外部直連 `59.120.6.172:3000/health` 逾時曾被誤判為 API 異常。
+
+Root Cause
+
+外部 direct 3000 port 已因安全考量關閉；正式外部入口只應走 443 與 `api.topchurchplus.com`。內網 `192.168.3.2:3000` 可用只代表 NAS container 正常，不代表 Synology reverse proxy、憑證與外部 443 路徑正確。
+
+Prevention
+
+外部驗證只使用 `https://api.topchurchplus.com/health` 與 `https://api.topchurchplus.com/linebot/webhook`。若 LINE webhook 沒有進 API log，優先檢查 DNS、防火牆或 443 forwarding、Synology Reverse Proxy / Web Station / Portal、SSL certificate，以及是否誤導到 DSM 5001。
+
+Recommended Action
+
+不要再測試 `59.120.6.172:3000`。若需要 smoke test，設定 `TOPCHURCHPLUS_API_BASE_URL=https://api.topchurchplus.com` 與本機 `TOPCHURCHPLUS_API_KEY` 後再執行。

@@ -296,3 +296,11 @@ Apps Script：
 - `api.topchurchplus.com`：規劃作 LINE webhook / 外部 API HTTPS 入口。
 - 內網 NAS API health 正常。
 - 外部 HTTPS 仍需防火牆、憑證、反向代理最終測試。
+
+## External API Verification Policy
+
+- Official external health check: `https://api.topchurchplus.com/health`.
+- Official LINE webhook endpoint: `https://api.topchurchplus.com/linebot/webhook`.
+- Internal LAN health `http://192.168.3.2:3000/health` only verifies the NAS container from inside the network.
+- Do not test `59.120.6.172:3000`; external direct access to port 3000 is intentionally closed and timeout is expected.
+- If LAN health works but the official domain fails or LINE webhook does not appear in API logs, investigate Synology Reverse Proxy / Web Station / Portal, DNS, firewall or 443 forwarding, SSL certificate binding, and whether 443 is routed to DSM 5001 or another service instead of the API server.
