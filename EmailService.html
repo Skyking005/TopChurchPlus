@@ -1,0 +1,155 @@
+<section id="emailServiceView" class="d-none">
+  <div class="section-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div>
+        <h5 class="mb-1">Email 服務管理系統</h5>
+        <div class="text-muted small">查看 Mail Queue、MailApp quota、Trigger 狀態，並處理重試、取消與重新寄送。</div>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-outline-secondary" onclick="checkEmailServiceTriggers()">檢查 Trigger</button>
+        <button type="button" class="btn btn-outline-primary" onclick="installEmailServiceTriggers()">安裝 Trigger</button>
+        <button type="button" class="btn btn-primary" onclick="refreshEmailService()">重新整理</button>
+      </div>
+    </div>
+
+    <div id="emailServiceAccessWarning" class="alert alert-warning d-none">
+      只有管理員可以使用 Email 服務管理系統。
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">今日剩餘 quota</div>
+          <div id="emailQuotaRemaining" class="fs-4 fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">今日已寄出</div>
+          <div id="emailSentToday" class="fs-4 fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">PENDING</div>
+          <div id="emailPendingCount" class="fs-4 fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">FAILED</div>
+          <div id="emailFailedCount" class="fs-4 fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">HIGH 待寄</div>
+          <div id="emailHighPendingCount" class="fs-4 fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">最舊待寄時間</div>
+          <div id="emailOldestPending" class="small fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">Trigger 狀態</div>
+          <div id="emailTriggerStatus" class="small fw-semibold">-</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="tc-kpi-card">
+          <div class="text-muted small">最後處理時間</div>
+          <div id="emailLastProcessed" class="small fw-semibold">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-panel mb-3">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-2">
+          <label class="form-label">狀態</label>
+          <select id="emailQueueStatusFilter" class="form-select" onchange="loadEmailQueue(1)">
+            <option value="">全部</option>
+            <option value="PENDING">PENDING</option>
+            <option value="SENT">SENT</option>
+            <option value="FAILED">FAILED</option>
+            <option value="SKIPPED">SKIPPED</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">優先級</label>
+          <select id="emailQueuePriorityFilter" class="form-select" onchange="loadEmailQueue(1)">
+            <option value="">全部</option>
+            <option value="HIGH">HIGH</option>
+            <option value="NORMAL">NORMAL</option>
+            <option value="LOW">LOW</option>
+          </select>
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">module_key</label>
+          <input id="emailQueueModuleFilter" class="form-control" placeholder="forms / qt" onkeydown="handleEmailQueueSearchKey(event)">
+        </div>
+        <div class="col-12 col-md-2">
+          <label class="form-label">recipient_email</label>
+          <input id="emailQueueRecipientFilter" class="form-control" placeholder="name@example.com" onkeydown="handleEmailQueueSearchKey(event)">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">建立起日</label>
+          <input id="emailQueueStartDateFilter" type="date" class="form-control" onchange="loadEmailQueue(1)">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">建立迄日</label>
+          <input id="emailQueueEndDateFilter" type="date" class="form-control" onchange="loadEmailQueue(1)">
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-outline-primary" onclick="loadEmailQueue(1)">查詢</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="resetEmailQueueFilters()">清除條件</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="emailQueueMessage" class="small mb-2"></div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle tc-table">
+        <thead>
+          <tr>
+            <th>id</th>
+            <th>module_key</th>
+            <th>recipient_email</th>
+            <th>subject</th>
+            <th>priority</th>
+            <th>status</th>
+            <th class="text-end">retry</th>
+            <th>scheduled_at</th>
+            <th>sent_at</th>
+            <th>error_message</th>
+            <th>created_at</th>
+            <th class="text-end">操作</th>
+          </tr>
+        </thead>
+        <tbody id="emailQueueBody"></tbody>
+      </table>
+    </div>
+    <div id="emailQueuePager" class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2"></div>
+  </div>
+
+  <div class="modal fade" id="emailQueueDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Mail Queue 詳細內容</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="emailQueueDetailContent" class="small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,5 +1,5 @@
 const { pool, tx } = require('../../db');
-const { parseUser } = require('../../shared/users');
+const { hasAnyRole, parseUser } = require('../../shared/users');
 const { recordAuditLog } = require('../../shared/audit');
 
 const PRIORITY_RANK = {
@@ -542,8 +542,10 @@ function normalizeText(value) {
 }
 
 function assertMailAdmin(currentUser) {
-  if (!currentUser || !currentUser.isSuperAdmin) {
-    throw new Error('Only super admins can manage mail queue.');
+  const isMailAdmin = Boolean(currentUser && (currentUser.isAdmin || currentUser.isSuperAdmin))
+    || hasAnyRole(currentUser, ['管理員', '超級管理者']);
+  if (!isMailAdmin) {
+    throw new Error('Only administrators can manage mail queue.');
   }
 }
 

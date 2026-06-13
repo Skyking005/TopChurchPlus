@@ -1,0 +1,287 @@
+<script>
+let emailQueueState = { page: 1, pageSize: 25, total: 0, rows: [] };
+
+function openEmailServiceSystem() {
+  recordFeatureUsage('email_service');
+  document.getElementById('mainTitle').textContent = 'Email 服務管理系統';
+  showMainView('emailServiceView');
+  if (!isEmailServiceAdmin()) {
+    document.getElementById('emailServiceAccessWarning').classList.remove('d-none');
+    return;
+  }
+  document.getElementById('emailServiceAccessWarning').classList.add('d-none');
+  refreshEmailService();
+}
+
+function isEmailServiceAdmin() {
+  const roles = getUserRoles(currentUser);
+  return Boolean(currentUser?.isAdmin || currentUser?.isSuperAdmin || roles.includes('管理員') || roles.includes('超級管理者'));
+}
+
+function refreshEmailService() {
+  loadEmailQueueDashboard();
+  loadEmailQueue(emailQueueState.page || 1);
+}
+
+function loadEmailQueueDashboard() {
+  ['emailQuotaRemaining', 'emailSentToday', 'emailPendingCount', 'emailFailedCount', 'emailHighPendingCount'].forEach(id => {
+    document.getElementById(id).textContent = '...';
+  });
+  google.script.run
+    .withSuccessHandler(renderEmailQueueDashboard)
+    .withFailureHandler(showError)
+    .getMailQueueDashboard(currentUser);
+}
+
+function renderEmailQueueDashboard(data) {
+  const trigger = data?.triggerStatus || {};
+  document.getElementById('emailQuotaRemaining').textContent = formatEmailQueueValue(data?.remainingQuota);
+  document.getElementById('emailSentToday').textContent = formatEmailQueueValue(data?.sentTodayCount);
+  document.getElementById('emailPendingCount').textContent = formatEmailQueueValue(data?.pendingCount);
+  document.getElementById('emailFailedCount').textContent = formatEmailQueueValue(data?.failedCount);
+  document.getElementById('emailHighPendingCount').textContent = formatEmailQueueValue(data?.highPriorityPendingCount);
+  document.getElementById('emailOldestPending').textContent = formatEmailQueueDateTime(data?.oldestPendingCreatedAt) || '-';
+  document.getElementById('emailLastProcessed').textContent = formatEmailQueueDateTime(data?.lastProcessedAt) || '-';
+  document.getElementById('emailTriggerStatus').innerHTML = trigger.installed
+    ? '<span class="badge bg-success-subtle text-success">已安裝</span>'
+    : '<span class="badge bg-warning-subtle text-warning">未安裝</span>';
+}
+
+function loadEmailQueue(page = 1) {
+  emailQueueState.page = page;
+  setListLoading('emailQueueBody', true, 'Mail Queue 載入中...');
+  google.script.run
+    .withSuccessHandler(data => {
+      emailQueueState = Object.assign({ page, pageSize: 25, total: 0, rows: [] }, data || {});
+      renderEmailQueue();
+    })
+    .withFailureHandler(showError)
+    .listMailQueue(getEmailQueueFilters(page), currentUser);
+}
+
+function getEmailQueueFilters(page) {
+  return {
+    status: document.getElementById('emailQueueStatusFilter').value,
+    priority: document.getElementById('emailQueuePriorityFilter').value,
+    moduleKey: document.getElementById('emailQueueModuleFilter').value.trim(),
+    recipientEmail: document.getElementById('emailQueueRecipientFilter').value.trim(),
+    startDate: document.getElementById('emailQueueStartDateFilter').value,
+    endDate: document.getElementById('emailQueueEndDateFilter').value,
+    page,
+    pageSize: emailQueueState.pageSize || 25
+  };
+}
+
+function renderEmailQueue() {
+  const body = document.getElementById('emailQueueBody');
+  const rows = emailQueueState.rows || [];
+  body.innerHTML = '';
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="12" class="text-muted text-center py-4">目前沒有符合條件的郵件佇列資料。</td></tr>';
+    renderEmailQueuePager();
+    return;
+  }
+
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><code>${escapeHtml(shortEmailQueueId(row.id))}</code></td>
+      <td><code>${escapeHtml(row.moduleKey || '')}</code></td>
+      <td>${escapeHtml(row.recipientEmail || '')}</td>
+      <td>${escapeHtml(truncateEmailQueueText(row.subject || '', 36))}</td>
+      <td>${renderEmailPriorityBadge(row.priority)}</td>
+      <td>${renderEmailStatusBadge(row.status)}</td>
+      <td class="text-end">${escapeHtml(row.retryCount || 0)}</td>
+      <td>${escapeHtml(formatEmailQueueDateTime(row.scheduledAt) || '')}</td>
+      <td>${escapeHtml(formatEmailQueueDateTime(row.sentAt) || '')}</td>
+      <td title="${escapeAttr(row.errorMessage || '')}">${escapeHtml(truncateEmailQueueText(row.errorMessage || '', 28))}</td>
+      <td>${escapeHtml(formatEmailQueueDateTime(row.createdAt) || '')}</td>
+      <td class="text-end">${renderEmailQueueActions(row)}</td>
+    `;
+    body.appendChild(tr);
+  });
+  renderEmailQueuePager();
+}
+
+function renderEmailQueueActions(row) {
+  const id = escapeAttr(row.id);
+  const actions = [`<button type="button" class="btn btn-sm btn-outline-secondary" onclick="viewEmailQueueItem('${id}')">詳細</button>`];
+  if (row.status === 'FAILED') actions.push(`<button type="button" class="btn btn-sm btn-outline-primary" onclick="retryEmailQueueItem('${id}')">重試</button>`);
+  if (row.status === 'PENDING') actions.push(`<button type="button" class="btn btn-sm btn-outline-warning" onclick="cancelEmailQueueItem('${id}')">取消</button>`);
+  if (row.status === 'SENT') actions.push(`<button type="button" class="btn btn-sm btn-outline-primary" onclick="resendEmailQueueItem('${id}')">重寄</button>`);
+  return `<div class="d-inline-flex flex-wrap gap-1 justify-content-end">${actions.join('')}</div>`;
+}
+
+function renderEmailQueuePager() {
+  const pager = document.getElementById('emailQueuePager');
+  const total = Number(emailQueueState.total || 0);
+  const page = Number(emailQueueState.page || 1);
+  const pageSize = Number(emailQueueState.pageSize || 25);
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+  pager.innerHTML = `
+    <div class="text-muted small">共 ${escapeHtml(total)} 筆，第 ${escapeHtml(page)} / ${escapeHtml(totalPages)} 頁</div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" ${page <= 1 ? 'disabled' : ''} onclick="loadEmailQueue(${page - 1})">上一頁</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" ${page >= totalPages ? 'disabled' : ''} onclick="loadEmailQueue(${page + 1})">下一頁</button>
+    </div>
+  `;
+}
+
+function viewEmailQueueItem(id) {
+  google.script.run
+    .withSuccessHandler(data => {
+      const mail = data?.mail || {};
+      document.getElementById('emailQueueDetailContent').innerHTML = renderEmailQueueDetail(mail);
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('emailQueueDetailModal')).show();
+    })
+    .withFailureHandler(showError)
+    .getMailQueueItem(id, currentUser);
+}
+
+function renderEmailQueueDetail(mail) {
+  return `
+    <dl class="row">
+      ${renderEmailQueueDetailRow('id', mail.id)}
+      ${renderEmailQueueDetailRow('module_key', mail.moduleKey)}
+      ${renderEmailQueueDetailRow('business_id', mail.businessId)}
+      ${renderEmailQueueDetailRow('event_type', mail.eventType)}
+      ${renderEmailQueueDetailRow('dedupe_key', mail.dedupeKey)}
+      ${renderEmailQueueDetailRow('recipient_email', mail.recipientEmail)}
+      ${renderEmailQueueDetailRow('subject', mail.subject)}
+      ${renderEmailQueueDetailRow('priority', mail.priority)}
+      ${renderEmailQueueDetailRow('status', mail.status)}
+      ${renderEmailQueueDetailRow('retry_count', mail.retryCount)}
+      ${renderEmailQueueDetailRow('scheduled_at', formatEmailQueueDateTime(mail.scheduledAt))}
+      ${renderEmailQueueDetailRow('sent_at', formatEmailQueueDateTime(mail.sentAt))}
+      ${renderEmailQueueDetailRow('created_at', formatEmailQueueDateTime(mail.createdAt))}
+      ${renderEmailQueueDetailRow('error_message', mail.errorMessage)}
+    </dl>
+    <div class="mb-2 fw-semibold">body</div>
+    <pre class="border rounded p-3 bg-light small">${escapeHtml(mail.body || '')}</pre>
+    ${mail.htmlBody ? `<div class="mb-2 fw-semibold">html_body</div><pre class="border rounded p-3 bg-light small">${escapeHtml(mail.htmlBody)}</pre>` : ''}
+  `;
+}
+
+function renderEmailQueueDetailRow(label, value) {
+  return `<dt class="col-sm-3">${escapeHtml(label)}</dt><dd class="col-sm-9">${escapeHtml(value || '-')}</dd>`;
+}
+
+function retryEmailQueueItem(id) {
+  if (!confirm('確定要重試這封 FAILED 郵件嗎？')) return;
+  google.script.run
+    .withSuccessHandler(() => {
+      setEmailQueueMessage('已重新排入待寄佇列。', 'success');
+      refreshEmailService();
+    })
+    .withFailureHandler(showError)
+    .retryMailQueueItem(id, currentUser);
+}
+
+function cancelEmailQueueItem(id) {
+  if (!confirm('確定要取消這封 PENDING 郵件嗎？')) return;
+  google.script.run
+    .withSuccessHandler(() => {
+      setEmailQueueMessage('已取消待寄郵件。', 'success');
+      refreshEmailService();
+    })
+    .withFailureHandler(showError)
+    .cancelMailQueueItem(id, currentUser);
+}
+
+function resendEmailQueueItem(id) {
+  if (!confirm('確定要從這筆 SENT 紀錄建立一封新的待寄郵件嗎？')) return;
+  google.script.run
+    .withSuccessHandler(() => {
+      setEmailQueueMessage('已建立新的重寄佇列項目。', 'success');
+      refreshEmailService();
+    })
+    .withFailureHandler(showError)
+    .resendMailQueueItem(id, currentUser);
+}
+
+function installEmailServiceTriggers() {
+  if (!confirm('確定要重新安裝 Mail Queue 每 5 分鐘排程嗎？既有同名排程會被替換。')) return;
+  google.script.run
+    .withSuccessHandler(result => {
+      setEmailQueueMessage(result?.message || 'Trigger 已安裝。', 'success');
+      loadEmailQueueDashboard();
+    })
+    .withFailureHandler(showError)
+    .installMailQueueTriggers(currentUser);
+}
+
+function checkEmailServiceTriggers() {
+  google.script.run
+    .withSuccessHandler(result => {
+      const message = result?.installed
+        ? `Trigger 已安裝，共 ${result.count || 0} 筆。`
+        : `Trigger 未安裝，共 ${result?.count || 0} 筆。`;
+      setEmailQueueMessage(message, result?.installed ? 'success' : 'warning');
+      loadEmailQueueDashboard();
+    })
+    .withFailureHandler(showError)
+    .checkMailQueueTriggers(currentUser);
+}
+
+function resetEmailQueueFilters() {
+  ['emailQueueStatusFilter', 'emailQueuePriorityFilter', 'emailQueueModuleFilter', 'emailQueueRecipientFilter', 'emailQueueStartDateFilter', 'emailQueueEndDateFilter']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  loadEmailQueue(1);
+}
+
+function handleEmailQueueSearchKey(event) {
+  if (event.key === 'Enter') loadEmailQueue(1);
+}
+
+function setEmailQueueMessage(message, type = 'info') {
+  const box = document.getElementById('emailQueueMessage');
+  box.className = `small mb-2 text-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'muted'}`;
+  box.textContent = message || '';
+}
+
+function renderEmailStatusBadge(status) {
+  const map = {
+    PENDING: 'bg-info-subtle text-info',
+    SENT: 'bg-success-subtle text-success',
+    FAILED: 'bg-danger-subtle text-danger',
+    SKIPPED: 'bg-secondary-subtle text-secondary'
+  };
+  return `<span class="badge ${map[status] || 'bg-secondary-subtle text-secondary'}">${escapeHtml(status || '-')}</span>`;
+}
+
+function renderEmailPriorityBadge(priority) {
+  const map = {
+    HIGH: 'bg-danger-subtle text-danger',
+    NORMAL: 'bg-primary-subtle text-primary',
+    LOW: 'bg-secondary-subtle text-secondary'
+  };
+  return `<span class="badge ${map[priority] || 'bg-secondary-subtle text-secondary'}">${escapeHtml(priority || '-')}</span>`;
+}
+
+function formatEmailQueueDateTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+function formatEmailQueueValue(value) {
+  return value === null || value === undefined ? '-' : String(value);
+}
+
+function shortEmailQueueId(id) {
+  const text = String(id || '');
+  return text.length > 8 ? text.slice(0, 8) : text;
+}
+
+function truncateEmailQueueText(value, maxLength) {
+  const text = String(value || '');
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+</script>

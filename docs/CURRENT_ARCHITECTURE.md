@@ -271,6 +271,7 @@ Current rules:
 - Failed sends write `error_message`; successful sends write `sent_at`.
 
 Admin data sources now support queue listing, retry, cancel, resend, dashboard, quota status, health check, and trigger inspection via Apps Script.
+The Apps Script admin UI exposes these controls through the `Email 服務管理系統` feature entry for administrator roles.
 
 ## Deployment
 

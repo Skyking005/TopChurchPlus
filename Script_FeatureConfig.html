@@ -15,6 +15,7 @@ const SYSTEM_FEATURES = [
   { key: 'qrcode', icon: 'qrcode', title: 'QRCode 活動管理', desc: '建立活動報到櫃台，搭配 Line QRCode 掃描並檢視出席名單。', action: 'openQrcodeSystem' },
   { key: 'qt', icon: 'book', title: 'QT 管理系統', desc: '管理 QT 訂購、每月庫存、會堂調撥、領取狀態與相關報表。', action: 'openQtSystem' },
   { key: 'linebot', icon: 'message', title: 'Line App會友管理系統', desc: '管理 LIFF 會友入口、Rich Menu、會友綁定、LINE 連結與互動紀錄。', action: 'openLineBotSystem' },
+  { key: 'email_service', icon: 'mail', title: 'Email 服務管理系統', desc: '監控 Mail Queue、MailApp 配額、排程狀態，並處理重試、取消與重新寄送。', action: 'openEmailServiceSystem' },
   { key: 'pastoral', icon: 'people', title: '牧養管理系統', desc: '管理會友資料、牧區架構、關懷紀錄、照片附件與牧養權限。', action: 'openPastoralSystem' },
   { key: 'education', icon: 'school', title: '教育管理系統', desc: '管理課程、班級、講師班表、學員狀態與培育進程。', action: 'openEducationSystem' },
   { key: 'media', icon: 'image', title: '媒體管理系統', desc: '媒體資料、素材申請、活動影像與媒體作業入口，功能建置中。', action: 'openComingSoonSystem' },
@@ -24,8 +25,8 @@ const SYSTEM_FEATURES = [
 ];
 
 const ROLE_FEATURE_ACCESS = {
-  '超級管理者': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system', 'dev_management'],
-  '管理員': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
+  '超級管理者': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'email_service', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving', 'system', 'dev_management'],
+  '管理員': ['project', 'meeting', 'finance', 'admin_supply', 'asset', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'email_service', 'pastoral', 'education', 'media', 'worship', 'attendance', 'serving'],
   '全職同工': ['project', 'meeting', 'finance', 'admin_supply', 'venue', 'zoom', 'forms', 'counter', 'qrcode', 'qt', 'linebot', 'worship', 'attendance', 'serving'],
   '技術同工': ['asset'],
   '牧養同工': ['pastoral'],
@@ -51,6 +52,7 @@ const MAIN_VIEW_IDS = [
   'educationView',
   'qtView',
   'lineBotView',
+  'emailServiceView',
   'devManagementView',
   'qrcodeView',
   'counterWorkbenchView',

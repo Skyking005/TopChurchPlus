@@ -145,11 +145,11 @@ const MailQueueService = {
   resend(id, currentUser) {
     return resendMailQueueItem(id, currentUser);
   },
-  installTriggers() {
-    return installMailQueueTriggers();
+  installTriggers(currentUser) {
+    return installMailQueueTriggers(currentUser);
   },
-  checkTriggers() {
-    return checkMailQueueTriggers();
+  checkTriggers(currentUser) {
+    return checkMailQueueTriggers(currentUser);
   }
 };
 
@@ -173,6 +173,7 @@ function getRemainingMailQuota() {
 }
 
 function getMailQueueStats(currentUser) {
+  assertMailQueueAdmin_(currentUser);
   const stats = apiRequest('get', '/mail/queue/stats', null, null, currentUser);
   return Object.assign({}, stats, {
     remainingQuota: getRemainingMailQuota()
@@ -180,6 +181,7 @@ function getMailQueueStats(currentUser) {
 }
 
 function listMailQueue(filters, currentUser) {
+  assertMailQueueAdmin_(currentUser);
   filters = filters || {};
   return apiRequest('get', '/mail/queue', null, {
     status: filters.status || '',
@@ -194,30 +196,36 @@ function listMailQueue(filters, currentUser) {
 }
 
 function getMailQueueItem(id, currentUser) {
+  assertMailQueueAdmin_(currentUser);
   return apiRequest('get', `/mail/queue/${encodeURIComponent(id)}`, null, null, currentUser);
 }
 
 function retryMailQueueItem(id, currentUser) {
+  assertMailQueueAdmin_(currentUser);
   return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/retry`, { currentUser: currentUser || {} });
 }
 
 function cancelMailQueueItem(id, currentUser) {
+  assertMailQueueAdmin_(currentUser);
   return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/cancel`, { currentUser: currentUser || {} });
 }
 
 function resendMailQueueItem(id, currentUser) {
+  assertMailQueueAdmin_(currentUser);
   return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/resend`, { currentUser: currentUser || {} });
 }
 
 function getMailQueueDashboard(currentUser) {
+  assertMailQueueAdmin_(currentUser);
   const dashboard = apiRequest('get', '/mail/queue/dashboard', null, null, currentUser);
   return Object.assign({}, dashboard, {
     remainingQuota: getRemainingMailQuota(),
-    triggerStatus: checkMailQueueTriggers()
+    triggerStatus: collectMailQueueTriggers_()
   });
 }
 
 function getMailQuotaStatus(currentUser) {
+  assertMailQueueAdmin_(currentUser);
   const quota = getRemainingMailQuota();
   const status = apiRequest('get', '/mail/queue/quota', null, null, currentUser);
   return Object.assign({}, status, { remainingQuota: quota });
@@ -298,7 +306,12 @@ function markMailQueueSkipped(id, errorMessage, metadata) {
   });
 }
 
-function installMailQueueTriggers() {
+function installMailQueueTriggers(currentUser) {
+  assertMailQueueAdmin_(currentUser);
+  return installMailQueueTriggers_();
+}
+
+function installMailQueueTriggers_() {
   const handler = 'processMailQueue';
   ScriptApp.getProjectTriggers().forEach(trigger => {
     if (trigger.getHandlerFunction && trigger.getHandlerFunction() === handler) {
@@ -312,11 +325,16 @@ function installMailQueueTriggers() {
   return { success: true, message: 'Mail queue trigger installed: every 5 minutes.' };
 }
 
-function installMailQueueTrigger() {
-  return installMailQueueTriggers();
+function installMailQueueTrigger(currentUser) {
+  return installMailQueueTriggers(currentUser);
 }
 
-function checkMailQueueTriggers() {
+function checkMailQueueTriggers(currentUser) {
+  assertMailQueueAdmin_(currentUser);
+  return collectMailQueueTriggers_();
+}
+
+function collectMailQueueTriggers_() {
   const triggers = ScriptApp.getProjectTriggers()
     .filter(trigger => trigger.getHandlerFunction && ['processMailQueue', 'processPendingMails'].includes(trigger.getHandlerFunction()))
     .map(trigger => ({
@@ -330,6 +348,18 @@ function checkMailQueueTriggers() {
     count: triggers.length,
     triggers
   };
+}
+
+function assertMailQueueAdmin_(currentUser) {
+  const roles = Array.isArray(currentUser && currentUser.roles)
+    ? currentUser.roles
+    : [currentUser && currentUser.role].filter(Boolean);
+  const isAdmin = Boolean(currentUser && (currentUser.isAdmin || currentUser.isSuperAdmin))
+    || roles.includes('管理員')
+    || roles.includes('超級管理者');
+  if (!isAdmin) {
+    throw new Error('只有管理員可以使用 Email 服務管理系統');
+  }
 }
 
 function sendLoginVerificationEmail(email, code, expiresAt) {

@@ -73,6 +73,7 @@ Rules:
 - `remainingQuota <= 10` sends only HIGH priority mail.
 - Modules should enqueue mail; direct `MailApp.sendEmail()` is only allowed inside `processMailQueue()`.
 - Exception: login verification code email may send immediately through `sendLoginVerificationEmail()` because it is part of the login challenge flow.
+- Mail Queue management APIs and Apps Script wrappers require administrator access.
 
 ### System
 
