@@ -1,0 +1,187 @@
+# TopChurchPlus Relationship Catalog
+
+Generated: 2026-06-14
+Source: live PostgreSQL metadata via pg_catalog / information_schema
+Database: postgres
+Schema scope: non-system PostgreSQL schemas
+
+This is documentation only. No schema changes were performed.
+
+## Foreign Keys
+
+| Constraint | From | Column | To | Referenced Column | On Update | On Delete | Module |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `account_pastoral_church_permissions_church_id_fkey` | `account_pastoral_church_permissions` | `church_id` | `churches` | `id` | NO ACTION | CASCADE | pastoral |
+| `account_pastoral_church_permissions_staff_id_fkey` | `account_pastoral_church_permissions` | `staff_id` | `accounts` | `staff_id` | NO ACTION | CASCADE | pastoral |
+| `account_roles_staff_id_fkey` | `account_roles` | `staff_id` | `accounts` | `staff_id` | NO ACTION | CASCADE | system |
+| `admin_supply_items_created_by_staff_id_fkey` | `admin_supply_items` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | admin_supply |
+| `admin_supply_movements_from_church_id_fkey` | `admin_supply_movements` | `from_church_id` | `churches` | `id` | NO ACTION | SET NULL | admin_supply |
+| `admin_supply_movements_handled_by_staff_id_fkey` | `admin_supply_movements` | `handled_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | admin_supply |
+| `admin_supply_movements_supply_id_fkey` | `admin_supply_movements` | `supply_id` | `admin_supply_items` | `supply_id` | NO ACTION | CASCADE | admin_supply |
+| `admin_supply_movements_to_church_id_fkey` | `admin_supply_movements` | `to_church_id` | `churches` | `id` | NO ACTION | SET NULL | admin_supply |
+| `admin_supply_stocks_church_id_fkey` | `admin_supply_stocks` | `church_id` | `churches` | `id` | NO ACTION | CASCADE | admin_supply |
+| `admin_supply_stocks_supply_id_fkey` | `admin_supply_stocks` | `supply_id` | `admin_supply_items` | `supply_id` | NO ACTION | CASCADE | admin_supply |
+| `asset_acquisition_links_asset_id_fkey` | `asset_acquisition_links` | `asset_id` | `assets` | `asset_id` | NO ACTION | CASCADE | asset |
+| `asset_acquisition_links_payment_id_fkey` | `asset_acquisition_links` | `payment_id` | `purchase_payment_requests` | `payment_id` | NO ACTION | SET NULL | asset |
+| `asset_acquisition_links_payment_item_id_fkey` | `asset_acquisition_links` | `payment_item_id` | `purchase_payment_items` | `id` | NO ACTION | SET NULL | asset |
+| `asset_acquisition_links_purchase_id_fkey` | `asset_acquisition_links` | `purchase_id` | `purchases` | `purchase_id` | NO ACTION | SET NULL | asset |
+| `asset_location_history_asset_id_fkey` | `asset_location_history` | `asset_id` | `assets` | `asset_id` | NO ACTION | CASCADE | asset |
+| `asset_location_history_from_location_id_fkey` | `asset_location_history` | `from_location_id` | `asset_locations` | `location_id` | NO ACTION | SET NULL | asset |
+| `asset_location_history_to_location_id_fkey` | `asset_location_history` | `to_location_id` | `asset_locations` | `location_id` | NO ACTION | SET NULL | asset |
+| `asset_maintenance_records_asset_id_fkey` | `asset_maintenance_records` | `asset_id` | `assets` | `asset_id` | NO ACTION | CASCADE | asset |
+| `asset_status_history_asset_id_fkey` | `asset_status_history` | `asset_id` | `assets` | `asset_id` | NO ACTION | CASCADE | asset |
+| `assets_location_id_fkey` | `assets` | `location_id` | `asset_locations` | `location_id` | NO ACTION | SET NULL | asset |
+| `assets_source_payment_id_fkey` | `assets` | `source_payment_id` | `purchase_payment_requests` | `payment_id` | NO ACTION | SET NULL | asset |
+| `assets_source_payment_item_id_fkey` | `assets` | `source_payment_item_id` | `purchase_payment_items` | `id` | NO ACTION | SET NULL | asset |
+| `assets_source_purchase_id_fkey` | `assets` | `source_purchase_id` | `purchases` | `purchase_id` | NO ACTION | SET NULL | asset |
+| `attendance_records_attendance_type_id_fkey` | `attendance_records` | `attendance_type_id` | `attendance_types` | `id` | NO ACTION | NO ACTION | attendance |
+| `attendance_records_event_id_fkey` | `attendance_records` | `event_id` | `attendance_events` | `id` | NO ACTION | CASCADE | attendance |
+| `attendance_records_member_id_fkey` | `attendance_records` | `member_id` | `pastoral_members` | `id` | NO ACTION | NO ACTION | attendance |
+| `attendance_summary_pastoral_member_id_fkey` | `attendance_summary` | `pastoral_member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | linebot_liff |
+| `audit_logs_member_id_fkey` | `audit_logs` | `member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | system |
+| `audit_logs_staff_id_fkey` | `audit_logs` | `staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | system |
+| `baptism_participants_baptism_event_id_fkey` | `baptism_participants` | `baptism_event_id` | `baptism_events` | `id` | NO ACTION | CASCADE | pastoral |
+| `baptism_participants_certificate_photo_file_id_fkey` | `baptism_participants` | `certificate_photo_file_id` | `pastoral_member_files` | `id` | NO ACTION | NO ACTION | pastoral |
+| `baptism_participants_member_id_fkey` | `baptism_participants` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `bpm_history_approver_id_fkey` | `bpm_history` | `approver_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | workflow |
+| `bpm_history_instance_id_fkey` | `bpm_history` | `instance_id` | `bpm_instances` | `id` | NO ACTION | CASCADE | workflow |
+| `bpm_instances_creator_id_fkey` | `bpm_instances` | `creator_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | workflow |
+| `bpm_instances_definition_id_fkey` | `bpm_instances` | `definition_id` | `bpm_definitions` | `id` | NO ACTION | RESTRICT | workflow |
+| `churches_country_id_fkey` | `churches` | `country_id` | `countries` | `id` | NO ACTION | NO ACTION | pastoral |
+| `churches_region_id_fkey` | `churches` | `region_id` | `regions` | `id` | NO ACTION | NO ACTION | pastoral |
+| `counter_pin_codes_assigned_staff_id_fkey` | `counter_pin_codes` | `assigned_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | auth |
+| `counter_pin_codes_church_id_fkey` | `counter_pin_codes` | `church_id` | `churches` | `id` | NO ACTION | SET NULL | auth |
+| `counter_pin_codes_created_by_staff_id_fkey` | `counter_pin_codes` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | auth |
+| `counter_transactions_payer_staff_id_fkey` | `counter_transactions` | `payer_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | forms_counter |
+| `counter_transactions_received_by_staff_id_fkey` | `counter_transactions` | `received_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | forms_counter |
+| `counter_transactions_received_church_id_fkey` | `counter_transactions` | `received_church_id` | `churches` | `id` | NO ACTION | SET NULL | forms_counter |
+| `course_summary_pastoral_member_id_fkey` | `course_summary` | `pastoral_member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | linebot_liff |
+| `development_issues_created_by_staff_id_fkey` | `development_issues` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | dev_management |
+| `development_releases_created_by_staff_id_fkey` | `development_releases` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | dev_management |
+| `domain_events_created_by_staff_id_fkey` | `domain_events` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | files_core |
+| `education_courses_category_id_fkey` | `education_courses` | `category_id` | `education_course_categories` | `category_id` | NO ACTION | SET NULL | education |
+| `education_enrollments_course_id_fkey` | `education_enrollments` | `course_id` | `education_courses` | `course_id` | NO ACTION | CASCADE | education |
+| `education_enrollments_member_id_fkey` | `education_enrollments` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | education |
+| `entity_links_created_by_staff_id_fkey` | `entity_links` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | files_core |
+| `file_links_file_id_fkey` | `file_links` | `file_id` | `files` | `file_id` | NO ACTION | CASCADE | files_core |
+| `files_uploaded_by_member_id_fkey` | `files` | `uploaded_by_member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | files_core |
+| `files_uploaded_by_staff_id_fkey` | `files` | `uploaded_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | files_core |
+| `form_question_options_question_id_fkey` | `form_question_options` | `question_id` | `form_questions` | `question_id` | NO ACTION | CASCADE | forms_counter |
+| `form_questions_form_id_fkey` | `form_questions` | `form_id` | `forms` | `form_id` | NO ACTION | CASCADE | forms_counter |
+| `form_response_answers_question_id_fkey` | `form_response_answers` | `question_id` | `form_questions` | `question_id` | NO ACTION | CASCADE | forms_counter |
+| `form_response_answers_response_id_fkey` | `form_response_answers` | `response_id` | `form_responses` | `response_id` | NO ACTION | CASCADE | forms_counter |
+| `form_response_attachments_question_id_fkey` | `form_response_attachments` | `question_id` | `form_questions` | `question_id` | NO ACTION | CASCADE | forms_counter |
+| `form_response_attachments_response_id_fkey` | `form_response_attachments` | `response_id` | `form_responses` | `response_id` | NO ACTION | CASCADE | forms_counter |
+| `form_responses_counter_transaction_id_fkey` | `form_responses` | `counter_transaction_id` | `counter_transactions` | `transaction_id` | NO ACTION | SET NULL | forms_counter |
+| `form_responses_form_id_fkey` | `form_responses` | `form_id` | `forms` | `form_id` | NO ACTION | CASCADE | forms_counter |
+| `form_responses_respondent_member_id_fkey` | `form_responses` | `respondent_member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | forms_counter |
+| `form_responses_respondent_staff_id_fkey` | `form_responses` | `respondent_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | forms_counter |
+| `forms_created_by_staff_id_fkey` | `forms` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | forms_counter |
+| `forms_updated_by_staff_id_fkey` | `forms` | `updated_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | forms_counter |
+| `identity_providers_pastoral_member_id_fkey` | `identity_providers` | `pastoral_member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | linebot_liff |
+| `line_binding_requests_processed_by_fkey` | `line_binding_requests` | `processed_by` | `accounts` | `staff_id` | NO ACTION | SET NULL | linebot_liff |
+| `line_liff_sessions_line_user_id_fkey` | `line_liff_sessions` | `line_user_id` | `line_users` | `line_user_id` | NO ACTION | CASCADE | linebot_liff |
+| `line_rich_menu_assignments_line_user_id_fkey` | `line_rich_menu_assignments` | `line_user_id` | `line_users` | `line_user_id` | NO ACTION | CASCADE | linebot_liff |
+| `line_users_member_account_id_fkey` | `line_users` | `member_account_id` | `member_accounts` | `member_account_id` | NO ACTION | SET NULL | linebot_liff |
+| `line_users_member_id_fkey` | `line_users` | `member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | linebot_liff |
+| `login_events_staff_id_fkey` | `login_events` | `staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | auth |
+| `login_verification_challenges_staff_id_fkey` | `login_verification_challenges` | `staff_id` | `accounts` | `staff_id` | NO ACTION | CASCADE | auth |
+| `mail_queue_created_by_staff_id_fkey` | `mail_queue` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | mail |
+| `meetings_project_id_fkey` | `meetings` | `project_id` | `projects` | `project_id` | CASCADE | SET NULL | project_meeting |
+| `member_accounts_member_id_fkey` | `member_accounts` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | linebot_liff |
+| `notification_templates_updated_by_fkey` | `notification_templates` | `updated_by` | `accounts` | `staff_id` | NO ACTION | SET NULL | linebot_liff |
+| `param_items_category_key_fkey` | `param_items` | `category_key` | `param_categories` | `category_key` | NO ACTION | CASCADE | system |
+| `pastoral_care_records_member_id_fkey` | `pastoral_care_records` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_group_closure_ancestor_id_fkey` | `pastoral_group_closure` | `ancestor_id` | `pastoral_groups` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_group_closure_descendant_id_fkey` | `pastoral_group_closure` | `descendant_id` | `pastoral_groups` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_group_leaders_group_id_fkey` | `pastoral_group_leaders` | `group_id` | `pastoral_groups` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_group_leaders_member_id_fkey` | `pastoral_group_leaders` | `member_id` | `pastoral_members` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_group_leaders_title_id_fkey` | `pastoral_group_leaders` | `title_id` | `pastoral_titles` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_groups_church_id_fkey` | `pastoral_groups` | `church_id` | `churches` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_groups_group_type_id_fkey` | `pastoral_groups` | `group_type_id` | `pastoral_group_types` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_groups_parent_id_fkey` | `pastoral_groups` | `parent_id` | `pastoral_groups` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_member_addresses_country_id_fkey` | `pastoral_member_addresses` | `country_id` | `countries` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_member_addresses_member_id_fkey` | `pastoral_member_addresses` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_addresses_region_id_fkey` | `pastoral_member_addresses` | `region_id` | `regions` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_member_contacts_member_id_fkey` | `pastoral_member_contacts` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_faith_member_id_fkey` | `pastoral_member_faith` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_faith_previous_church_id_fkey` | `pastoral_member_faith` | `previous_church_id` | `churches` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_member_family_notes_member_id_fkey` | `pastoral_member_family_notes` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_files_file_id_fkey` | `pastoral_member_files` | `file_id` | `files` | `file_id` | NO ACTION | SET NULL | pastoral |
+| `pastoral_member_files_member_id_fkey` | `pastoral_member_files` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_group_assignments_group_id_fkey` | `pastoral_member_group_assignments` | `group_id` | `pastoral_groups` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_member_group_assignments_member_id_fkey` | `pastoral_member_group_assignments` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_relationships_member_id_fkey` | `pastoral_member_relationships` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_relationships_related_member_id_fkey` | `pastoral_member_relationships` | `related_member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | pastoral |
+| `pastoral_member_relationships_relationship_type_id_fkey` | `pastoral_member_relationships` | `relationship_type_id` | `relationship_types` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_members_church_id_fkey` | `pastoral_members` | `church_id` | `churches` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_members_marital_status_id_fkey` | `pastoral_members` | `marital_status_id` | `marital_statuses` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_members_membership_category_code_fkey` | `pastoral_members` | `membership_category_code` | `membership_categories` | `code` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_members_profession_id_fkey` | `pastoral_members` | `profession_id` | `professions` | `id` | NO ACTION | NO ACTION | pastoral |
+| `pastoral_members_title_id_fkey` | `pastoral_members` | `title_id` | `pastoral_titles` | `id` | NO ACTION | NO ACTION | pastoral |
+| `project_budget_project_id_fkey` | `project_budget` | `project_id` | `projects` | `project_id` | CASCADE | CASCADE | project_meeting |
+| `project_income_project_id_fkey` | `project_income` | `project_id` | `projects` | `project_id` | CASCADE | CASCADE | project_meeting |
+| `project_people_project_id_fkey` | `project_people` | `project_id` | `projects` | `project_id` | CASCADE | CASCADE | project_meeting |
+| `project_permissions_project_id_fkey` | `project_permissions` | `project_id` | `projects` | `project_id` | CASCADE | CASCADE | project_meeting |
+| `project_permissions_staff_id_fkey` | `project_permissions` | `staff_id` | `accounts` | `staff_id` | NO ACTION | NO ACTION | project_meeting |
+| `purchase_advance_items_advance_id_fkey` | `purchase_advance_items` | `advance_id` | `purchase_advances` | `advance_id` | NO ACTION | CASCADE | finance |
+| `purchase_advances_purchase_id_fkey` | `purchase_advances` | `purchase_id` | `purchases` | `purchase_id` | NO ACTION | CASCADE | finance |
+| `purchase_expense_proof_items_proof_id_fkey` | `purchase_expense_proof_items` | `proof_id` | `purchase_expense_proofs` | `proof_id` | NO ACTION | CASCADE | finance |
+| `purchase_expense_proofs_payment_id_fkey` | `purchase_expense_proofs` | `payment_id` | `purchase_payment_requests` | `payment_id` | NO ACTION | CASCADE | finance |
+| `purchase_expense_proofs_purchase_id_fkey` | `purchase_expense_proofs` | `purchase_id` | `purchases` | `purchase_id` | NO ACTION | CASCADE | finance |
+| `purchase_items_purchase_id_fkey` | `purchase_items` | `purchase_id` | `purchases` | `purchase_id` | NO ACTION | CASCADE | finance |
+| `purchase_payment_items_payment_id_fkey` | `purchase_payment_items` | `payment_id` | `purchase_payment_requests` | `payment_id` | NO ACTION | CASCADE | finance |
+| `purchase_payment_requests_advance_id_fkey` | `purchase_payment_requests` | `advance_id` | `purchase_advances` | `advance_id` | NO ACTION | SET NULL | finance |
+| `purchase_payment_requests_purchase_id_fkey` | `purchase_payment_requests` | `purchase_id` | `purchases` | `purchase_id` | NO ACTION | CASCADE | finance |
+| `purchases_project_id_fkey` | `purchases` | `project_id` | `projects` | `project_id` | CASCADE | SET NULL | finance |
+| `qrcode_checkins_event_id_fkey` | `qrcode_checkins` | `event_id` | `qrcode_events` | `event_id` | NO ACTION | CASCADE | qrcode |
+| `qrcode_checkins_member_id_fkey` | `qrcode_checkins` | `member_id` | `pastoral_members` | `id` | NO ACTION | CASCADE | qrcode |
+| `qrcode_events_church_id_fkey` | `qrcode_events` | `church_id` | `churches` | `id` | NO ACTION | SET NULL | qrcode |
+| `qt_inventory_monthly_church_id_fkey` | `qt_inventory_monthly` | `church_id` | `churches` | `id` | NO ACTION | NO ACTION | qt |
+| `qt_inventory_monthly_created_by_staff_id_fkey` | `qt_inventory_monthly` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_monthly_updated_by_staff_id_fkey` | `qt_inventory_monthly` | `updated_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_movements_church_id_fkey` | `qt_inventory_movements` | `church_id` | `churches` | `id` | NO ACTION | NO ACTION | qt |
+| `qt_inventory_movements_inventory_id_fkey` | `qt_inventory_movements` | `inventory_id` | `qt_inventory_monthly` | `inventory_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_movements_order_id_fkey` | `qt_inventory_movements` | `order_id` | `qt_orders` | `order_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_movements_order_item_id_fkey` | `qt_inventory_movements` | `order_item_id` | `qt_order_items` | `order_item_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_movements_product_type_fkey` | `qt_inventory_movements` | `product_type` | `qt_product_types` | `product_type` | NO ACTION | NO ACTION | qt |
+| `qt_inventory_movements_related_movement_id_fkey` | `qt_inventory_movements` | `related_movement_id` | `qt_inventory_movements` | `movement_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_movements_reservation_id_fkey` | `qt_inventory_movements` | `reservation_id` | `qt_inventory_reservations` | `reservation_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_reservations_created_by_staff_id_fkey` | `qt_inventory_reservations` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_reservations_inventory_id_fkey` | `qt_inventory_reservations` | `inventory_id` | `qt_inventory_monthly` | `inventory_id` | NO ACTION | RESTRICT | qt |
+| `qt_inventory_reservations_member_id_fkey` | `qt_inventory_reservations` | `member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_reservations_order_id_fkey` | `qt_inventory_reservations` | `order_id` | `qt_orders` | `order_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_reservations_order_item_id_fkey` | `qt_inventory_reservations` | `order_item_id` | `qt_order_items` | `order_item_id` | NO ACTION | SET NULL | qt |
+| `qt_inventory_reservations_released_by_staff_id_fkey` | `qt_inventory_reservations` | `released_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | qt |
+| `qt_order_items_order_id_fkey` | `qt_order_items` | `order_id` | `qt_orders` | `order_id` | NO ACTION | CASCADE | qt |
+| `qt_order_items_receiver_member_id_fkey` | `qt_order_items` | `receiver_member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | qt |
+| `qt_orders_church_id_fkey` | `qt_orders` | `church_id` | `churches` | `id` | NO ACTION | SET NULL | qt |
+| `qt_orders_member_id_fkey` | `qt_orders` | `member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | qt |
+| `qt_orders_payer_member_id_fkey` | `qt_orders` | `payer_member_id` | `pastoral_members` | `id` | NO ACTION | SET NULL | qt |
+| `qt_orders_payment_type_id_fkey` | `qt_orders` | `payment_type_id` | `qt_payment_types` | `payment_type_id` | NO ACTION | SET NULL | qt |
+| `qt_orders_plan_id_fkey` | `qt_orders` | `plan_id` | `qt_price_plans` | `plan_id` | NO ACTION | SET NULL | qt |
+| `qt_orders_product_type_fkey` | `qt_orders` | `product_type` | `qt_product_types` | `product_type` | NO ACTION | SET NULL | qt |
+| `qt_price_plans_product_type_fkey` | `qt_price_plans` | `product_type` | `qt_product_types` | `product_type` | NO ACTION | NO ACTION | qt |
+| `regions_country_id_fkey` | `regions` | `country_id` | `countries` | `id` | NO ACTION | NO ACTION | pastoral |
+| `short_link_clicks_link_id_fkey` | `short_link_clicks` | `link_id` | `short_links` | `link_id` | NO ACTION | CASCADE | shortlinks |
+| `short_links_created_by_staff_id_fkey` | `short_links` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | NO ACTION | shortlinks |
+| `short_links_updated_by_staff_id_fkey` | `short_links` | `updated_by_staff_id` | `accounts` | `staff_id` | NO ACTION | NO ACTION | shortlinks |
+| `sunday_message_shares_church_id_fkey` | `sunday_message_shares` | `church_id` | `churches` | `id` | NO ACTION | SET NULL | sunday_message |
+| `sunday_message_shares_message_id_fkey` | `sunday_message_shares` | `message_id` | `sunday_messages` | `message_id` | NO ACTION | CASCADE | sunday_message |
+| `sunday_messages_created_by_staff_id_fkey` | `sunday_messages` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | sunday_message |
+| `sunday_messages_updated_by_staff_id_fkey` | `sunday_messages` | `updated_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | sunday_message |
+| `system_config_updated_by_fkey` | `system_config` | `updated_by` | `accounts` | `staff_id` | NO ACTION | SET NULL | system |
+| `system_config_keys_updated_by_fkey` | `system_config_keys` | `updated_by` | `accounts` | `staff_id` | NO ACTION | SET NULL | system |
+| `system_usage_logs_staff_id_fkey` | `system_usage_logs` | `staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | system |
+| `trusted_login_devices_staff_id_fkey` | `trusted_login_devices` | `staff_id` | `accounts` | `staff_id` | NO ACTION | CASCADE | auth |
+| `venue_reservations_created_by_staff_id_fkey` | `venue_reservations` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | venue_zoom |
+| `venue_reservations_requester_staff_id_fkey` | `venue_reservations` | `requester_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | venue_zoom |
+| `work_logs_staff_id_fkey` | `work_logs` | `staff_id` | `accounts` | `staff_id` | NO ACTION | CASCADE | worklog |
+| `zoom_reservations_borrower_staff_id_fkey` | `zoom_reservations` | `borrower_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | venue_zoom |
+| `zoom_reservations_created_by_staff_id_fkey` | `zoom_reservations` | `created_by_staff_id` | `accounts` | `staff_id` | NO ACTION | SET NULL | venue_zoom |
+| `zoom_reservations_zoom_account_id_fkey` | `zoom_reservations` | `zoom_account_id` | `zoom_accounts` | `zoom_account_id` | NO ACTION | NO ACTION | venue_zoom |
+
+## Relationship Notes
+
+* This catalog lists PostgreSQL-enforced foreign keys only. Application-level relationships may exist without FK constraints.
+* Identity Boundary v2 still applies: Pastoral Domain relationships must not be inferred from administrative roles alone.

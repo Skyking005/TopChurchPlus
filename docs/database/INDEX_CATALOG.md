@@ -1,0 +1,374 @@
+# TopChurchPlus Index Catalog
+
+Generated: 2026-06-14
+Source: live PostgreSQL metadata via pg_catalog / information_schema
+Database: postgres
+Schema scope: non-system PostgreSQL schemas
+
+This is documentation only. No schema changes were performed.
+
+| Schema | Table | Index | Module | Definition |
+| --- | --- | --- | --- | --- |
+| public | `account_pastoral_church_permissions` | `account_pastoral_church_permissions_pkey` | pastoral | CREATE UNIQUE INDEX account_pastoral_church_permissions_pkey ON public.account_pastoral_church_permissions USING btree (staff_id, church_id) |
+| public | `account_pastoral_church_permissions` | `idx_account_pastoral_church_permissions_church` | pastoral | CREATE INDEX idx_account_pastoral_church_permissions_church ON public.account_pastoral_church_permissions USING btree (church_id) |
+| public | `account_roles` | `account_roles_pkey` | system | CREATE UNIQUE INDEX account_roles_pkey ON public.account_roles USING btree (id) |
+| public | `account_roles` | `account_roles_staff_id_role_key` | system | CREATE UNIQUE INDEX account_roles_staff_id_role_key ON public.account_roles USING btree (staff_id, role) |
+| public | `account_roles` | `idx_account_roles_staff_id` | system | CREATE INDEX idx_account_roles_staff_id ON public.account_roles USING btree (staff_id) |
+| public | `accounts` | `accounts_email_key` | system | CREATE UNIQUE INDEX accounts_email_key ON public.accounts USING btree (email) |
+| public | `accounts` | `accounts_pkey` | system | CREATE UNIQUE INDEX accounts_pkey ON public.accounts USING btree (staff_id) |
+| public | `accounts` | `idx_accounts_department` | system | CREATE INDEX idx_accounts_department ON public.accounts USING btree (department) |
+| public | `admin_supply_items` | `admin_supply_items_pkey` | admin_supply | CREATE UNIQUE INDEX admin_supply_items_pkey ON public.admin_supply_items USING btree (supply_id) |
+| public | `admin_supply_items` | `admin_supply_items_supply_code_key` | admin_supply | CREATE UNIQUE INDEX admin_supply_items_supply_code_key ON public.admin_supply_items USING btree (supply_code) |
+| public | `admin_supply_items` | `idx_admin_supply_items_active` | admin_supply | CREATE INDEX idx_admin_supply_items_active ON public.admin_supply_items USING btree (is_active) |
+| public | `admin_supply_items` | `idx_admin_supply_items_category` | admin_supply | CREATE INDEX idx_admin_supply_items_category ON public.admin_supply_items USING btree (category) |
+| public | `admin_supply_movements` | `admin_supply_movements_pkey` | admin_supply | CREATE UNIQUE INDEX admin_supply_movements_pkey ON public.admin_supply_movements USING btree (movement_id) |
+| public | `admin_supply_movements` | `idx_admin_supply_movements_church_time` | admin_supply | CREATE INDEX idx_admin_supply_movements_church_time ON public.admin_supply_movements USING btree (from_church_id, to_church_id, created_at DESC) |
+| public | `admin_supply_movements` | `idx_admin_supply_movements_supply_time` | admin_supply | CREATE INDEX idx_admin_supply_movements_supply_time ON public.admin_supply_movements USING btree (supply_id, created_at DESC) |
+| public | `admin_supply_stocks` | `admin_supply_stocks_pkey` | admin_supply | CREATE UNIQUE INDEX admin_supply_stocks_pkey ON public.admin_supply_stocks USING btree (supply_id, church_id) |
+| public | `admin_supply_stocks` | `idx_admin_supply_stocks_church` | admin_supply | CREATE INDEX idx_admin_supply_stocks_church ON public.admin_supply_stocks USING btree (church_id) |
+| public | `asset_acquisition_links` | `asset_acquisition_links_asset_id_payment_item_id_key` | asset | CREATE UNIQUE INDEX asset_acquisition_links_asset_id_payment_item_id_key ON public.asset_acquisition_links USING btree (asset_id, payment_item_id) |
+| public | `asset_acquisition_links` | `asset_acquisition_links_pkey` | asset | CREATE UNIQUE INDEX asset_acquisition_links_pkey ON public.asset_acquisition_links USING btree (id) |
+| public | `asset_acquisition_links` | `idx_asset_acquisition_links_payment_id` | asset | CREATE INDEX idx_asset_acquisition_links_payment_id ON public.asset_acquisition_links USING btree (payment_id) |
+| public | `asset_acquisition_links` | `idx_asset_acquisition_links_purchase_id` | asset | CREATE INDEX idx_asset_acquisition_links_purchase_id ON public.asset_acquisition_links USING btree (purchase_id) |
+| public | `asset_location_history` | `asset_location_history_pkey` | asset | CREATE UNIQUE INDEX asset_location_history_pkey ON public.asset_location_history USING btree (id) |
+| public | `asset_location_history` | `idx_asset_location_history_asset_id` | asset | CREATE INDEX idx_asset_location_history_asset_id ON public.asset_location_history USING btree (asset_id) |
+| public | `asset_locations` | `asset_locations_hall_main_location_sub_location_key` | asset | CREATE UNIQUE INDEX asset_locations_hall_main_location_sub_location_key ON public.asset_locations USING btree (hall, main_location, sub_location) |
+| public | `asset_locations` | `asset_locations_pkey` | asset | CREATE UNIQUE INDEX asset_locations_pkey ON public.asset_locations USING btree (location_id) |
+| public | `asset_locations` | `idx_asset_locations_hall` | asset | CREATE INDEX idx_asset_locations_hall ON public.asset_locations USING btree (hall) |
+| public | `asset_maintenance_records` | `asset_maintenance_records_pkey` | asset | CREATE UNIQUE INDEX asset_maintenance_records_pkey ON public.asset_maintenance_records USING btree (maintenance_id) |
+| public | `asset_maintenance_records` | `idx_asset_maintenance_records_asset_id` | asset | CREATE INDEX idx_asset_maintenance_records_asset_id ON public.asset_maintenance_records USING btree (asset_id) |
+| public | `asset_status_history` | `asset_status_history_pkey` | asset | CREATE UNIQUE INDEX asset_status_history_pkey ON public.asset_status_history USING btree (id) |
+| public | `asset_status_history` | `idx_asset_status_history_asset_id` | asset | CREATE INDEX idx_asset_status_history_asset_id ON public.asset_status_history USING btree (asset_id) |
+| public | `assets` | `assets_pkey` | asset | CREATE UNIQUE INDEX assets_pkey ON public.assets USING btree (asset_id) |
+| public | `assets` | `idx_assets_keyword` | asset | CREATE INDEX idx_assets_keyword ON public.assets USING gin (to_tsvector('simple'::regconfig, ((((((((((((((COALESCE(asset_id, ''::text) \|\| ' '::text) \|\| COALESCE(asset_type, ''::text)) \|\| ' '::text) \|\| COALESCE(asset_name, ''::text)) \|\| ' '::text) \|\| COALESCE(brand, ''::text)) \|\| ' '::text) \|\| COALESCE(model, ''::text)) \|\| ' '::text) \|\| COALESCE(serial_no, ''::text)) \|\| ' '::text) \|\| COALESCE(vendor, ''::text)) \|\| ' '::text) \|\| COALESCE(note, ''::text)))) |
+| public | `assets` | `idx_assets_location_id` | asset | CREATE INDEX idx_assets_location_id ON public.assets USING btree (location_id) |
+| public | `assets` | `idx_assets_source_payment_id` | asset | CREATE INDEX idx_assets_source_payment_id ON public.assets USING btree (source_payment_id) |
+| public | `assets` | `idx_assets_source_purchase_id` | asset | CREATE INDEX idx_assets_source_purchase_id ON public.assets USING btree (source_purchase_id) |
+| public | `assets` | `idx_assets_status` | asset | CREATE INDEX idx_assets_status ON public.assets USING btree (status) |
+| public | `assets` | `idx_assets_type` | asset | CREATE INDEX idx_assets_type ON public.assets USING btree (asset_type) |
+| public | `attendance_events` | `attendance_events_legacy_worship_weekend_id_key` | attendance | CREATE UNIQUE INDEX attendance_events_legacy_worship_weekend_id_key ON public.attendance_events USING btree (legacy_worship_weekend_id) |
+| public | `attendance_events` | `attendance_events_pkey` | attendance | CREATE UNIQUE INDEX attendance_events_pkey ON public.attendance_events USING btree (id) |
+| public | `attendance_events` | `idx_attendance_events_event_date` | attendance | CREATE UNIQUE INDEX idx_attendance_events_event_date ON public.attendance_events USING btree (event_date) |
+| public | `attendance_events` | `idx_attendance_events_legacy` | attendance | CREATE INDEX idx_attendance_events_legacy ON public.attendance_events USING btree (legacy_worship_weekend_id) |
+| public | `attendance_records` | `attendance_records_legacy_record_id_key` | attendance | CREATE UNIQUE INDEX attendance_records_legacy_record_id_key ON public.attendance_records USING btree (legacy_record_id) |
+| public | `attendance_records` | `attendance_records_pkey` | attendance | CREATE UNIQUE INDEX attendance_records_pkey ON public.attendance_records USING btree (id) |
+| public | `attendance_records` | `idx_attendance_records_event_type` | attendance | CREATE INDEX idx_attendance_records_event_type ON public.attendance_records USING btree (event_id, attendance_type_id) |
+| public | `attendance_records` | `idx_attendance_records_member_event` | attendance | CREATE INDEX idx_attendance_records_member_event ON public.attendance_records USING btree (member_id, event_id) |
+| public | `attendance_records` | `idx_attendance_records_recorded_at` | attendance | CREATE INDEX idx_attendance_records_recorded_at ON public.attendance_records USING btree (recorded_at) |
+| public | `attendance_records` | `idx_attendance_records_source` | attendance | CREATE INDEX idx_attendance_records_source ON public.attendance_records USING btree (source_system, source_id) |
+| public | `attendance_records` | `idx_attendance_records_type_member` | attendance | CREATE INDEX idx_attendance_records_type_member ON public.attendance_records USING btree (attendance_type_id, member_id) |
+| public | `attendance_summary` | `attendance_summary_pastoral_member_id_scope_type_scope_id_m_key` | linebot_liff | CREATE UNIQUE INDEX attendance_summary_pastoral_member_id_scope_type_scope_id_m_key ON public.attendance_summary USING btree (pastoral_member_id, scope_type, scope_id, month) |
+| public | `attendance_summary` | `attendance_summary_pkey` | linebot_liff | CREATE UNIQUE INDEX attendance_summary_pkey ON public.attendance_summary USING btree (id) |
+| public | `attendance_summary` | `idx_attendance_summary_scope` | linebot_liff | CREATE INDEX idx_attendance_summary_scope ON public.attendance_summary USING btree (scope_type, scope_id, month) |
+| public | `attendance_types` | `attendance_types_pkey` | attendance | CREATE UNIQUE INDEX attendance_types_pkey ON public.attendance_types USING btree (id) |
+| public | `audit_logs` | `audit_logs_pkey` | system | CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (audit_id) |
+| public | `audit_logs` | `idx_audit_logs_entity_time` | system | CREATE INDEX idx_audit_logs_entity_time ON public.audit_logs USING btree (entity_type, entity_id, created_at DESC) |
+| public | `audit_logs` | `idx_audit_logs_staff_time` | system | CREATE INDEX idx_audit_logs_staff_time ON public.audit_logs USING btree (staff_id, created_at DESC) |
+| public | `audit_logs` | `idx_audit_logs_system_time` | system | CREATE INDEX idx_audit_logs_system_time ON public.audit_logs USING btree (system_key, created_at DESC) |
+| public | `baptism_events` | `baptism_events_pkey` | pastoral | CREATE UNIQUE INDEX baptism_events_pkey ON public.baptism_events USING btree (id) |
+| public | `baptism_participants` | `baptism_participants_baptism_event_id_member_id_key` | pastoral | CREATE UNIQUE INDEX baptism_participants_baptism_event_id_member_id_key ON public.baptism_participants USING btree (baptism_event_id, member_id) |
+| public | `baptism_participants` | `baptism_participants_pkey` | pastoral | CREATE UNIQUE INDEX baptism_participants_pkey ON public.baptism_participants USING btree (id) |
+| public | `bpm_definitions` | `bpm_definitions_definition_key_key` | workflow | CREATE UNIQUE INDEX bpm_definitions_definition_key_key ON public.bpm_definitions USING btree (definition_key) |
+| public | `bpm_definitions` | `bpm_definitions_pkey` | workflow | CREATE UNIQUE INDEX bpm_definitions_pkey ON public.bpm_definitions USING btree (id) |
+| public | `bpm_definitions` | `idx_bpm_definitions_active_key` | workflow | CREATE INDEX idx_bpm_definitions_active_key ON public.bpm_definitions USING btree (is_active, definition_key) |
+| public | `bpm_history` | `bpm_history_pkey` | workflow | CREATE UNIQUE INDEX bpm_history_pkey ON public.bpm_history USING btree (id) |
+| public | `bpm_history` | `idx_bpm_history_approver_time` | workflow | CREATE INDEX idx_bpm_history_approver_time ON public.bpm_history USING btree (approver_id, created_at DESC) |
+| public | `bpm_history` | `idx_bpm_history_instance_time` | workflow | CREATE INDEX idx_bpm_history_instance_time ON public.bpm_history USING btree (instance_id, created_at DESC) |
+| public | `bpm_instances` | `bpm_instances_pkey` | workflow | CREATE UNIQUE INDEX bpm_instances_pkey ON public.bpm_instances USING btree (id) |
+| public | `bpm_instances` | `idx_bpm_instances_creator` | workflow | CREATE INDEX idx_bpm_instances_creator ON public.bpm_instances USING btree (creator_id, updated_at DESC) |
+| public | `bpm_instances` | `idx_bpm_instances_definition_status` | workflow | CREATE INDEX idx_bpm_instances_definition_status ON public.bpm_instances USING btree (definition_id, status, updated_at DESC) |
+| public | `bpm_instances` | `idx_bpm_instances_entity` | workflow | CREATE INDEX idx_bpm_instances_entity ON public.bpm_instances USING btree (entity_type, entity_id) |
+| public | `churches` | `churches_code_key` | pastoral | CREATE UNIQUE INDEX churches_code_key ON public.churches USING btree (code) |
+| public | `churches` | `churches_pkey` | pastoral | CREATE UNIQUE INDEX churches_pkey ON public.churches USING btree (id) |
+| public | `counter_pin_codes` | `counter_pin_codes_pin_code_key` | auth | CREATE UNIQUE INDEX counter_pin_codes_pin_code_key ON public.counter_pin_codes USING btree (pin_code) |
+| public | `counter_pin_codes` | `counter_pin_codes_pkey` | auth | CREATE UNIQUE INDEX counter_pin_codes_pkey ON public.counter_pin_codes USING btree (pin_id) |
+| public | `counter_pin_codes` | `idx_counter_pin_codes_active_time` | auth | CREATE INDEX idx_counter_pin_codes_active_time ON public.counter_pin_codes USING btree (is_active, valid_from, valid_until) |
+| public | `counter_pin_codes` | `idx_counter_pin_codes_assigned_staff` | auth | CREATE INDEX idx_counter_pin_codes_assigned_staff ON public.counter_pin_codes USING btree (assigned_staff_id) |
+| public | `counter_pin_codes` | `idx_counter_pin_codes_church` | auth | CREATE INDEX idx_counter_pin_codes_church ON public.counter_pin_codes USING btree (church_id) |
+| public | `counter_pin_codes` | `idx_counter_pin_codes_pin_code` | auth | CREATE INDEX idx_counter_pin_codes_pin_code ON public.counter_pin_codes USING btree (pin_code) |
+| public | `counter_pin_codes` | `idx_counter_pin_codes_status` | auth | CREATE INDEX idx_counter_pin_codes_status ON public.counter_pin_codes USING btree (status, is_active) |
+| public | `counter_transactions` | `counter_transactions_pkey` | forms_counter | CREATE UNIQUE INDEX counter_transactions_pkey ON public.counter_transactions USING btree (transaction_id) |
+| public | `counter_transactions` | `counter_transactions_transaction_code_key` | forms_counter | CREATE UNIQUE INDEX counter_transactions_transaction_code_key ON public.counter_transactions USING btree (transaction_code) |
+| public | `counter_transactions` | `idx_counter_transactions_received_church_time` | forms_counter | CREATE INDEX idx_counter_transactions_received_church_time ON public.counter_transactions USING btree (received_church_id, received_at DESC) |
+| public | `counter_transactions` | `idx_counter_transactions_source` | forms_counter | CREATE INDEX idx_counter_transactions_source ON public.counter_transactions USING btree (source_system, source_type, source_id) |
+| public | `counter_transactions` | `idx_counter_transactions_status_time` | forms_counter | CREATE INDEX idx_counter_transactions_status_time ON public.counter_transactions USING btree (status, created_at DESC) |
+| public | `countries` | `countries_code_key` | pastoral | CREATE UNIQUE INDEX countries_code_key ON public.countries USING btree (code) |
+| public | `countries` | `countries_pkey` | pastoral | CREATE UNIQUE INDEX countries_pkey ON public.countries USING btree (id) |
+| public | `course_summary` | `course_summary_pastoral_member_id_scope_type_scope_id_cours_key` | linebot_liff | CREATE UNIQUE INDEX course_summary_pastoral_member_id_scope_type_scope_id_cours_key ON public.course_summary USING btree (pastoral_member_id, scope_type, scope_id, course_stage) |
+| public | `course_summary` | `course_summary_pkey` | linebot_liff | CREATE UNIQUE INDEX course_summary_pkey ON public.course_summary USING btree (id) |
+| public | `course_summary` | `idx_course_summary_scope` | linebot_liff | CREATE INDEX idx_course_summary_scope ON public.course_summary USING btree (scope_type, scope_id, course_stage) |
+| public | `departments` | `departments_department_name_key` | system | CREATE UNIQUE INDEX departments_department_name_key ON public.departments USING btree (department_name) |
+| public | `departments` | `departments_pkey` | system | CREATE UNIQUE INDEX departments_pkey ON public.departments USING btree (department_id) |
+| public | `departments` | `idx_departments_active_sort` | system | CREATE INDEX idx_departments_active_sort ON public.departments USING btree (is_active, sort_order, department_name) |
+| public | `development_issues` | `development_issues_issue_no_key` | dev_management | CREATE UNIQUE INDEX development_issues_issue_no_key ON public.development_issues USING btree (issue_no) |
+| public | `development_issues` | `development_issues_pkey` | dev_management | CREATE UNIQUE INDEX development_issues_pkey ON public.development_issues USING btree (issue_id) |
+| public | `development_issues` | `idx_development_issues_created_by_staff` | dev_management | CREATE INDEX idx_development_issues_created_by_staff ON public.development_issues USING btree (created_by_staff_id) |
+| public | `development_issues` | `idx_development_issues_status_priority` | dev_management | CREATE INDEX idx_development_issues_status_priority ON public.development_issues USING btree (status, priority, created_at DESC) |
+| public | `development_issues` | `idx_development_issues_type` | dev_management | CREATE INDEX idx_development_issues_type ON public.development_issues USING btree (issue_type) |
+| public | `development_releases` | `development_releases_pkey` | dev_management | CREATE UNIQUE INDEX development_releases_pkey ON public.development_releases USING btree (release_id) |
+| public | `development_releases` | `idx_development_releases_created_at` | dev_management | CREATE INDEX idx_development_releases_created_at ON public.development_releases USING btree (created_at DESC) |
+| public | `development_releases` | `idx_development_releases_created_by_staff` | dev_management | CREATE INDEX idx_development_releases_created_by_staff ON public.development_releases USING btree (created_by_staff_id) |
+| public | `domain_events` | `domain_events_pkey` | files_core | CREATE UNIQUE INDEX domain_events_pkey ON public.domain_events USING btree (domain_event_id) |
+| public | `domain_events` | `idx_domain_events_entity` | files_core | CREATE INDEX idx_domain_events_entity ON public.domain_events USING btree (system_key, entity_type, entity_id, created_at DESC) |
+| public | `domain_events` | `idx_domain_events_type_time` | files_core | CREATE INDEX idx_domain_events_type_time ON public.domain_events USING btree (event_type, created_at DESC) |
+| public | `domain_events` | `idx_domain_events_unprocessed` | files_core | CREATE INDEX idx_domain_events_unprocessed ON public.domain_events USING btree (processed_at, created_at) WHERE (processed_at IS NULL) |
+| public | `education_course_categories` | `education_course_categories_pkey` | education | CREATE UNIQUE INDEX education_course_categories_pkey ON public.education_course_categories USING btree (category_id) |
+| public | `education_courses` | `education_courses_pkey` | education | CREATE UNIQUE INDEX education_courses_pkey ON public.education_courses USING btree (course_id) |
+| public | `education_courses` | `idx_education_courses_category` | education | CREATE INDEX idx_education_courses_category ON public.education_courses USING btree (category_id, start_date DESC) |
+| public | `education_courses` | `idx_education_courses_course_code` | education | CREATE UNIQUE INDEX idx_education_courses_course_code ON public.education_courses USING btree (course_code) WHERE (course_code IS NOT NULL) |
+| public | `education_enrollments` | `education_enrollments_member_id_course_id_key` | education | CREATE UNIQUE INDEX education_enrollments_member_id_course_id_key ON public.education_enrollments USING btree (member_id, course_id) |
+| public | `education_enrollments` | `education_enrollments_pkey` | education | CREATE UNIQUE INDEX education_enrollments_pkey ON public.education_enrollments USING btree (enrollment_id) |
+| public | `education_enrollments` | `idx_education_enrollments_course` | education | CREATE INDEX idx_education_enrollments_course ON public.education_enrollments USING btree (course_id, is_completed) |
+| public | `education_enrollments` | `idx_education_enrollments_member` | education | CREATE INDEX idx_education_enrollments_member ON public.education_enrollments USING btree (member_id, course_id) |
+| public | `entity_links` | `entity_links_pkey` | files_core | CREATE UNIQUE INDEX entity_links_pkey ON public.entity_links USING btree (entity_link_id) |
+| public | `entity_links` | `entity_links_source_system_source_type_source_id_target_sys_key` | files_core | CREATE UNIQUE INDEX entity_links_source_system_source_type_source_id_target_sys_key ON public.entity_links USING btree (source_system, source_type, source_id, target_system, target_type, target_id, link_type) |
+| public | `entity_links` | `idx_entity_links_created_at` | files_core | CREATE INDEX idx_entity_links_created_at ON public.entity_links USING btree (created_at DESC) |
+| public | `entity_links` | `idx_entity_links_source` | files_core | CREATE INDEX idx_entity_links_source ON public.entity_links USING btree (source_system, source_type, source_id, link_type) |
+| public | `entity_links` | `idx_entity_links_target` | files_core | CREATE INDEX idx_entity_links_target ON public.entity_links USING btree (target_system, target_type, target_id, link_type) |
+| public | `file_links` | `file_links_file_id_entity_type_entity_id_file_type_key` | files_core | CREATE UNIQUE INDEX file_links_file_id_entity_type_entity_id_file_type_key ON public.file_links USING btree (file_id, entity_type, entity_id, file_type) |
+| public | `file_links` | `file_links_pkey` | files_core | CREATE UNIQUE INDEX file_links_pkey ON public.file_links USING btree (file_link_id) |
+| public | `file_links` | `idx_file_links_entity` | files_core | CREATE INDEX idx_file_links_entity ON public.file_links USING btree (entity_type, entity_id, file_type, sort_order) |
+| public | `file_links` | `idx_file_links_meeting_records` | files_core | CREATE INDEX idx_file_links_meeting_records ON public.file_links USING btree (entity_type, entity_id, file_type, created_at DESC) WHERE ((entity_type = 'meeting'::text) AND (file_type = 'meeting_record_pdf'::text)) |
+| public | `file_links` | `idx_file_links_member_files` | files_core | CREATE INDEX idx_file_links_member_files ON public.file_links USING btree (entity_type, entity_id, file_type, created_at DESC) WHERE (entity_type = 'pastoral_member'::text) |
+| public | `file_links` | `idx_file_links_purchase_quotes` | files_core | CREATE INDEX idx_file_links_purchase_quotes ON public.file_links USING btree (entity_type, entity_id, file_type, created_at DESC) WHERE ((entity_type = 'purchase'::text) AND (file_type = 'quote_pdf'::text)) |
+| public | `files` | `files_pkey` | files_core | CREATE UNIQUE INDEX files_pkey ON public.files USING btree (file_id) |
+| public | `files` | `idx_files_uploaded_by_member` | files_core | CREATE INDEX idx_files_uploaded_by_member ON public.files USING btree (uploaded_by_member_id, uploaded_at DESC) |
+| public | `files` | `idx_files_uploaded_by_staff` | files_core | CREATE INDEX idx_files_uploaded_by_staff ON public.files USING btree (uploaded_by_staff_id, uploaded_at DESC) |
+| public | `form_question_options` | `form_question_options_pkey` | forms_counter | CREATE UNIQUE INDEX form_question_options_pkey ON public.form_question_options USING btree (option_id) |
+| public | `form_question_options` | `idx_form_question_options_question_sort` | forms_counter | CREATE INDEX idx_form_question_options_question_sort ON public.form_question_options USING btree (question_id, sort_order, option_id) |
+| public | `form_questions` | `form_questions_pkey` | forms_counter | CREATE UNIQUE INDEX form_questions_pkey ON public.form_questions USING btree (question_id) |
+| public | `form_questions` | `idx_form_questions_form_sort` | forms_counter | CREATE INDEX idx_form_questions_form_sort ON public.form_questions USING btree (form_id, sort_order, question_id) |
+| public | `form_response_answers` | `form_response_answers_pkey` | forms_counter | CREATE UNIQUE INDEX form_response_answers_pkey ON public.form_response_answers USING btree (answer_id) |
+| public | `form_response_answers` | `idx_form_response_answers_question_id` | forms_counter | CREATE INDEX idx_form_response_answers_question_id ON public.form_response_answers USING btree (question_id) |
+| public | `form_response_answers` | `idx_form_response_answers_response` | forms_counter | CREATE INDEX idx_form_response_answers_response ON public.form_response_answers USING btree (response_id) |
+| public | `form_response_attachments` | `form_response_attachments_pkey` | forms_counter | CREATE UNIQUE INDEX form_response_attachments_pkey ON public.form_response_attachments USING btree (attachment_id) |
+| public | `form_response_attachments` | `idx_form_response_attachments_question` | forms_counter | CREATE INDEX idx_form_response_attachments_question ON public.form_response_attachments USING btree (question_id) |
+| public | `form_response_attachments` | `idx_form_response_attachments_response` | forms_counter | CREATE INDEX idx_form_response_attachments_response ON public.form_response_attachments USING btree (response_id) |
+| public | `form_responses` | `form_responses_pkey` | forms_counter | CREATE UNIQUE INDEX form_responses_pkey ON public.form_responses USING btree (response_id) |
+| public | `form_responses` | `idx_form_responses_form_time` | forms_counter | CREATE INDEX idx_form_responses_form_time ON public.form_responses USING btree (form_id, submitted_at DESC) |
+| public | `form_responses` | `idx_form_responses_payment_status` | forms_counter | CREATE INDEX idx_form_responses_payment_status ON public.form_responses USING btree (form_id, payment_status, submitted_at DESC) |
+| public | `form_responses` | `idx_form_responses_respondent_member_id` | forms_counter | CREATE INDEX idx_form_responses_respondent_member_id ON public.form_responses USING btree (respondent_member_id) |
+| public | `form_responses` | `idx_form_responses_respondent_staff_id` | forms_counter | CREATE INDEX idx_form_responses_respondent_staff_id ON public.form_responses USING btree (respondent_staff_id) |
+| public | `forms` | `forms_form_code_key` | forms_counter | CREATE UNIQUE INDEX forms_form_code_key ON public.forms USING btree (form_code) |
+| public | `forms` | `forms_pkey` | forms_counter | CREATE UNIQUE INDEX forms_pkey ON public.forms USING btree (form_id) |
+| public | `forms` | `idx_forms_created_by` | forms_counter | CREATE INDEX idx_forms_created_by ON public.forms USING btree (created_by_staff_id, updated_at DESC) |
+| public | `forms` | `idx_forms_status_updated` | forms_counter | CREATE INDEX idx_forms_status_updated ON public.forms USING btree (status, updated_at DESC) |
+| public | `forms` | `idx_forms_type_status_updated` | forms_counter | CREATE INDEX idx_forms_type_status_updated ON public.forms USING btree (form_type, status, updated_at DESC) |
+| public | `id_rules` | `id_rules_pkey` | system | CREATE UNIQUE INDEX id_rules_pkey ON public.id_rules USING btree (entity_key) |
+| public | `identity_providers` | `identity_providers_pkey` | linebot_liff | CREATE UNIQUE INDEX identity_providers_pkey ON public.identity_providers USING btree (id) |
+| public | `identity_providers` | `idx_identity_provider_lookup` | linebot_liff | CREATE INDEX idx_identity_provider_lookup ON public.identity_providers USING btree (provider_type, provider_user_id) |
+| public | `identity_providers` | `idx_identity_provider_member` | linebot_liff | CREATE INDEX idx_identity_provider_member ON public.identity_providers USING btree (pastoral_member_id) |
+| public | `identity_providers` | `uq_identity_member_provider` | linebot_liff | CREATE UNIQUE INDEX uq_identity_member_provider ON public.identity_providers USING btree (pastoral_member_id, provider_type) |
+| public | `identity_providers` | `uq_identity_provider_user` | linebot_liff | CREATE UNIQUE INDEX uq_identity_provider_user ON public.identity_providers USING btree (provider_type, provider_user_id) |
+| public | `line_binding_requests` | `idx_line_binding_requests_line_user` | linebot_liff | CREATE INDEX idx_line_binding_requests_line_user ON public.line_binding_requests USING btree (line_user_id, created_at DESC) |
+| public | `line_binding_requests` | `idx_line_binding_requests_status` | linebot_liff | CREATE INDEX idx_line_binding_requests_status ON public.line_binding_requests USING btree (status, created_at DESC) |
+| public | `line_binding_requests` | `line_binding_requests_pkey` | linebot_liff | CREATE UNIQUE INDEX line_binding_requests_pkey ON public.line_binding_requests USING btree (id) |
+| public | `line_bot_channels` | `line_bot_channels_channel_key_key` | linebot_liff | CREATE UNIQUE INDEX line_bot_channels_channel_key_key ON public.line_bot_channels USING btree (channel_key) |
+| public | `line_bot_channels` | `line_bot_channels_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_channels_pkey ON public.line_bot_channels USING btree (channel_id) |
+| public | `line_bot_edm_campaigns` | `idx_line_bot_edm_campaigns_status` | linebot_liff | CREATE INDEX idx_line_bot_edm_campaigns_status ON public.line_bot_edm_campaigns USING btree (status, scheduled_at DESC, created_at DESC) |
+| public | `line_bot_edm_campaigns` | `line_bot_edm_campaigns_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_edm_campaigns_pkey ON public.line_bot_edm_campaigns USING btree (campaign_id) |
+| public | `line_bot_links` | `idx_line_bot_links_active_sort` | linebot_liff | CREATE INDEX idx_line_bot_links_active_sort ON public.line_bot_links USING btree (is_active, sort_order, created_at DESC) |
+| public | `line_bot_links` | `line_bot_links_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_links_pkey ON public.line_bot_links USING btree (link_id) |
+| public | `line_bot_module_settings` | `line_bot_module_settings_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_module_settings_pkey ON public.line_bot_module_settings USING btree (module_key) |
+| public | `line_bot_rich_menus` | `idx_line_bot_rich_menus_status` | linebot_liff | CREATE INDEX idx_line_bot_rich_menus_status ON public.line_bot_rich_menus USING btree (status, sort_order) |
+| public | `line_bot_rich_menus` | `line_bot_rich_menus_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_rich_menus_pkey ON public.line_bot_rich_menus USING btree (rich_menu_id) |
+| public | `line_bot_webhook_events` | `idx_line_bot_webhook_events_type_time` | linebot_liff | CREATE INDEX idx_line_bot_webhook_events_type_time ON public.line_bot_webhook_events USING btree (event_type, received_at DESC) |
+| public | `line_bot_webhook_events` | `idx_line_bot_webhook_events_user_time` | linebot_liff | CREATE INDEX idx_line_bot_webhook_events_user_time ON public.line_bot_webhook_events USING btree (line_user_id, received_at DESC) |
+| public | `line_bot_webhook_events` | `line_bot_webhook_events_line_event_id_key` | linebot_liff | CREATE UNIQUE INDEX line_bot_webhook_events_line_event_id_key ON public.line_bot_webhook_events USING btree (line_event_id) |
+| public | `line_bot_webhook_events` | `line_bot_webhook_events_pkey` | linebot_liff | CREATE UNIQUE INDEX line_bot_webhook_events_pkey ON public.line_bot_webhook_events USING btree (event_id) |
+| public | `line_leader_scope_rules` | `idx_line_leader_scope_enabled` | linebot_liff | CREATE INDEX idx_line_leader_scope_enabled ON public.line_leader_scope_rules USING btree (enabled, display_order) |
+| public | `line_leader_scope_rules` | `line_leader_scope_rules_pkey` | linebot_liff | CREATE UNIQUE INDEX line_leader_scope_rules_pkey ON public.line_leader_scope_rules USING btree (id) |
+| public | `line_leader_scope_rules` | `uq_line_leader_scope_title` | linebot_liff | CREATE UNIQUE INDEX uq_line_leader_scope_title ON public.line_leader_scope_rules USING btree (title_name) |
+| public | `line_liff_sessions` | `idx_line_liff_sessions_active_expiry` | linebot_liff | CREATE INDEX idx_line_liff_sessions_active_expiry ON public.line_liff_sessions USING btree (is_active, expires_at) |
+| public | `line_liff_sessions` | `idx_line_liff_sessions_user_time` | linebot_liff | CREATE INDEX idx_line_liff_sessions_user_time ON public.line_liff_sessions USING btree (line_user_id, last_seen_at DESC) |
+| public | `line_liff_sessions` | `line_liff_sessions_pkey` | linebot_liff | CREATE UNIQUE INDEX line_liff_sessions_pkey ON public.line_liff_sessions USING btree (session_id) |
+| public | `line_liff_sessions` | `line_liff_sessions_session_token_hash_key` | linebot_liff | CREATE UNIQUE INDEX line_liff_sessions_session_token_hash_key ON public.line_liff_sessions USING btree (session_token_hash) |
+| public | `line_rich_menu_assignments` | `idx_line_rich_menu_assignments_segment` | linebot_liff | CREATE INDEX idx_line_rich_menu_assignments_segment ON public.line_rich_menu_assignments USING btree (target_segment, status, updated_at DESC) |
+| public | `line_rich_menu_assignments` | `line_rich_menu_assignments_pkey` | linebot_liff | CREATE UNIQUE INDEX line_rich_menu_assignments_pkey ON public.line_rich_menu_assignments USING btree (id) |
+| public | `line_rich_menu_assignments` | `uq_line_rich_menu_assignment_user` | linebot_liff | CREATE UNIQUE INDEX uq_line_rich_menu_assignment_user ON public.line_rich_menu_assignments USING btree (line_user_id) |
+| public | `line_users` | `idx_line_users_last_interaction` | linebot_liff | CREATE INDEX idx_line_users_last_interaction ON public.line_users USING btree (last_interaction_at DESC) |
+| public | `line_users` | `idx_line_users_member` | linebot_liff | CREATE INDEX idx_line_users_member ON public.line_users USING btree (member_id) |
+| public | `line_users` | `line_users_pkey` | linebot_liff | CREATE UNIQUE INDEX line_users_pkey ON public.line_users USING btree (line_user_id) |
+| public | `login_events` | `idx_login_events_email_created` | auth | CREATE INDEX idx_login_events_email_created ON public.login_events USING btree (lower(email), created_at DESC) |
+| public | `login_events` | `idx_login_events_staff_created` | auth | CREATE INDEX idx_login_events_staff_created ON public.login_events USING btree (staff_id, created_at DESC) |
+| public | `login_events` | `login_events_pkey` | auth | CREATE UNIQUE INDEX login_events_pkey ON public.login_events USING btree (id) |
+| public | `login_verification_challenges` | `idx_login_verification_challenges_expires` | auth | CREATE INDEX idx_login_verification_challenges_expires ON public.login_verification_challenges USING btree (expires_at) WHERE (verified_at IS NULL) |
+| public | `login_verification_challenges` | `idx_login_verification_challenges_staff_created` | auth | CREATE INDEX idx_login_verification_challenges_staff_created ON public.login_verification_challenges USING btree (staff_id, created_at DESC) |
+| public | `login_verification_challenges` | `login_verification_challenges_pkey` | auth | CREATE UNIQUE INDEX login_verification_challenges_pkey ON public.login_verification_challenges USING btree (id) |
+| public | `mail_queue` | `idx_mail_queue_module_status` | mail | CREATE INDEX idx_mail_queue_module_status ON public.mail_queue USING btree (module_key, status, created_at DESC) |
+| public | `mail_queue` | `idx_mail_queue_pending` | mail | CREATE INDEX idx_mail_queue_pending ON public.mail_queue USING btree (status, priority, scheduled_at, created_at) |
+| public | `mail_queue` | `idx_mail_queue_recipient` | mail | CREATE INDEX idx_mail_queue_recipient ON public.mail_queue USING btree (recipient_email, created_at DESC) |
+| public | `mail_queue` | `idx_mail_queue_recipient_status` | mail | CREATE INDEX idx_mail_queue_recipient_status ON public.mail_queue USING btree (recipient_email, status, created_at DESC) |
+| public | `mail_queue` | `idx_mail_queue_status_created` | mail | CREATE INDEX idx_mail_queue_status_created ON public.mail_queue USING btree (status, created_at DESC) |
+| public | `mail_queue` | `mail_queue_pkey` | mail | CREATE UNIQUE INDEX mail_queue_pkey ON public.mail_queue USING btree (id) |
+| public | `mail_queue` | `uq_mail_queue_dedupe_active` | mail | CREATE UNIQUE INDEX uq_mail_queue_dedupe_active ON public.mail_queue USING btree (dedupe_key) WHERE ((dedupe_key IS NOT NULL) AND (status = ANY (ARRAY['PENDING'::text, 'SENT'::text]))) |
+| public | `mail_quota_snapshots` | `idx_mail_quota_snapshots_checked_at` | mail | CREATE INDEX idx_mail_quota_snapshots_checked_at ON public.mail_quota_snapshots USING btree (checked_at DESC) |
+| public | `mail_quota_snapshots` | `mail_quota_snapshots_pkey` | mail | CREATE UNIQUE INDEX mail_quota_snapshots_pkey ON public.mail_quota_snapshots USING btree (id) |
+| public | `marital_statuses` | `marital_statuses_pkey` | pastoral | CREATE UNIQUE INDEX marital_statuses_pkey ON public.marital_statuses USING btree (id) |
+| public | `meetings` | `idx_meetings_project_id` | project_meeting | CREATE INDEX idx_meetings_project_id ON public.meetings USING btree (project_id) |
+| public | `meetings` | `meetings_pkey` | project_meeting | CREATE UNIQUE INDEX meetings_pkey ON public.meetings USING btree (meeting_id) |
+| public | `member_accounts` | `idx_member_accounts_member` | linebot_liff | CREATE INDEX idx_member_accounts_member ON public.member_accounts USING btree (member_id) |
+| public | `member_accounts` | `member_accounts_login_identifier_key` | linebot_liff | CREATE UNIQUE INDEX member_accounts_login_identifier_key ON public.member_accounts USING btree (login_identifier) |
+| public | `member_accounts` | `member_accounts_pkey` | linebot_liff | CREATE UNIQUE INDEX member_accounts_pkey ON public.member_accounts USING btree (member_account_id) |
+| public | `membership_categories` | `membership_categories_pkey` | pastoral | CREATE UNIQUE INDEX membership_categories_pkey ON public.membership_categories USING btree (code) |
+| public | `menu_items` | `idx_menu_items_enabled_order` | linebot_liff | CREATE INDEX idx_menu_items_enabled_order ON public.menu_items USING btree (enabled, menu_type, display_order) |
+| public | `menu_items` | `menu_items_pkey` | linebot_liff | CREATE UNIQUE INDEX menu_items_pkey ON public.menu_items USING btree (menu_code) |
+| public | `notification_logs` | `idx_notification_logs_recipient_time` | linebot_liff | CREATE INDEX idx_notification_logs_recipient_time ON public.notification_logs USING btree (recipient, created_at DESC) |
+| public | `notification_logs` | `idx_notification_logs_template_channel` | linebot_liff | CREATE INDEX idx_notification_logs_template_channel ON public.notification_logs USING btree (template_code, channel, created_at DESC) |
+| public | `notification_logs` | `notification_logs_pkey` | linebot_liff | CREATE UNIQUE INDEX notification_logs_pkey ON public.notification_logs USING btree (id) |
+| public | `notification_templates` | `idx_notification_templates_enabled` | linebot_liff | CREATE INDEX idx_notification_templates_enabled ON public.notification_templates USING btree (enabled, template_code, channel) |
+| public | `notification_templates` | `notification_templates_pkey` | linebot_liff | CREATE UNIQUE INDEX notification_templates_pkey ON public.notification_templates USING btree (template_code, channel) |
+| public | `param_categories` | `param_categories_pkey` | system | CREATE UNIQUE INDEX param_categories_pkey ON public.param_categories USING btree (category_key) |
+| public | `param_items` | `idx_param_items_category_active` | system | CREATE INDEX idx_param_items_category_active ON public.param_items USING btree (category_key, is_active, sort_order, label) |
+| public | `param_items` | `param_items_category_key_code_key` | system | CREATE UNIQUE INDEX param_items_category_key_code_key ON public.param_items USING btree (category_key, code) |
+| public | `param_items` | `param_items_pkey` | system | CREATE UNIQUE INDEX param_items_pkey ON public.param_items USING btree (param_id) |
+| public | `params` | `params_category_value_key` | system | CREATE UNIQUE INDEX params_category_value_key ON public.params USING btree (category, value) |
+| public | `params` | `params_pkey` | system | CREATE UNIQUE INDEX params_pkey ON public.params USING btree (id) |
+| public | `pastoral_care_records` | `idx_pastoral_care_member` | pastoral | CREATE INDEX idx_pastoral_care_member ON public.pastoral_care_records USING btree (member_id) |
+| public | `pastoral_care_records` | `pastoral_care_records_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_care_records_pkey ON public.pastoral_care_records USING btree (id) |
+| public | `pastoral_group_closure` | `pastoral_group_closure_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_group_closure_pkey ON public.pastoral_group_closure USING btree (ancestor_id, descendant_id) |
+| public | `pastoral_group_leaders` | `pastoral_group_leaders_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_group_leaders_pkey ON public.pastoral_group_leaders USING btree (id) |
+| public | `pastoral_group_types` | `pastoral_group_types_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_group_types_pkey ON public.pastoral_group_types USING btree (id) |
+| public | `pastoral_groups` | `idx_pastoral_groups_parent` | pastoral | CREATE INDEX idx_pastoral_groups_parent ON public.pastoral_groups USING btree (parent_id) |
+| public | `pastoral_groups` | `pastoral_groups_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_groups_pkey ON public.pastoral_groups USING btree (id) |
+| public | `pastoral_member_addresses` | `idx_pastoral_member_addresses_member_id` | pastoral | CREATE INDEX idx_pastoral_member_addresses_member_id ON public.pastoral_member_addresses USING btree (member_id) |
+| public | `pastoral_member_addresses` | `idx_pastoral_member_addresses_region_id` | pastoral | CREATE INDEX idx_pastoral_member_addresses_region_id ON public.pastoral_member_addresses USING btree (region_id) |
+| public | `pastoral_member_addresses` | `pastoral_member_addresses_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_addresses_pkey ON public.pastoral_member_addresses USING btree (id) |
+| public | `pastoral_member_contacts` | `pastoral_member_contacts_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_contacts_pkey ON public.pastoral_member_contacts USING btree (member_id) |
+| public | `pastoral_member_faith` | `idx_pastoral_member_faith_previous_church_id` | pastoral | CREATE INDEX idx_pastoral_member_faith_previous_church_id ON public.pastoral_member_faith USING btree (previous_church_id) |
+| public | `pastoral_member_faith` | `pastoral_member_faith_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_faith_pkey ON public.pastoral_member_faith USING btree (member_id) |
+| public | `pastoral_member_family_notes` | `pastoral_member_family_notes_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_family_notes_pkey ON public.pastoral_member_family_notes USING btree (member_id) |
+| public | `pastoral_member_files` | `idx_pastoral_member_files_file_id` | pastoral | CREATE INDEX idx_pastoral_member_files_file_id ON public.pastoral_member_files USING btree (file_id) |
+| public | `pastoral_member_files` | `idx_pastoral_member_files_member_type` | pastoral | CREATE INDEX idx_pastoral_member_files_member_type ON public.pastoral_member_files USING btree (member_id, file_type, uploaded_at DESC) |
+| public | `pastoral_member_files` | `pastoral_member_files_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_files_pkey ON public.pastoral_member_files USING btree (id) |
+| public | `pastoral_member_group_assignments` | `idx_pastoral_assignments_group` | pastoral | CREATE INDEX idx_pastoral_assignments_group ON public.pastoral_member_group_assignments USING btree (group_id) |
+| public | `pastoral_member_group_assignments` | `idx_pastoral_assignments_member` | pastoral | CREATE INDEX idx_pastoral_assignments_member ON public.pastoral_member_group_assignments USING btree (member_id) |
+| public | `pastoral_member_group_assignments` | `pastoral_member_group_assignm_member_id_group_id_is_current_key` | pastoral | CREATE UNIQUE INDEX pastoral_member_group_assignm_member_id_group_id_is_current_key ON public.pastoral_member_group_assignments USING btree (member_id, group_id, is_current) |
+| public | `pastoral_member_group_assignments` | `pastoral_member_group_assignments_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_group_assignments_pkey ON public.pastoral_member_group_assignments USING btree (id) |
+| public | `pastoral_member_relationships` | `pastoral_member_relationships_member_id_related_member_id_r_key` | pastoral | CREATE UNIQUE INDEX pastoral_member_relationships_member_id_related_member_id_r_key ON public.pastoral_member_relationships USING btree (member_id, related_member_id, relationship_type_id) |
+| public | `pastoral_member_relationships` | `pastoral_member_relationships_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_member_relationships_pkey ON public.pastoral_member_relationships USING btree (id) |
+| public | `pastoral_members` | `idx_pastoral_members_category` | pastoral | CREATE INDEX idx_pastoral_members_category ON public.pastoral_members USING btree (membership_category_code) |
+| public | `pastoral_members` | `idx_pastoral_members_church` | pastoral | CREATE INDEX idx_pastoral_members_church ON public.pastoral_members USING btree (church_id) |
+| public | `pastoral_members` | `idx_pastoral_members_line_user` | pastoral | CREATE INDEX idx_pastoral_members_line_user ON public.pastoral_members USING btree (line_user_id) |
+| public | `pastoral_members` | `idx_pastoral_members_member_code` | pastoral | CREATE UNIQUE INDEX idx_pastoral_members_member_code ON public.pastoral_members USING btree (member_code) WHERE (member_code IS NOT NULL) |
+| public | `pastoral_members` | `idx_pastoral_members_name` | pastoral | CREATE INDEX idx_pastoral_members_name ON public.pastoral_members USING btree (name) |
+| public | `pastoral_members` | `pastoral_members_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_members_pkey ON public.pastoral_members USING btree (id) |
+| public | `pastoral_titles` | `pastoral_titles_pkey` | pastoral | CREATE UNIQUE INDEX pastoral_titles_pkey ON public.pastoral_titles USING btree (id) |
+| public | `professions` | `professions_pkey` | pastoral | CREATE UNIQUE INDEX professions_pkey ON public.professions USING btree (id) |
+| public | `project_budget` | `idx_project_budget_project_id` | project_meeting | CREATE INDEX idx_project_budget_project_id ON public.project_budget USING btree (project_id) |
+| public | `project_budget` | `project_budget_pkey` | project_meeting | CREATE UNIQUE INDEX project_budget_pkey ON public.project_budget USING btree (id) |
+| public | `project_income` | `idx_project_income_project_id` | project_meeting | CREATE INDEX idx_project_income_project_id ON public.project_income USING btree (project_id) |
+| public | `project_income` | `project_income_pkey` | project_meeting | CREATE UNIQUE INDEX project_income_pkey ON public.project_income USING btree (id) |
+| public | `project_people` | `idx_project_people_project_id` | project_meeting | CREATE INDEX idx_project_people_project_id ON public.project_people USING btree (project_id) |
+| public | `project_people` | `project_people_pkey` | project_meeting | CREATE UNIQUE INDEX project_people_pkey ON public.project_people USING btree (id) |
+| public | `project_permissions` | `idx_project_permissions_project_id` | project_meeting | CREATE INDEX idx_project_permissions_project_id ON public.project_permissions USING btree (project_id) |
+| public | `project_permissions` | `project_permissions_pkey` | project_meeting | CREATE UNIQUE INDEX project_permissions_pkey ON public.project_permissions USING btree (id) |
+| public | `project_permissions` | `project_permissions_project_id_staff_id_key` | project_meeting | CREATE UNIQUE INDEX project_permissions_project_id_staff_id_key ON public.project_permissions USING btree (project_id, staff_id) |
+| public | `projects` | `idx_projects_keyword` | project_meeting | CREATE INDEX idx_projects_keyword ON public.projects USING gin (to_tsvector('simple'::regconfig, ((((((COALESCE(project_id, ''::text) \|\| ' '::text) \|\| COALESCE(project_name, ''::text)) \|\| ' '::text) \|\| COALESCE(content, ''::text)) \|\| ' '::text) \|\| COALESCE(login_user, ''::text)))) |
+| public | `projects` | `projects_pkey` | project_meeting | CREATE UNIQUE INDEX projects_pkey ON public.projects USING btree (project_id) |
+| public | `purchase_advance_items` | `idx_purchase_advance_items_advance_id` | finance | CREATE INDEX idx_purchase_advance_items_advance_id ON public.purchase_advance_items USING btree (advance_id) |
+| public | `purchase_advance_items` | `purchase_advance_items_pkey` | finance | CREATE UNIQUE INDEX purchase_advance_items_pkey ON public.purchase_advance_items USING btree (id) |
+| public | `purchase_advances` | `idx_purchase_advances_purchase_id` | finance | CREATE INDEX idx_purchase_advances_purchase_id ON public.purchase_advances USING btree (purchase_id) |
+| public | `purchase_advances` | `purchase_advances_pkey` | finance | CREATE UNIQUE INDEX purchase_advances_pkey ON public.purchase_advances USING btree (advance_id) |
+| public | `purchase_expense_proof_items` | `idx_purchase_expense_proof_items_proof_id` | finance | CREATE INDEX idx_purchase_expense_proof_items_proof_id ON public.purchase_expense_proof_items USING btree (proof_id) |
+| public | `purchase_expense_proof_items` | `purchase_expense_proof_items_pkey` | finance | CREATE UNIQUE INDEX purchase_expense_proof_items_pkey ON public.purchase_expense_proof_items USING btree (id) |
+| public | `purchase_expense_proofs` | `idx_purchase_expense_proofs_payment_id` | finance | CREATE INDEX idx_purchase_expense_proofs_payment_id ON public.purchase_expense_proofs USING btree (payment_id) |
+| public | `purchase_expense_proofs` | `idx_purchase_expense_proofs_purchase_id` | finance | CREATE INDEX idx_purchase_expense_proofs_purchase_id ON public.purchase_expense_proofs USING btree (purchase_id) |
+| public | `purchase_expense_proofs` | `purchase_expense_proofs_pkey` | finance | CREATE UNIQUE INDEX purchase_expense_proofs_pkey ON public.purchase_expense_proofs USING btree (proof_id) |
+| public | `purchase_items` | `idx_purchase_items_purchase_id` | finance | CREATE INDEX idx_purchase_items_purchase_id ON public.purchase_items USING btree (purchase_id) |
+| public | `purchase_items` | `purchase_items_pkey` | finance | CREATE UNIQUE INDEX purchase_items_pkey ON public.purchase_items USING btree (id) |
+| public | `purchase_payment_items` | `idx_purchase_payment_items_payment_id` | finance | CREATE INDEX idx_purchase_payment_items_payment_id ON public.purchase_payment_items USING btree (payment_id) |
+| public | `purchase_payment_items` | `purchase_payment_items_pkey` | finance | CREATE UNIQUE INDEX purchase_payment_items_pkey ON public.purchase_payment_items USING btree (id) |
+| public | `purchase_payment_requests` | `idx_purchase_payment_requests_purchase_id` | finance | CREATE INDEX idx_purchase_payment_requests_purchase_id ON public.purchase_payment_requests USING btree (purchase_id) |
+| public | `purchase_payment_requests` | `purchase_payment_requests_pkey` | finance | CREATE UNIQUE INDEX purchase_payment_requests_pkey ON public.purchase_payment_requests USING btree (payment_id) |
+| public | `purchases` | `idx_purchases_keyword` | finance | CREATE INDEX idx_purchases_keyword ON public.purchases USING gin (to_tsvector('simple'::regconfig, ((((((((COALESCE(purchase_id, ''::text) \|\| ' '::text) \|\| COALESCE(summary, ''::text)) \|\| ' '::text) \|\| COALESCE(applicant, ''::text)) \|\| ' '::text) \|\| COALESCE(purchase_type, department, ''::text)) \|\| ' '::text) \|\| COALESCE(project_id, ''::text)))) |
+| public | `purchases` | `idx_purchases_project_id` | finance | CREATE INDEX idx_purchases_project_id ON public.purchases USING btree (project_id) |
+| public | `purchases` | `idx_purchases_purchase_type` | finance | CREATE INDEX idx_purchases_purchase_type ON public.purchases USING btree (purchase_type) |
+| public | `purchases` | `purchases_pkey` | finance | CREATE UNIQUE INDEX purchases_pkey ON public.purchases USING btree (purchase_id) |
+| public | `qrcode_checkins` | `idx_qrcode_checkins_event_time` | qrcode | CREATE INDEX idx_qrcode_checkins_event_time ON public.qrcode_checkins USING btree (event_id, checked_at DESC) |
+| public | `qrcode_checkins` | `idx_qrcode_checkins_member` | qrcode | CREATE INDEX idx_qrcode_checkins_member ON public.qrcode_checkins USING btree (member_id, checked_at DESC) |
+| public | `qrcode_checkins` | `qrcode_checkins_event_id_member_id_key` | qrcode | CREATE UNIQUE INDEX qrcode_checkins_event_id_member_id_key ON public.qrcode_checkins USING btree (event_id, member_id) |
+| public | `qrcode_checkins` | `qrcode_checkins_pkey` | qrcode | CREATE UNIQUE INDEX qrcode_checkins_pkey ON public.qrcode_checkins USING btree (checkin_id) |
+| public | `qrcode_events` | `idx_qrcode_events_church` | qrcode | CREATE INDEX idx_qrcode_events_church ON public.qrcode_events USING btree (church_id, event_date DESC) |
+| public | `qrcode_events` | `idx_qrcode_events_status_date` | qrcode | CREATE INDEX idx_qrcode_events_status_date ON public.qrcode_events USING btree (status, event_date DESC, created_at DESC) |
+| public | `qrcode_events` | `qrcode_events_event_code_key` | qrcode | CREATE UNIQUE INDEX qrcode_events_event_code_key ON public.qrcode_events USING btree (event_code) |
+| public | `qrcode_events` | `qrcode_events_pkey` | qrcode | CREATE UNIQUE INDEX qrcode_events_pkey ON public.qrcode_events USING btree (event_id) |
+| public | `qt_inventory_monthly` | `idx_qt_inventory_monthly_lookup` | qt | CREATE INDEX idx_qt_inventory_monthly_lookup ON public.qt_inventory_monthly USING btree (qt_month, church_id, qt_type) |
+| public | `qt_inventory_monthly` | `idx_qt_inventory_monthly_status` | qt | CREATE INDEX idx_qt_inventory_monthly_status ON public.qt_inventory_monthly USING btree (status, qt_month) |
+| public | `qt_inventory_monthly` | `qt_inventory_monthly_pkey` | qt | CREATE UNIQUE INDEX qt_inventory_monthly_pkey ON public.qt_inventory_monthly USING btree (inventory_id) |
+| public | `qt_inventory_monthly` | `uq_qt_inventory_monthly_scope` | qt | CREATE UNIQUE INDEX uq_qt_inventory_monthly_scope ON public.qt_inventory_monthly USING btree (church_id, qt_month, qt_type) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_created_at` | qt | CREATE INDEX idx_qt_inventory_movements_created_at ON public.qt_inventory_movements USING btree (created_at DESC) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_lookup` | qt | CREATE INDEX idx_qt_inventory_movements_lookup ON public.qt_inventory_movements USING btree (issue_month, church_id, product_type) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_order_item` | qt | CREATE INDEX idx_qt_inventory_movements_order_item ON public.qt_inventory_movements USING btree (order_item_id) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_qt_month_type` | qt | CREATE INDEX idx_qt_inventory_movements_qt_month_type ON public.qt_inventory_movements USING btree (qt_month, qt_type, created_at DESC) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_reservation` | qt | CREATE INDEX idx_qt_inventory_movements_reservation ON public.qt_inventory_movements USING btree (reservation_id) |
+| public | `qt_inventory_movements` | `idx_qt_inventory_movements_source` | qt | CREATE INDEX idx_qt_inventory_movements_source ON public.qt_inventory_movements USING btree (source_system, source_id) |
+| public | `qt_inventory_movements` | `qt_inventory_movements_pkey` | qt | CREATE UNIQUE INDEX qt_inventory_movements_pkey ON public.qt_inventory_movements USING btree (movement_id) |
+| public | `qt_inventory_reservations` | `idx_qt_inventory_reservations_inventory` | qt | CREATE INDEX idx_qt_inventory_reservations_inventory ON public.qt_inventory_reservations USING btree (inventory_id, status) |
+| public | `qt_inventory_reservations` | `idx_qt_inventory_reservations_member` | qt | CREATE INDEX idx_qt_inventory_reservations_member ON public.qt_inventory_reservations USING btree (member_id, status) |
+| public | `qt_inventory_reservations` | `idx_qt_inventory_reservations_order` | qt | CREATE INDEX idx_qt_inventory_reservations_order ON public.qt_inventory_reservations USING btree (order_id, order_item_id) |
+| public | `qt_inventory_reservations` | `qt_inventory_reservations_pkey` | qt | CREATE UNIQUE INDEX qt_inventory_reservations_pkey ON public.qt_inventory_reservations USING btree (reservation_id) |
+| public | `qt_inventory_reservations` | `uq_qt_inventory_reservations_active_item` | qt | CREATE UNIQUE INDEX uq_qt_inventory_reservations_active_item ON public.qt_inventory_reservations USING btree (order_item_id) WHERE ((status = 'reserved'::text) AND (order_item_id IS NOT NULL)) |
+| public | `qt_order_items` | `idx_qt_order_items_issue_month` | qt | CREATE INDEX idx_qt_order_items_issue_month ON public.qt_order_items USING btree (issue_month, is_received) |
+| public | `qt_order_items` | `idx_qt_order_items_order_id` | qt | CREATE INDEX idx_qt_order_items_order_id ON public.qt_order_items USING btree (order_id) |
+| public | `qt_order_items` | `idx_qt_order_items_receiver_member_id` | qt | CREATE INDEX idx_qt_order_items_receiver_member_id ON public.qt_order_items USING btree (receiver_member_id) |
+| public | `qt_order_items` | `qt_order_items_pkey` | qt | CREATE UNIQUE INDEX qt_order_items_pkey ON public.qt_order_items USING btree (order_item_id) |
+| public | `qt_orders` | `idx_qt_orders_church` | qt | CREATE INDEX idx_qt_orders_church ON public.qt_orders USING btree (church_id) |
+| public | `qt_orders` | `idx_qt_orders_member` | qt | CREATE INDEX idx_qt_orders_member ON public.qt_orders USING btree (member_id) |
+| public | `qt_orders` | `idx_qt_orders_ordered_at` | qt | CREATE INDEX idx_qt_orders_ordered_at ON public.qt_orders USING btree (ordered_at DESC) |
+| public | `qt_orders` | `idx_qt_orders_payer_member_id` | qt | CREATE INDEX idx_qt_orders_payer_member_id ON public.qt_orders USING btree (payer_member_id) |
+| public | `qt_orders` | `idx_qt_orders_plan_id` | qt | CREATE INDEX idx_qt_orders_plan_id ON public.qt_orders USING btree (plan_id) |
+| public | `qt_orders` | `idx_qt_orders_product_type` | qt | CREATE INDEX idx_qt_orders_product_type ON public.qt_orders USING btree (product_type) |
+| public | `qt_orders` | `idx_qt_orders_status` | qt | CREATE INDEX idx_qt_orders_status ON public.qt_orders USING btree (order_status, finance_status) |
+| public | `qt_orders` | `qt_orders_pkey` | qt | CREATE UNIQUE INDEX qt_orders_pkey ON public.qt_orders USING btree (order_id) |
+| public | `qt_payment_types` | `qt_payment_types_pkey` | qt | CREATE UNIQUE INDEX qt_payment_types_pkey ON public.qt_payment_types USING btree (payment_type_id) |
+| public | `qt_price_plans` | `qt_price_plans_pkey` | qt | CREATE UNIQUE INDEX qt_price_plans_pkey ON public.qt_price_plans USING btree (plan_id) |
+| public | `qt_product_types` | `qt_product_types_pkey` | qt | CREATE UNIQUE INDEX qt_product_types_pkey ON public.qt_product_types USING btree (product_type) |
+| public | `regions` | `regions_country_id_city_district_postal_code_key` | pastoral | CREATE UNIQUE INDEX regions_country_id_city_district_postal_code_key ON public.regions USING btree (country_id, city, district, postal_code) |
+| public | `regions` | `regions_pkey` | pastoral | CREATE UNIQUE INDEX regions_pkey ON public.regions USING btree (id) |
+| public | `relationship_types` | `relationship_types_pkey` | pastoral | CREATE UNIQUE INDEX relationship_types_pkey ON public.relationship_types USING btree (id) |
+| public | `role_feature_permissions` | `idx_role_feature_permissions_role` | system | CREATE INDEX idx_role_feature_permissions_role ON public.role_feature_permissions USING btree (role) |
+| public | `role_feature_permissions` | `role_feature_permissions_pkey` | system | CREATE UNIQUE INDEX role_feature_permissions_pkey ON public.role_feature_permissions USING btree (role, feature_key) |
+| public | `short_link_clicks` | `idx_short_link_clicks_clicked_at` | shortlinks | CREATE INDEX idx_short_link_clicks_clicked_at ON public.short_link_clicks USING btree (clicked_at DESC) |
+| public | `short_link_clicks` | `idx_short_link_clicks_link_id` | shortlinks | CREATE INDEX idx_short_link_clicks_link_id ON public.short_link_clicks USING btree (link_id) |
+| public | `short_link_clicks` | `short_link_clicks_pkey` | shortlinks | CREATE UNIQUE INDEX short_link_clicks_pkey ON public.short_link_clicks USING btree (click_id) |
+| public | `short_links` | `idx_short_links_created_at` | shortlinks | CREATE INDEX idx_short_links_created_at ON public.short_links USING btree (created_at DESC) |
+| public | `short_links` | `idx_short_links_source` | shortlinks | CREATE INDEX idx_short_links_source ON public.short_links USING btree (source_system, source_type, source_id) |
+| public | `short_links` | `idx_short_links_status` | shortlinks | CREATE INDEX idx_short_links_status ON public.short_links USING btree (status) |
+| public | `short_links` | `short_links_pkey` | shortlinks | CREATE UNIQUE INDEX short_links_pkey ON public.short_links USING btree (link_id) |
+| public | `short_links` | `short_links_short_code_key` | shortlinks | CREATE UNIQUE INDEX short_links_short_code_key ON public.short_links USING btree (short_code) |
+| public | `sunday_message_shares` | `idx_sunday_message_shares_church_id` | sunday_message | CREATE INDEX idx_sunday_message_shares_church_id ON public.sunday_message_shares USING btree (church_id) |
+| public | `sunday_message_shares` | `idx_sunday_message_shares_message_id` | sunday_message | CREATE INDEX idx_sunday_message_shares_message_id ON public.sunday_message_shares USING btree (message_id) |
+| public | `sunday_message_shares` | `idx_sunday_message_shares_shared_date` | sunday_message | CREATE INDEX idx_sunday_message_shares_shared_date ON public.sunday_message_shares USING btree (shared_date) |
+| public | `sunday_message_shares` | `sunday_message_shares_pkey` | sunday_message | CREATE UNIQUE INDEX sunday_message_shares_pkey ON public.sunday_message_shares USING btree (share_id) |
+| public | `sunday_message_shares` | `ux_sunday_message_church_share` | sunday_message | CREATE UNIQUE INDEX ux_sunday_message_church_share ON public.sunday_message_shares USING btree (message_id, church_id) WHERE ((share_type = 'church'::text) AND (church_id IS NOT NULL)) |
+| public | `sunday_messages` | `idx_sunday_messages_speaker` | sunday_message | CREATE INDEX idx_sunday_messages_speaker ON public.sunday_messages USING btree (speaker_name) |
+| public | `sunday_messages` | `idx_sunday_messages_status_updated` | sunday_message | CREATE INDEX idx_sunday_messages_status_updated ON public.sunday_messages USING btree (status, updated_at DESC) |
+| public | `sunday_messages` | `sunday_messages_pkey` | sunday_message | CREATE UNIQUE INDEX sunday_messages_pkey ON public.sunday_messages USING btree (message_id) |
+| public | `system_config` | `idx_system_config_enabled` | system | CREATE INDEX idx_system_config_enabled ON public.system_config USING btree (enabled, config_key) |
+| public | `system_config` | `system_config_pkey` | system | CREATE UNIQUE INDEX system_config_pkey ON public.system_config USING btree (config_key) |
+| public | `system_config_keys` | `idx_system_config_keys_namespace` | system | CREATE INDEX idx_system_config_keys_namespace ON public.system_config_keys USING btree (namespace, is_enabled, config_key) |
+| public | `system_config_keys` | `idx_system_config_keys_search` | system | CREATE INDEX idx_system_config_keys_search ON public.system_config_keys USING btree (namespace, config_key) |
+| public | `system_config_keys` | `system_config_keys_pkey` | system | CREATE UNIQUE INDEX system_config_keys_pkey ON public.system_config_keys USING btree (id) |
+| public | `system_config_keys` | `uq_system_config_keys_namespace_key` | system | CREATE UNIQUE INDEX uq_system_config_keys_namespace_key ON public.system_config_keys USING btree (namespace, config_key) |
+| public | `system_usage_logs` | `idx_system_usage_logs_created_at` | system | CREATE INDEX idx_system_usage_logs_created_at ON public.system_usage_logs USING btree (created_at DESC) |
+| public | `system_usage_logs` | `idx_system_usage_logs_staff_feature_time` | system | CREATE INDEX idx_system_usage_logs_staff_feature_time ON public.system_usage_logs USING btree (staff_id, feature_key, created_at DESC) |
+| public | `system_usage_logs` | `system_usage_logs_pkey` | system | CREATE UNIQUE INDEX system_usage_logs_pkey ON public.system_usage_logs USING btree (id) |
+| public | `trusted_login_devices` | `idx_trusted_login_devices_staff` | auth | CREATE INDEX idx_trusted_login_devices_staff ON public.trusted_login_devices USING btree (staff_id, is_active, last_seen_at DESC) |
+| public | `trusted_login_devices` | `trusted_login_devices_pkey` | auth | CREATE UNIQUE INDEX trusted_login_devices_pkey ON public.trusted_login_devices USING btree (id) |
+| public | `trusted_login_devices` | `trusted_login_devices_staff_id_device_id_hash_key` | auth | CREATE UNIQUE INDEX trusted_login_devices_staff_id_device_id_hash_key ON public.trusted_login_devices USING btree (staff_id, device_id_hash) |
+| public | `venue_reservations` | `idx_venue_reservations_resource_time` | venue_zoom | CREATE INDEX idx_venue_reservations_resource_time ON public.venue_reservations USING btree (hall, main_location, start_at, end_at) |
+| public | `venue_reservations` | `idx_venue_reservations_status_time` | venue_zoom | CREATE INDEX idx_venue_reservations_status_time ON public.venue_reservations USING btree (status, start_at, end_at) |
+| public | `venue_reservations` | `venue_reservations_no_overlap` | venue_zoom | CREATE INDEX venue_reservations_no_overlap ON public.venue_reservations USING gist (hall, main_location, tstzrange(start_at, end_at, '[)'::text)) WHERE (status <> ALL (ARRAY['cancelled'::text, 'rejected'::text])) |
+| public | `venue_reservations` | `venue_reservations_pkey` | venue_zoom | CREATE UNIQUE INDEX venue_reservations_pkey ON public.venue_reservations USING btree (reservation_id) |
+| public | `venue_resource_calendars` | `idx_venue_resource_calendars_hall` | venue_zoom | CREATE INDEX idx_venue_resource_calendars_hall ON public.venue_resource_calendars USING btree (hall, main_location) |
+| public | `venue_resource_calendars` | `venue_resource_calendars_hall_main_location_key` | venue_zoom | CREATE UNIQUE INDEX venue_resource_calendars_hall_main_location_key ON public.venue_resource_calendars USING btree (hall, main_location) |
+| public | `venue_resource_calendars` | `venue_resource_calendars_pkey` | venue_zoom | CREATE UNIQUE INDEX venue_resource_calendars_pkey ON public.venue_resource_calendars USING btree (id) |
+| public | `work_logs` | `idx_work_logs_staff_date` | worklog | CREATE INDEX idx_work_logs_staff_date ON public.work_logs USING btree (staff_id, log_date DESC, created_at DESC) |
+| public | `work_logs` | `work_logs_pkey` | worklog | CREATE UNIQUE INDEX work_logs_pkey ON public.work_logs USING btree (work_log_id) |
+| public | `zoom_accounts` | `zoom_accounts_email_key` | venue_zoom | CREATE UNIQUE INDEX zoom_accounts_email_key ON public.zoom_accounts USING btree (email) |
+| public | `zoom_accounts` | `zoom_accounts_pkey` | venue_zoom | CREATE UNIQUE INDEX zoom_accounts_pkey ON public.zoom_accounts USING btree (zoom_account_id) |
+| public | `zoom_reservations` | `idx_zoom_reservations_account_time` | venue_zoom | CREATE INDEX idx_zoom_reservations_account_time ON public.zoom_reservations USING btree (zoom_account_id, start_at, end_at) |
+| public | `zoom_reservations` | `idx_zoom_reservations_status_time` | venue_zoom | CREATE INDEX idx_zoom_reservations_status_time ON public.zoom_reservations USING btree (status, start_at, end_at) |
+| public | `zoom_reservations` | `zoom_reservations_no_overlap` | venue_zoom | CREATE INDEX zoom_reservations_no_overlap ON public.zoom_reservations USING gist (zoom_account_id, tstzrange(start_at, end_at, '[)'::text)) WHERE (status = 'reserved'::text) |
+| public | `zoom_reservations` | `zoom_reservations_pkey` | venue_zoom | CREATE UNIQUE INDEX zoom_reservations_pkey ON public.zoom_reservations USING btree (zoom_reservation_id) |
