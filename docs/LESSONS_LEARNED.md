@@ -89,6 +89,24 @@ Recommended Action
 
 修改 Apps Script HTML 後執行 `node -e` 或 `tools/check-scripts.cmd` 做語法檢查，並用 `Select-String` 搜尋 `` `r`n ``、`\"`、`/button`、`/label`、`/h5` 等疑似壞標籤。若 PowerShell 顯示亂碼，使用 .NET `ReadAllLines(..., UTF8)` 檢查實際行內容。
 
+## AppsScript-003
+
+Problem
+
+MailApp quota management can be misread as a stable daily global value, causing immediate bulk sends or incorrect queue decisions.
+
+Root Cause
+
+`MailApp.getRemainingDailyQuota()` is only reliable for the current Apps Script execution. TopChurchPlus also runs mail delivery through scheduled Apps Script executions, not the NAS API directly.
+
+Prevention
+
+Treat MailApp quota as an execution-time guard. Record snapshots for monitoring, but check quota again immediately before each send.
+
+Recommended Action
+
+Use `MailQueueService.enqueueMail()` / `enqueueMails()` for module events, and let `processMailQueue()` perform actual `MailApp.sendEmail()` delivery. Keep each execution capped at 20 items, stop at zero quota, and send only HIGH priority mail when remaining quota is 10 or below.
+
 ## PostgreSQL
 
 ## PostgreSQL-001

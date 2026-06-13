@@ -163,6 +163,25 @@ Migration：`database/20260613_mail_queue.sql`
 - `dedupe_key` 在 `PENDING` / `SENT` 狀態下不可重複，用來避免同事件重複寄信。
 - 實際發送仍由 Apps Script `MailApp` 執行，API 只保存佇列與狀態。
 
+### mail_quota_snapshots
+
+Migration: `database/20260613_mail_queue_management.sql`
+
+MailApp quota observation table. Apps Script records snapshots because `MailApp.getRemainingDailyQuota()` is execution-scoped.
+
+Columns:
+- `id`
+- `remaining_quota`
+- `pending_count`
+- `failed_count`
+- `sent_today_count`
+- `checked_at`
+- `created_at`
+
+Notes:
+- This table is monitoring data only; it does not reserve quota.
+- Dashboard should treat stale snapshots as health risk.
+
 ## Common Foundation
 
 ### files

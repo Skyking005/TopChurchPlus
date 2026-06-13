@@ -99,18 +99,33 @@ function loginCounterPin(pinCode, deviceInfo) {
   return apiRequest('post', '/counter/pin-login', payload);
 }
 
-const MAIL_QUEUE_LOW_QUOTA_THRESHOLD = 20;
-const MAIL_QUEUE_DEFAULT_BATCH_SIZE = 30;
+const MAIL_QUEUE_LOW_QUOTA_THRESHOLD = 10;
+const MAIL_QUEUE_DEFAULT_BATCH_SIZE = 20;
 
 const MailQueueService = {
   enqueueMail(mail, currentUser) {
     return enqueueMail(mail, currentUser);
   },
+  enqueueMails(mails, currentUser) {
+    return enqueueMails(mails, currentUser);
+  },
+  processMailQueue(limit) {
+    return processMailQueue(limit);
+  },
   processPendingMails(limit) {
-    return processPendingMails(limit);
+    return processMailQueue(limit);
   },
   getRemainingQuota() {
     return getRemainingMailQuota();
+  },
+  getDashboard(currentUser) {
+    return getMailQueueDashboard(currentUser);
+  },
+  getQuotaStatus(currentUser) {
+    return getMailQuotaStatus(currentUser);
+  },
+  recordQuotaSnapshot(snapshot) {
+    return recordMailQuotaSnapshot(snapshot);
   },
   markSent(id, metadata) {
     return markMailQueueSent(id, metadata);
@@ -120,6 +135,21 @@ const MailQueueService = {
   },
   markSkipped(id, errorMessage, metadata) {
     return markMailQueueSkipped(id, errorMessage, metadata);
+  },
+  retry(id, currentUser) {
+    return retryMailQueueItem(id, currentUser);
+  },
+  cancel(id, currentUser) {
+    return cancelMailQueueItem(id, currentUser);
+  },
+  resend(id, currentUser) {
+    return resendMailQueueItem(id, currentUser);
+  },
+  installTriggers() {
+    return installMailQueueTriggers();
+  },
+  checkTriggers() {
+    return checkMailQueueTriggers();
   }
 };
 
@@ -149,12 +179,66 @@ function getMailQueueStats(currentUser) {
   });
 }
 
-function processPendingMails(limit) {
-  const requestedLimit = (typeof limit === 'number' || typeof limit === 'string') ? Number(limit) : MAIL_QUEUE_DEFAULT_BATCH_SIZE;
-  const batchSize = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : MAIL_QUEUE_DEFAULT_BATCH_SIZE, 1), 50);
+function listMailQueue(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/mail/queue', null, {
+    status: filters.status || '',
+    priority: filters.priority || '',
+    moduleKey: filters.moduleKey || filters.module_key || '',
+    recipientEmail: filters.recipientEmail || filters.recipient_email || '',
+    startDate: filters.startDate || filters.start_date || '',
+    endDate: filters.endDate || filters.end_date || '',
+    page: filters.page || 1,
+    pageSize: filters.pageSize || 50
+  }, currentUser);
+}
+
+function getMailQueueItem(id, currentUser) {
+  return apiRequest('get', `/mail/queue/${encodeURIComponent(id)}`, null, null, currentUser);
+}
+
+function retryMailQueueItem(id, currentUser) {
+  return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/retry`, { currentUser: currentUser || {} });
+}
+
+function cancelMailQueueItem(id, currentUser) {
+  return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/cancel`, { currentUser: currentUser || {} });
+}
+
+function resendMailQueueItem(id, currentUser) {
+  return apiRequest('post', `/mail/queue/${encodeURIComponent(id)}/resend`, { currentUser: currentUser || {} });
+}
+
+function getMailQueueDashboard(currentUser) {
+  const dashboard = apiRequest('get', '/mail/queue/dashboard', null, null, currentUser);
+  return Object.assign({}, dashboard, {
+    remainingQuota: getRemainingMailQuota(),
+    triggerStatus: checkMailQueueTriggers()
+  });
+}
+
+function getMailQuotaStatus(currentUser) {
   const quota = getRemainingMailQuota();
+  const status = apiRequest('get', '/mail/queue/quota', null, null, currentUser);
+  return Object.assign({}, status, { remainingQuota: quota });
+}
+
+function recordMailQuotaSnapshot(snapshot) {
+  snapshot = snapshot || {};
+  return apiRequest('post', '/mail/quota-snapshots', {
+    snapshot: Object.assign({}, snapshot, {
+      remainingQuota: getRemainingMailQuota()
+    })
+  });
+}
+
+function processMailQueue(limit) {
+  const requestedLimit = (typeof limit === 'number' || typeof limit === 'string') ? Number(limit) : MAIL_QUEUE_DEFAULT_BATCH_SIZE;
+  const batchSize = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : MAIL_QUEUE_DEFAULT_BATCH_SIZE, 1), 20);
+  const quota = getRemainingMailQuota();
+  recordMailQuotaSnapshot({ remainingQuota: quota });
   if (quota <= 0) return { success: true, processed: 0, sent: 0, failed: 0, remainingQuota: quota };
-  const priority = quota < MAIL_QUEUE_LOW_QUOTA_THRESHOLD ? 'HIGH' : '';
+  const priority = quota <= MAIL_QUEUE_LOW_QUOTA_THRESHOLD ? 'HIGH' : '';
   const pending = apiRequest('get', '/mail/queue/pending', null, {
     limit: Math.min(batchSize, quota),
     priority
@@ -165,7 +249,7 @@ function processPendingMails(limit) {
   rows.forEach(mail => {
     const currentQuota = getRemainingMailQuota();
     if (currentQuota <= 0) return;
-    if (currentQuota < MAIL_QUEUE_LOW_QUOTA_THRESHOLD && mail.priority !== 'HIGH') return;
+    if (currentQuota <= MAIL_QUEUE_LOW_QUOTA_THRESHOLD && mail.priority !== 'HIGH') return;
     try {
       const message = {
         to: mail.recipientEmail,
@@ -186,7 +270,12 @@ function processPendingMails(limit) {
   });
 
   result.remainingQuota = getRemainingMailQuota();
+  recordMailQuotaSnapshot({ remainingQuota: result.remainingQuota });
   return result;
+}
+
+function processPendingMails(limit) {
+  return processMailQueue(limit);
 }
 
 function markMailQueueSent(id, metadata) {
@@ -209,15 +298,38 @@ function markMailQueueSkipped(id, errorMessage, metadata) {
   });
 }
 
-function installMailQueueTrigger() {
-  const handler = 'processPendingMails';
+function installMailQueueTriggers() {
+  const handler = 'processMailQueue';
   ScriptApp.getProjectTriggers().forEach(trigger => {
     if (trigger.getHandlerFunction && trigger.getHandlerFunction() === handler) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+    if (trigger.getHandlerFunction && trigger.getHandlerFunction() === 'processPendingMails') {
       ScriptApp.deleteTrigger(trigger);
     }
   });
   ScriptApp.newTrigger(handler).timeBased().everyMinutes(5).create();
   return { success: true, message: 'Mail queue trigger installed: every 5 minutes.' };
+}
+
+function installMailQueueTrigger() {
+  return installMailQueueTriggers();
+}
+
+function checkMailQueueTriggers() {
+  const triggers = ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction && ['processMailQueue', 'processPendingMails'].includes(trigger.getHandlerFunction()))
+    .map(trigger => ({
+      handlerFunction: trigger.getHandlerFunction(),
+      eventType: String(trigger.getEventType ? trigger.getEventType() : ''),
+      triggerSource: String(trigger.getTriggerSource ? trigger.getTriggerSource() : '')
+    }));
+  return {
+    installed: triggers.some(trigger => trigger.handlerFunction === 'processMailQueue'),
+    legacyInstalled: triggers.some(trigger => trigger.handlerFunction === 'processPendingMails'),
+    count: triggers.length,
+    triggers
+  };
 }
 
 function sendLoginVerificationEmail(email, code, expiresAt) {

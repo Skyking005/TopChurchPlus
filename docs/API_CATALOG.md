@@ -49,6 +49,30 @@
 - `PATCH /mail/queue/:id/skipped`：標記略過。
 - `GET /mail/queue/stats`：查詢 pending / failed / 今日寄出統計。
 
+#### Mail Queue Management Extension
+
+Management and monitoring endpoints:
+- `GET /mail/queue`: list mail queue items. Filters: `status`, `priority`, `moduleKey`, `recipientEmail`, `startDate`, `endDate`, `page`, `pageSize`.
+- `GET /mail/queue/:id`: view one queue item, including `errorMessage`.
+- `POST /mail/queue/:id/retry`: retry a `FAILED` item when `retry_count < 3`.
+- `POST /mail/queue/:id/cancel`: cancel a `PENDING` item by marking it `SKIPPED`.
+- `POST /mail/queue/:id/resend`: create a new `PENDING` queue item from a `SENT` item.
+- `GET /mail/queue/dashboard`: dashboard data source.
+- `GET /mail/queue/quota`: latest quota snapshot.
+- `GET /mail/queue/health`: queue health status.
+- `POST /mail/quota-snapshots`: Apps Script records `MailApp.getRemainingDailyQuota()` snapshots.
+
+Apps Script helpers:
+- `processMailQueue(limit)`: scheduled processor, max 20 per execution.
+- `installMailQueueTriggers()`: installs 5-minute time-driven trigger.
+- `checkMailQueueTriggers()`: reports current trigger status.
+
+Rules:
+- `HIGH > NORMAL > LOW`.
+- `scheduled_at <= now()` and `retry_count < 3` for pending processing.
+- `remainingQuota <= 10` sends only HIGH priority mail.
+- Modules should enqueue mail; direct `MailApp.sendEmail()` is only allowed inside `processMailQueue()`.
+
 ### System
 
 模組：`api/src/modules/system/routes.js`

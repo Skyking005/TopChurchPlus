@@ -250,6 +250,27 @@ Known transition sources not fully converged yet:
 - Venue Google Calendar resource mappings still use `venue_resource_calendars`.
 - Some module constants remain code-level defaults until each module is refactored to `ConfigService`.
 
+## Mail Queue Management
+
+Mail Queue is the centralized Email path for Apps Script MailApp delivery.
+
+- Queue table: `mail_queue`
+- Quota monitoring table: `mail_quota_snapshots`
+- API module: `api/src/modules/mail/routes.js`
+- Apps Script service: `MailQueueService`
+- Scheduled processor: `processMailQueue()`
+
+Current rules:
+- Modules enqueue mail instead of calling `MailApp.sendEmail()` directly.
+- The only production `MailApp.sendEmail()` call should be inside `processMailQueue()`.
+- Each execution processes at most 20 queue items.
+- Pending selection is ordered by `HIGH`, `NORMAL`, then `LOW`.
+- Only `scheduled_at <= now()` and `retry_count < 3` items are processed.
+- `MailApp.getRemainingDailyQuota()` is checked during the execution; when remaining quota is 10 or below, only HIGH priority mail is sent.
+- Failed sends write `error_message`; successful sends write `sent_at`.
+
+Admin data sources now support queue listing, retry, cancel, resend, dashboard, quota status, health check, and trigger inspection via Apps Script.
+
 ## Deployment
 
 NAS API：
