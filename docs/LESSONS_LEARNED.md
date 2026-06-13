@@ -107,6 +107,24 @@ Recommended Action
 
 Use `MailQueueService.enqueueMail()` / `enqueueMails()` for module events, and let `processMailQueue()` perform actual `MailApp.sendEmail()` delivery. Keep each execution capped at 20 items, stop at zero quota, and send only HIGH priority mail when remaining quota is 10 or below. The only approved immediate-send exception is login verification code email, which must check quota before sending.
 
+## AppsScript-004
+
+Problem
+
+Calling `ScriptApp.getProjectTriggers()` or `ScriptApp.newTrigger()` from an admin Dashboard can fail with insufficient permissions when the manifest does not include `https://www.googleapis.com/auth/script.scriptapp` or the user has not re-authorized the Apps Script deployment.
+
+Root Cause
+
+Trigger inspection and trigger installation require the `script.scriptapp` OAuth scope. If Dashboard loading calls `ScriptApp` directly and lets the exception propagate, unrelated data such as Mail Queue counts also fails to render.
+
+Prevention
+
+Keep trigger inspection and installation isolated behind safe helper functions. Dashboard loading must catch trigger permission errors and return a status such as `PERMISSION_REQUIRED` instead of throwing to the frontend.
+
+Recommended Action
+
+Declare `https://www.googleapis.com/auth/script.scriptapp` in `appsscript.json`, keep `ScriptApp.newTrigger()` behind a manual admin action, and show a clear re-authorization message when trigger status cannot be read.
+
 ## PostgreSQL
 
 ## PostgreSQL-001

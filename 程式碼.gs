@@ -220,7 +220,7 @@ function getMailQueueDashboard(currentUser) {
   const dashboard = apiRequest('get', '/mail/queue/dashboard', null, null, currentUser);
   return Object.assign({}, dashboard, {
     remainingQuota: getRemainingMailQuota(),
-    triggerStatus: collectMailQueueTriggers_()
+    triggerStatus: safeCollectMailQueueTriggers_()
   });
 }
 
@@ -308,7 +308,11 @@ function markMailQueueSkipped(id, errorMessage, metadata) {
 
 function installMailQueueTriggers(currentUser) {
   assertMailQueueAdmin_(currentUser);
-  return installMailQueueTriggers_();
+  try {
+    return installMailQueueTriggers_();
+  } catch (err) {
+    return buildMailQueueTriggerPermissionResult_(err, '需要重新授權 Apps Script 權限後才能安裝或修復 Trigger');
+  }
 }
 
 function installMailQueueTriggers_() {
@@ -331,7 +335,15 @@ function installMailQueueTrigger(currentUser) {
 
 function checkMailQueueTriggers(currentUser) {
   assertMailQueueAdmin_(currentUser);
-  return collectMailQueueTriggers_();
+  return safeCollectMailQueueTriggers_();
+}
+
+function safeCollectMailQueueTriggers_() {
+  try {
+    return collectMailQueueTriggers_();
+  } catch (err) {
+    return buildMailQueueTriggerPermissionResult_(err, '需要重新授權 Apps Script 權限後才能檢查 Trigger 狀態');
+  }
 }
 
 function collectMailQueueTriggers_() {
@@ -343,10 +355,25 @@ function collectMailQueueTriggers_() {
       triggerSource: String(trigger.getTriggerSource ? trigger.getTriggerSource() : '')
     }));
   return {
+    ok: true,
+    status: triggers.some(trigger => trigger.handlerFunction === 'processMailQueue') ? 'INSTALLED' : 'NOT_INSTALLED',
     installed: triggers.some(trigger => trigger.handlerFunction === 'processMailQueue'),
     legacyInstalled: triggers.some(trigger => trigger.handlerFunction === 'processPendingMails'),
     count: triggers.length,
     triggers
+  };
+}
+
+function buildMailQueueTriggerPermissionResult_(err, message) {
+  return {
+    ok: false,
+    status: 'PERMISSION_REQUIRED',
+    installed: false,
+    legacyInstalled: false,
+    count: 0,
+    triggers: [],
+    message,
+    error: String(err && err.message ? err.message : err)
   };
 }
 

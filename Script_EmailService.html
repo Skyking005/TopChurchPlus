@@ -42,9 +42,10 @@ function renderEmailQueueDashboard(data) {
   document.getElementById('emailHighPendingCount').textContent = formatEmailQueueValue(data?.highPriorityPendingCount);
   document.getElementById('emailOldestPending').textContent = formatEmailQueueDateTime(data?.oldestPendingCreatedAt) || '-';
   document.getElementById('emailLastProcessed').textContent = formatEmailQueueDateTime(data?.lastProcessedAt) || '-';
-  document.getElementById('emailTriggerStatus').innerHTML = trigger.installed
-    ? '<span class="badge bg-success-subtle text-success">已安裝</span>'
-    : '<span class="badge bg-warning-subtle text-warning">未安裝</span>';
+  document.getElementById('emailTriggerStatus').innerHTML = renderEmailTriggerStatus(trigger);
+  if (trigger.status === 'PERMISSION_REQUIRED') {
+    setEmailQueueMessage(trigger.message || '需要重新授權 Apps Script 權限後才能檢查 Trigger 狀態', 'warning');
+  }
 }
 
 function loadEmailQueue(page = 1) {
@@ -203,7 +204,11 @@ function installEmailServiceTriggers() {
   if (!confirm('確定要重新安裝 Mail Queue 每 5 分鐘排程嗎？既有同名排程會被替換。')) return;
   google.script.run
     .withSuccessHandler(result => {
-      setEmailQueueMessage(result?.message || 'Trigger 已安裝。', 'success');
+      if (result?.status === 'PERMISSION_REQUIRED') {
+        setEmailQueueMessage(result.message || '需要重新授權 Apps Script 權限後才能安裝或修復 Trigger', 'warning');
+      } else {
+        setEmailQueueMessage(result?.message || 'Trigger 已安裝。', 'success');
+      }
       loadEmailQueueDashboard();
     })
     .withFailureHandler(showError)
@@ -213,6 +218,11 @@ function installEmailServiceTriggers() {
 function checkEmailServiceTriggers() {
   google.script.run
     .withSuccessHandler(result => {
+      if (result?.status === 'PERMISSION_REQUIRED') {
+        setEmailQueueMessage(result.message || '需要重新授權 Apps Script 權限後才能檢查 Trigger 狀態', 'warning');
+        loadEmailQueueDashboard();
+        return;
+      }
       const message = result?.installed
         ? `Trigger 已安裝，共 ${result.count || 0} 筆。`
         : `Trigger 未安裝，共 ${result?.count || 0} 筆。`;
@@ -256,6 +266,16 @@ function renderEmailPriorityBadge(priority) {
     LOW: 'bg-secondary-subtle text-secondary'
   };
   return `<span class="badge ${map[priority] || 'bg-secondary-subtle text-secondary'}">${escapeHtml(priority || '-')}</span>`;
+}
+
+function renderEmailTriggerStatus(trigger) {
+  if (trigger?.status === 'PERMISSION_REQUIRED') {
+    return '<span class="badge bg-warning-subtle text-warning">需要重新授權</span>';
+  }
+  if (trigger?.installed) {
+    return '<span class="badge bg-success-subtle text-success">已安裝</span>';
+  }
+  return '<span class="badge bg-warning-subtle text-warning">未安裝</span>';
 }
 
 function formatEmailQueueDateTime(value) {
