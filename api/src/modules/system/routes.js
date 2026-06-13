@@ -2,6 +2,7 @@ const { pool, tx } = require('../../db');
 const { PARAM_CATEGORIES, SYSTEM_FEATURES } = require('../core/catalog');
 const { getIdRules, saveIdRule } = require('../../shared/id-rules');
 const { listConfig, saveConfig } = require('../../shared/config');
+const { listConfigKeys, saveConfigKey } = require('../../shared/config-service');
 const { sendSuccess } = require('../../shared/api-response');
 
 function registerSystemRoutes(app) {
@@ -178,6 +179,46 @@ function registerSystemRoutes(app) {
         configKey: req.params.configKey
       }, currentUser);
       sendSuccess(req, res, { config }, '系統設定已儲存');
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.get('/system/config-keys', async (req, res, next) => {
+    try {
+      assertSuperAdmin(parseUser(req));
+      sendSuccess(req, res, {
+        rows: await listConfigKeys({
+          namespace: req.query.namespace,
+          keyword: req.query.keyword
+        })
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post('/system/config-keys', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      assertSuperAdmin(currentUser);
+      const config = await saveConfigKey(req.body.config || {}, currentUser);
+      sendSuccess(req, res, { config }, 'Config key saved.');
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.put('/system/config-keys/:namespace/:configKey', async (req, res, next) => {
+    try {
+      const currentUser = req.body.currentUser || {};
+      assertSuperAdmin(currentUser);
+      const config = await saveConfigKey({
+        ...(req.body.config || {}),
+        namespace: req.params.namespace,
+        configKey: req.params.configKey
+      }, currentUser);
+      sendSuccess(req, res, { config }, 'Config key saved.');
     } catch (err) {
       next(err);
     }

@@ -71,6 +71,24 @@ Recommended Action
 
 新增 Apps Script wrapper 時先檢查 `apiRequest()` 行為與 URL 組合；若遇到 URL 長度錯誤，將 payload 從 query 改成 body。部署後執行 `push-to-google.cmd`，並確認 deployment 版本。
 
+## AppsScript-002
+
+Problem
+
+PowerShell 文字替換 Apps Script HTML partial 時，若 replacement 使用單引號與跳脫字元，可能把 literal `` `r`n `` 或 `\"` 寫進 HTML，造成標籤結構錯誤或 UI 破版。
+
+Root Cause
+
+PowerShell 單引號字串不展開跳脫序列，且 mojibake 內容會讓 `apply_patch` 難以命中上下文。若直接用 regex 大段替換 HTML，容易把換行與引號當作普通文字寫入檔案。
+
+Prevention
+
+優先使用 `apply_patch`。若因 mojibake 必須用 PowerShell/.NET UTF-8 讀寫，replacement 需使用可展開的雙引號或先組合實際換行，並在寫入後立刻檢查目標 DOM ID、閉合標籤與是否存在 literal `` `r`n `` / `\"`。
+
+Recommended Action
+
+修改 Apps Script HTML 後執行 `node -e` 或 `tools/check-scripts.cmd` 做語法檢查，並用 `Select-String` 搜尋 `` `r`n ``、`\"`、`/button`、`/label`、`/h5` 等疑似壞標籤。若 PowerShell 顯示亂碼，使用 .NET `ReadAllLines(..., UTF8)` 檢查實際行內容。
+
 ## PostgreSQL
 
 ## PostgreSQL-001
@@ -108,6 +126,24 @@ Prevention
 Recommended Action
 
 遇到此錯誤時先檢查 values 的形狀與 placeholder 編號，不要只看錯誤裡的 `$n` 表面位置。修正後直接打該 endpoint，確認 200，再跑 smoke test。
+
+## PostgreSQL-003
+
+Problem
+
+Phase 2B reservation movement insert failed with `inconsistent types deduced for parameter $n`.
+
+Root Cause
+
+The same SQL placeholder was reused for both a `uuid` column (`reservation_id`) and a `text` column (`source_id`). PostgreSQL inferred conflicting types for one bind parameter.
+
+Prevention
+
+Do not reuse the same placeholder across columns with different PostgreSQL types, even when the logical value is the same ID.
+
+Recommended Action
+
+Use separate placeholders and explicitly pass a string value for text columns such as `source_id`. For UUID references, keep the UUID bind parameter separate so FK validation remains intact.
 
 ## Synology
 
@@ -229,7 +265,61 @@ Recommended Action
 
 新增 QT 領取或金流功能時，先檢查 `Qt.html`、`Script_Qt.html`、`api/src/modules/qt/routes.js` 與 `Counter.html`、`Script_Counter.html`、`api/src/modules/counter/routes.js` 的職責分工。正式扣庫存或付款狀態更新應由 QT API 提供單一路徑，Counter 只做掃描/收款 UI 與導引。
 
+## QTCounter-002
+
+Problem
+
+QT Email 通知若放在 API 自動排程或多個入口直接寄送，容易造成重複通知、漏寫 audit log，或在未確認收件名單時批次寄出。
+
+Root Cause
+
+TopChurchPlus 目前主要前端仍是 Apps Script，既有 Email 寄送能力在 Apps Script `MailApp`；NAS API 則負責資料查詢、權限與 audit log。若沒有明確分工，通知寄送與通知結果紀錄會分散在不同層，後續難以追查。
+
+Prevention
+
+QT Email 通知採管理端手動觸發。Apps Script 先向 API 預覽收件人，使用 `MailApp.sendEmail` 實際寄送，再把每位收件人的成功/失敗結果回寫 API，由 API 寫入 `notification_logs` 與 `audit_logs`。不要新增 QT 自動寄送排程，除非另有明確設計與驗收。
+
+Recommended Action
+
+新增 QT 通知類型時，沿用 `GET /qt/notifications/:type/preview` 與 `POST /qt/notifications/:type/results` 模式；UI 必須有人工確認，API 必須記錄 batch id、notification type、success/failed/skipped counts。部署後用少量月份資料先測試 Apps Script MailApp 配額與 audit log 寫入。
+
 ## AI Agent Mistakes
+
+## AIAgent-003
+
+Problem
+
+Centralizing configurable keys can accidentally break existing modules if old flat keys, Script Properties, or module-specific config tables are removed before each caller is migrated.
+
+Root Cause
+
+TopChurchPlus has a mixed runtime: Apps Script Script Properties, legacy `system_config`, module tables, and code-level defaults. A single ConfigService cutover without compatibility mapping can silently remove LINE, QT, Mail, Calendar, or Apps Script settings.
+
+Prevention
+
+Introduce centralized config in layers. Keep legacy sources readable during transition, map known flat keys into `system_config_keys`, and document remaining non-converged sources.
+
+Recommended Action
+
+New modules should use `ConfigService.get(namespace, key)`, `ConfigService.getSecret(namespace, key)`, and `ConfigService.set(namespace, key, value)`. Existing modules should migrate one namespace at a time. Secret values must be masked in API/UI responses and audit before/after data.
+
+## AIAgent-002
+
+Problem
+
+`tests/api/run-smoke.cmd` can fail before exercising the API when `TOPCHURCHPLUS_API_BASE_URL` is not set.
+
+Root Cause
+
+The smoke test runner expects an explicit target API base URL. A fresh shell or Codex session may not inherit the deployment/test environment variables, so the command stops with `Missing TOPCHURCHPLUS_API_BASE_URL.`.
+
+Prevention
+
+Before running smoke tests, verify the target environment variables and choose the intended target explicitly: local API, NAS API, or public HTTPS API.
+
+Recommended Action
+
+Run smoke tests with a clear target, for example setting `TOPCHURCHPLUS_API_BASE_URL` in the current PowerShell session first. If the target API is not running or the API key is unavailable, record the smoke test as blocked instead of treating it as an application failure.
 
 ## AIAgent-001
 

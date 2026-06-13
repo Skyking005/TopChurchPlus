@@ -20,11 +20,20 @@ TopChurchPlus 目前是 Google Apps Script 前端 + Apps Script bridge + NAS Nod
 - LINE Bot Phase 2-5 migration 已套用到 NAS PostgreSQL；套用前已有 DB dump 備份。
 - `tools/check-ai-context-freshness.cmd` 已新增，可檢查 AI context 是否落後 Git HEAD。
 - `.claspignore` 已排除 `CLAUDE_files/**`。
-- QT 管理頁已重整為訂購、領取、財務、報表、庫存五個分頁；領取月份設定使用 `system_config.QT_OPEN_PICKUP_MONTH`；匯款審核、領取扣庫存防重與正式 ledger 請先看 `docs/reviews/QT_DBA_REVIEW.md`。
+- QT 管理頁已重整為訂購、領取、財務、報表、庫存五個分頁；領取月份設定使用 `system_config.QT_OPEN_PICKUP_MONTH`；Phase 1 已完成程式驗收，Email 通知改為管理端手動觸發，支援未領取/即將到期通知，結果回寫 `notification_logs` 與 `audit_logs`，牧區統計新增 `pastoral-tree` Tree 報表；Phase 2A 已新增 `qt_inventory_monthly`，2026-09 起使用 `qt_month` + `qt_type(ADULT/CHILD)` 月庫存主檔，並已套用 migration `database/20260613_qt_phase2a_inventory_foundation.sql`；尚未修改付款、匯款審核、領取、Line Bot 訂購或跨會堂調撥流程。
+- QT Phase 2B 已新增 `qt_inventory_reservations`，migration `database/20260613_qt_phase2b_inventory_reservations.sql` 已套用；新增 reservation service/API，可在 transaction 內建立或釋放 reservation，更新 Reserved/Retail 並保持 Physical 不變，同步寫入 `qt_inventory_movements` 與 `audit_logs`。Phase 2B 仍未修改付款、領取、Line Bot、Transfer 或 Forecast。
 
 ## 必讀文件
 
 最小讀取順序：
+
+## Config Key Management Current State
+
+- Config Key Management MVP is implemented with `system_config_keys`, `api/src/shared/config-service.js`, `/system/config-keys`, Apps Script wrappers, and a System Management tab.
+- Only super admins can manage keys through API/UI.
+- Secret values are masked in UI/API responses and in audit before/after data.
+- Legacy `system_config` remains for compatibility; `LINE_*` and `QT_OPEN_PICKUP_MONTH` are mapped into the namespace model.
+- Not fully converged yet: Apps Script Script Properties (`API_BASE_URL`, `API_KEY`), venue calendar mappings, and module constants that still need later `ConfigService` adoption.
 
 1. `AGENTS.md`
 2. `docs/PROJECT_OVERVIEW.md`

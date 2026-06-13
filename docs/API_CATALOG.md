@@ -29,6 +29,26 @@
 - 陌生裝置或 IP 驗證。
 - 登入紀錄。
 
+### Mail Queue
+
+模組：`api/src/modules/mail/routes.js`
+
+用途：
+
+- 統一 Email 佇列。
+- 支援 Apps Script `MailApp` 配額管理與排程批次發送。
+- 所有模組應 enqueue mail，不直接呼叫 `MailApp.sendEmail()`。
+
+目前 endpoint：
+
+- `POST /mail/queue`：新增單筆郵件佇列。
+- `POST /mail/queue/bulk`：新增多筆郵件佇列，支援 `dedupeKey` 去重。
+- `GET /mail/queue/pending`：排程取得待寄郵件，支援 `limit`、`priority`。
+- `PATCH /mail/queue/:id/sent`：標記已寄送。
+- `PATCH /mail/queue/:id/failed`：標記寄送失敗並累加 retry count。
+- `PATCH /mail/queue/:id/skipped`：標記略過。
+- `GET /mail/queue/stats`：查詢 pending / failed / 今日寄出統計。
+
 ### System
 
 模組：`api/src/modules/system/routes.js`
@@ -40,6 +60,19 @@
 - 權限管理。
 - 參數管理。
 - 使用紀錄與系統日誌。
+
+#### Config Key Management
+
+Routes:
+- `GET /system/config-keys`: list centralized configurable keys. Query: `namespace`, `keyword`.
+- `POST /system/config-keys`: create a centralized config key.
+- `PUT /system/config-keys/:namespace/:configKey`: update a centralized config key.
+
+Security:
+- Super admin only.
+- Secret values are masked in list/update responses.
+- Secret update supports `keepExistingSecret` so the UI can leave the value blank without overwriting the stored secret.
+- `ConfigService.get(namespace, key)`, `ConfigService.getSecret(namespace, key)`, and `ConfigService.set(namespace, key, value)` are the backend entry points for new module integrations.
 
 ### Dev Management
 
@@ -176,9 +209,13 @@
 - `PUT /qt/settings`：更新 QT 模組設定，使用既有 `system_config`。
 - `GET /qt/orders`：QT 訂單列表。
 - `GET /qt/orders/:orderId`：QT 訂單明細與領取項目。
-- `GET /qt/reports/:type`：QT 報表，支援 `finance`、`pickup`、`expiring`、`pastoral-summary`。
+- `GET /qt/reports/:type`：QT 報表，支援 `finance`、`pickup`、`expiring`、`pastoral-summary`、`pastoral-tree`。
+- `GET /qt/notifications/:type/preview`：預覽 QT 手動 Email 通知收件人，`type` 支援 `unreceived`、`expiring`。
+- `POST /qt/notifications/:type/results`：Apps Script 手動寄送 QT Email 後回寫每位收件人的成功/失敗結果，並記錄 `notification_logs` 與 `audit_logs`。
 - `GET /qt/inventory`：QT 月庫存。
-- `GET /qt/inventory/movements`：QT 庫存異動紀錄。
+- `GET /qt/inventory/reconciliation`：Phase 3B-2 只讀庫存盤點，支援 `qtMonth`、`qtType`、`churchId`，回傳 Physical / Reserved / Retail、active reservations 與 reconciliation exceptions；不會自動修復資料。
+- `POST /qt/inventory/monthly`：建立 QT Phase 2A 月度庫存主檔，使用 `qtMonth`、`qtType`、`churchId`、`physicalQuantity`、`reservedQuantity`、`retailQuantity`、`estimatedInboundQuantity`、`actualInboundQuantity`。
+- `GET /qt/inventory/movements`：QT 庫存異動紀錄，支援 `startDate`、`endDate`、`churchId`、`qtMonth`、`qtType` 查詢。
 - `POST /qt/inventory/movements`：新增 QT 庫存異動。
 - `POST /qt/inventory/transfers`：QT 跨會堂庫存調撥。
 - `GET /qt/stock-check`：未來 Line App / LIFF 下單前檢查庫存。
@@ -186,7 +223,23 @@
 注意：
 
 - 開放領取月份目前使用 `system_config.QT_OPEN_PICKUP_MONTH`，不需 migration。
+- QT Email 通知目前不自動寄送；管理端按鈕會透過 Apps Script `MailApp.sendEmail` 手動寄送，再回寫 API 紀錄結果。
+- QT Phase 2A 新庫存主檔從 `202609` 開始，`qtType` 使用 `ADULT` / `CHILD`；2026-08 含以前 legacy 資料不會自動匯入 Reserved/Retail/Physical 模型。
 - 匯款證明審核、領取自動扣庫存防重、正式 stock ledger/月結、QT 與 Counter 金流關聯需先看 `docs/reviews/QT_DBA_REVIEW.md`。
+
+### QT Phase 2B Reservation API
+
+- `GET /qt/inventory/reservations`：查詢 QT reservation records，支援 `reservationId`, `inventoryId`, `qtMonth`, `qtType`, `churchId`, `orderId`, `orderItemId`, `memberId`, `status`。
+- `POST /qt/inventory/reservations`：建立 QT reservation。會在 transaction 內鎖定 `qt_inventory_monthly`，增加 Reserved Inventory、減少 Retail Inventory、保持 Physical Inventory 不變，並寫入 `qt_inventory_movements` 與 `audit_logs`。
+- `POST /qt/inventory/reservations/:reservationId/release`：釋放 QT reservation。會在 transaction 內恢復 Retail Inventory、減少 Reserved Inventory、保持 Physical Inventory 不變，並寫入 `qt_inventory_movements` 與 `audit_logs`。
+- `POST /qt/orders/:orderId/payment/approve`：Phase 3B-1/3B-2 受控付款審核入口。僅處理 2026-09 含以後 QT 訂單項目，將待審核付款轉為 `posted`，在同一 transaction 建立 active reservation、扣減 Retail Inventory、寫入 inventory log 與 audit log；不修改 fulfill、Line Bot、Transfer 或 Forecast。
+- `POST /qt/order-items/:orderItemId/fulfill`：Package A 同堂領取入口。僅處理 2026-09 含以後、已付款且已有 active reservation 的 QT order item；在同一 transaction 將 reservation 轉 `fulfilled`、更新 `qt_order_items.is_received`、扣減 Physical / Reserved Inventory，並寫入 inventory log 與 audit log。不支援跨堂領取。
+
+限制：
+
+- Phase 3B 付款審核僅限受控管理端入口，不會自動 backfill legacy 資料。
+- Package A 領取僅限同堂，不處理跨堂 Transfer。
+- Phase 2B 不會修改 Line Bot、Transfer 或 Forecast。
 
 ## Asset / Admin Supply
 

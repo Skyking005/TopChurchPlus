@@ -1,6 +1,7 @@
 const { pool, tx } = require('../db');
 const { recordAuditLog } = require('./audit');
 const { Repository } = require('./repository');
+const { getMappedFlatValue, saveMappedFlatValue } = require('./config-service');
 
 const SECRET_MASK = '********';
 
@@ -32,14 +33,21 @@ async function getConfigValues(keys, options = {}, client = pool) {
     );
     rows = result.rows;
   } catch (err) {
-    if (err.code === '42P01') return {};
-    throw err;
+    if (err.code === '42P01') rows = [];
+    else throw err;
   }
 
-  return rows.reduce((acc, row) => {
+  const values = rows.reduce((acc, row) => {
     acc[row.config_key] = options.revealSecrets ? row.config_value : maskSecret(row.config_value, row.is_secret);
     return acc;
   }, {});
+
+  for (const key of normalizedKeys) {
+    const mappedValue = await getMappedFlatValue(key, options, client);
+    if (mappedValue !== null && mappedValue !== undefined) values[key] = mappedValue;
+  }
+
+  return values;
 }
 
 async function getConfigValue(key, options = {}, client = pool) {
@@ -83,6 +91,13 @@ async function saveConfig(entry, currentUser = {}) {
       beforeData: before ? mapConfig(before) : null,
       afterData: mapConfig(saved)
     }, client);
+
+    await saveMappedFlatValue(config.config_key, {
+      configValue: config.config_value,
+      description: config.description,
+      isSecret: config.is_secret,
+      enabled: config.enabled
+    }, currentUser);
 
     return mapConfig(saved);
   });

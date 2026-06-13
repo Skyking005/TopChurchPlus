@@ -110,6 +110,59 @@
 
 功能使用紀錄，用於入口使用頻率與 UX 分析。
 
+### system_config_keys
+
+Migration: `database/20260613_config_key_management.sql`
+
+Central configurable key store for system and module settings.
+
+Columns:
+- `id`
+- `namespace`
+- `config_key`
+- `config_value`
+- `value_type`: `string|number|boolean|json`
+- `is_secret`
+- `is_enabled`
+- `description`
+- `created_at`
+- `updated_at`
+- `updated_by`
+
+Rules:
+- `(namespace, config_key)` is unique.
+- API/UI responses mask `is_secret` values.
+- Audit logs store masked before/after values only.
+- Legacy `system_config` remains for compatibility; mapped flat keys such as `LINE_*` and `QT_OPEN_PICKUP_MONTH` are synchronized into `system_config_keys`.
+
+### mail_queue
+
+Migration：`database/20260613_mail_queue.sql`
+
+共用 Email 佇列表。所有 Apps Script Email 必須先寫入此表，再由 `processPendingMails()` 排程依 MailApp quota 批次寄送。
+
+欄位概念：
+
+- `module_key`
+- `business_id`
+- `event_type`
+- `dedupe_key`
+- `recipient_email`
+- `subject`
+- `body`
+- `html_body`
+- `status`: `PENDING|SENT|FAILED|SKIPPED`
+- `priority`: `HIGH|NORMAL|LOW`
+- `retry_count`
+- `scheduled_at`
+- `sent_at`
+- `metadata`
+
+注意：
+
+- `dedupe_key` 在 `PENDING` / `SENT` 狀態下不可重複，用來避免同事件重複寄信。
+- 實際發送仍由 Apps Script `MailApp` 執行，API 只保存佇列與狀態。
+
 ## Common Foundation
 
 ### files
@@ -299,6 +352,46 @@ QT：
 
 ## Line App / LIFF
 
+## QT Phase 2A Inventory Foundation
+
+Migration: `database/20260613_qt_phase2a_inventory_foundation.sql`
+
+新增資料表：
+
+- `qt_inventory_monthly`
+
+用途：
+
+- QT 2026-09 起的新月度庫存主檔。
+- 一筆資料代表同一會堂、同一 QT 月份、同一 QT 類型的庫存狀態。
+
+主要欄位：
+
+- `qt_month`: 6 碼年月，格式 `YYYYMM`。
+- `qt_type`: `ADULT` 或 `CHILD`。
+- `church_id`
+- `physical_quantity`
+- `reserved_quantity`
+- `retail_quantity`
+- `estimated_inbound_quantity`
+- `actual_inbound_quantity`
+- `status`
+- `created_at`
+- `updated_at`
+
+約束：
+
+- `(church_id, qt_month, qt_type)` 不可重複。
+- `qt_month >= '202609'`，2026-08 含以前維持 legacy period。
+- `qt_type IN ('ADULT', 'CHILD')`。
+- 庫存數量不得小於 0。
+- `physical_quantity = reserved_quantity + retail_quantity`。
+
+既有表調整：
+
+- `qt_inventory_movements` 新增 `inventory_id`、`qt_month`、`qt_type`、`metadata`，供 Phase 2A 後續異動紀錄與新模型關聯使用。
+- 既有 `qt_inventory_movements` legacy rows 不會自動 backfill 到 `qt_inventory_monthly`。
+
 主要 migration：
 
 - `database/20260607_liff_foundation.sql`
@@ -344,6 +437,63 @@ Admin Supply：
 Qrcode：
 
 - 活動報到與櫃台掃描。
+
+## QT Phase 2B Inventory Reservations
+
+Migration: `database/20260613_qt_phase2b_inventory_reservations.sql`
+
+新增資料表：
+
+- `qt_inventory_reservations`
+
+用途：
+
+- 記錄 QT 月庫存的保留量。
+- Phase 2B 僅提供 reservation foundation，不自動串接付款、領取、Line Bot、Transfer 或 Forecast。
+- `reserved` reservation 會增加 `qt_inventory_monthly.reserved_quantity` 並減少 `retail_quantity`。
+- `released` reservation 會減少 `reserved_quantity` 並恢復 `retail_quantity`。
+- `physical_quantity` 在 reservation / release 時不變。
+
+主要欄位：
+
+- `reservation_id`
+- `inventory_id`
+- `order_id`
+- `order_item_id`
+- `member_id`
+- `quantity`
+- `status`: `reserved`, `released`, `fulfilled`, `cancelled`
+- `reserved_at`
+- `released_at`
+- `fulfilled_at`
+- `created_by_staff_id`
+- `released_by_staff_id`
+- `metadata`
+
+限制：
+
+- `quantity > 0`
+- 同一 `order_item_id` 同時間只能有一筆 active `reserved` reservation。
+- 所有 reservation 寫入需透過 transaction 更新 `qt_inventory_monthly` 並寫入 `qt_inventory_movements`。
+
+`qt_inventory_movements` Phase 2B 新增欄位：
+
+- `reservation_id`
+- `order_id`
+- `order_item_id`
+
+索引：
+
+- `idx_qt_inventory_reservations_inventory`
+- `idx_qt_inventory_reservations_order`
+- `idx_qt_inventory_reservations_member`
+- `idx_qt_inventory_movements_reservation`
+- `idx_qt_inventory_movements_order_item`
+
+Legacy 邊界：
+
+- 2026-08 含以前仍為 legacy period。
+- Phase 2B 未自動 backfill 60 筆 paid-unfulfilled candidates。
 
 ## MSSQL Migration
 

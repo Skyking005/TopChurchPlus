@@ -53,6 +53,7 @@
         <input id="qtOrderKeyword" class="form-control" placeholder="單號/姓名/電話/牧區搜尋" onkeydown="handleQtOrderSearchKey(event)">
         <button type="button" class="btn btn-outline-secondary" onclick="loadQtOrders(1)">搜尋</button>
       </div>
+      <div id="qtPaymentReviewResult" class="small text-muted px-3 pb-3"></div>
 
       <div class="table-responsive">
         <table class="table table-hover tc-table align-middle mb-0">
@@ -152,7 +153,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
           <div>
             <h6 class="mb-1">分堂財務報表</h6>
-            <div class="text-muted small">依月份統計訂購數、數量與金額；匯款審核資料模型需 DBA Review 後實作。</div>
+            <div class="text-muted small">依月份統計訂購數、數量與金額；待審核訂單可由訂單列表受控審核付款。</div>
           </div>
         </div>
         <div class="row g-2 align-items-end qt-search-row tc-page-filter-area">
@@ -175,12 +176,23 @@
 
     <div id="qtReportsPanel" class="qt-panel d-none">
       <div class="p-3 border-top">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h6 class="mb-1">QT 通知與報表</h6>
+            <div class="text-muted small">Email 通知僅由管理端手動觸發，系統不自動寄送。</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="qtNotifyUnreceivedBtn" onclick="sendQtManualNotification('unreceived')">寄送未領取通知</button>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="qtNotifyExpiringBtn" onclick="sendQtManualNotification('expiring')">寄送到期通知</button>
+          </div>
+        </div>
+        <div id="qtNotificationResult" class="small text-muted mb-3"></div>
         <div class="row g-2 align-items-end qt-search-row tc-page-filter-area">
           <div class="col-12 col-md-3">
             <label class="form-label">報表類型</label>
             <select id="qtAnalyticsReportType" class="form-select" onchange="loadQtAnalyticsReport()">
               <option value="expiring">本月到期提醒</option>
-              <option value="pastoral-summary">牧區訂閱統計</option>
+              <option value="pastoral-tree">牧區訂閱統計 Tree</option>
             </select>
           </div>
           <div class="col-12 col-md-3">
@@ -208,6 +220,7 @@
             <div class="text-muted small">供訂購、櫃台與未來 Line App 下單前檢查使用。</div>
           </div>
           <div class="btn-group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="qtRunReconciliationBtn" onclick="loadQtReconciliation()">只讀盤點</button>
             <button type="button" class="btn btn-outline-primary btn-sm" onclick="openQtMovementModal()">新增異動</button>
             <button type="button" class="btn btn-outline-primary btn-sm" onclick="openQtTransferModal()">庫存調撥</button>
           </div>
@@ -215,7 +228,8 @@
         <div class="row g-2 align-items-end mb-3">
           <div class="col-12 col-md-3">
             <label class="form-label">月份</label>
-            <input id="qtIssueMonth" type="month" class="form-control">
+            <select id="qtIssueYear" class="form-select" onchange="loadQtInventory()"></select>
+            <select id="qtIssueMonth" class="form-select mt-2" onchange="loadQtInventory()"></select>
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label">會堂</label>
@@ -223,11 +237,25 @@
           </div>
           <div class="col-12 col-md-3">
             <label class="form-label">QT 類型</label>
-            <select id="qtProductFilter" class="form-select"></select>
+            <select id="qtTypeFilter" class="form-select"></select>
           </div>
           <div class="col-12 col-md-3 d-grid">
             <button type="button" class="btn btn-primary" onclick="loadQtInventory()">查詢庫存</button>
+            <button type="button" class="btn btn-outline-primary mt-2" onclick="openQtMonthlyInventoryModal()">新增月庫存</button>
           </div>
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-md-3">
+            <label class="form-label">異動開始日</label>
+            <input id="qtMovementStartDate" type="date" class="form-control">
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label">異動結束日</label>
+            <input id="qtMovementEndDate" type="date" class="form-control">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-outline-primary" onclick="loadQtMovements()">查詢異動</button>
+          </div>
+        </div>
         </div>
         <div class="row g-3">
           <div class="col-12 col-xl-7">
@@ -238,9 +266,11 @@
                     <th>月份</th>
                     <th>會堂</th>
                     <th>QT 類型</th>
-                    <th class="text-end">入庫</th>
-                    <th class="text-end">出庫/預扣</th>
-                    <th class="text-end">可用庫存</th>
+                    <th class="text-end">預計入庫</th>
+                    <th class="text-end">實際入庫</th>
+                    <th class="text-end">Physical</th>
+                    <th class="text-end">Reserved</th>
+                    <th class="text-end">Retail</th>
                   </tr>
                 </thead>
                 <tbody id="qtInventoryTableBody"></tbody>
@@ -263,6 +293,27 @@
             </div>
           </div>
           <div class="col-12">
+            <div id="qtReconciliationSummary" class="small text-muted mb-2"></div>
+            <div class="table-responsive border rounded mb-3">
+              <table class="table table-sm table-hover tc-table align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>盤點狀態</th>
+                    <th>月份</th>
+                    <th>會堂</th>
+                    <th>QT 類型</th>
+                    <th class="text-end">Physical</th>
+                    <th class="text-end">Reserved</th>
+                    <th class="text-end">Retail</th>
+                    <th class="text-end">Active Reservations</th>
+                    <th>例外</th>
+                  </tr>
+                </thead>
+                <tbody id="qtReconciliationTableBody">
+                  <tr><td colspan="9" class="tc-empty-state">尚未執行只讀盤點</td></tr>
+                </tbody>
+              </table>
+            </div>
             <div class="table-responsive border rounded">
               <table class="table table-sm table-hover tc-table align-middle mb-0">
                 <thead>
@@ -298,6 +349,63 @@
   </div>
 </div>
 
+
+<div class="modal fade" id="qtMonthlyInventoryModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">新增 QT 月庫存</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">年份</label>
+            <select id="qtMonthlyYear" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">月份</label>
+            <select id="qtMonthlyMonth" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">會堂</label>
+            <select id="qtMonthlyChurch" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">QT 類型</label>
+            <select id="qtMonthlyType" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">預計入庫</label>
+            <input id="qtEstimatedInboundQuantity" type="number" min="0" class="form-control">
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">實際入庫</label>
+            <input id="qtActualInboundQuantity" type="number" min="0" class="form-control">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Physical</label>
+            <input id="qtPhysicalQuantity" type="number" min="0" class="form-control" oninput="updateQtRetailQuantityPreview()">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Reserved</label>
+            <input id="qtReservedQuantity" type="number" min="0" class="form-control" oninput="updateQtRetailQuantityPreview()">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">Retail</label>
+            <input id="qtRetailQuantity" type="number" min="0" class="form-control" readonly>
+          </div>
+        </div>
+        <div id="qtMonthlyInventoryError" class="text-danger small mt-3"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="confirmQtMonthlyInventoryBtn" onclick="submitQtMonthlyInventory()">建立</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="qtMovementModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -309,7 +417,8 @@
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <label class="form-label">月份</label>
-            <input id="qtMovementMonth" type="month" class="form-control">
+            <select id="qtMovementYear" class="form-select"></select>
+            <select id="qtMovementMonth" class="form-select mt-2"></select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">會堂</label>
@@ -317,7 +426,7 @@
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">QT 類型</label>
-            <select id="qtMovementProduct" class="form-select"></select>
+            <select id="qtMovementQtType" class="form-select"></select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">異動類型</label>

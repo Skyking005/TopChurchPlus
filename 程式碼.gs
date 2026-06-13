@@ -99,13 +99,139 @@ function loginCounterPin(pinCode, deviceInfo) {
   return apiRequest('post', '/counter/pin-login', payload);
 }
 
+const MAIL_QUEUE_LOW_QUOTA_THRESHOLD = 20;
+const MAIL_QUEUE_DEFAULT_BATCH_SIZE = 30;
+
+const MailQueueService = {
+  enqueueMail(mail, currentUser) {
+    return enqueueMail(mail, currentUser);
+  },
+  processPendingMails(limit) {
+    return processPendingMails(limit);
+  },
+  getRemainingQuota() {
+    return getRemainingMailQuota();
+  },
+  markSent(id, metadata) {
+    return markMailQueueSent(id, metadata);
+  },
+  markFailed(id, errorMessage, metadata) {
+    return markMailQueueFailed(id, errorMessage, metadata);
+  },
+  markSkipped(id, errorMessage, metadata) {
+    return markMailQueueSkipped(id, errorMessage, metadata);
+  }
+};
+
+function enqueueMail(mail, currentUser) {
+  mail = mail || {};
+  return apiRequest('post', '/mail/queue', {
+    currentUser: currentUser || mail.currentUser || {},
+    mail
+  });
+}
+
+function enqueueMails(mails, currentUser) {
+  return apiRequest('post', '/mail/queue/bulk', {
+    currentUser: currentUser || {},
+    mails: Array.isArray(mails) ? mails : []
+  });
+}
+
+function getRemainingMailQuota() {
+  return MailApp.getRemainingDailyQuota();
+}
+
+function getMailQueueStats(currentUser) {
+  const stats = apiRequest('get', '/mail/queue/stats', null, null, currentUser);
+  return Object.assign({}, stats, {
+    remainingQuota: getRemainingMailQuota()
+  });
+}
+
+function processPendingMails(limit) {
+  const requestedLimit = (typeof limit === 'number' || typeof limit === 'string') ? Number(limit) : MAIL_QUEUE_DEFAULT_BATCH_SIZE;
+  const batchSize = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : MAIL_QUEUE_DEFAULT_BATCH_SIZE, 1), 50);
+  const quota = getRemainingMailQuota();
+  if (quota <= 0) return { success: true, processed: 0, sent: 0, failed: 0, remainingQuota: quota };
+  const priority = quota < MAIL_QUEUE_LOW_QUOTA_THRESHOLD ? 'HIGH' : '';
+  const pending = apiRequest('get', '/mail/queue/pending', null, {
+    limit: Math.min(batchSize, quota),
+    priority
+  });
+  const rows = pending.rows || [];
+  const result = { success: true, processed: 0, sent: 0, failed: 0, skipped: 0, remainingQuota: quota };
+
+  rows.forEach(mail => {
+    const currentQuota = getRemainingMailQuota();
+    if (currentQuota <= 0) return;
+    if (currentQuota < MAIL_QUEUE_LOW_QUOTA_THRESHOLD && mail.priority !== 'HIGH') return;
+    try {
+      const message = {
+        to: mail.recipientEmail,
+        subject: mail.subject,
+        body: mail.body
+      };
+      if (mail.htmlBody) message.htmlBody = mail.htmlBody;
+      MailApp.sendEmail(message);
+      markMailQueueSent(mail.id, { remainingQuotaAfterSend: getRemainingMailQuota() });
+      result.sent += 1;
+    } catch (err) {
+      markMailQueueFailed(mail.id, err && err.message ? err.message : String(err), {
+        remainingQuotaAtFailure: getRemainingMailQuota()
+      });
+      result.failed += 1;
+    }
+    result.processed += 1;
+  });
+
+  result.remainingQuota = getRemainingMailQuota();
+  return result;
+}
+
+function markMailQueueSent(id, metadata) {
+  return apiRequest('patch', `/mail/queue/${encodeURIComponent(id)}/sent`, {
+    metadata: metadata || {}
+  });
+}
+
+function markMailQueueFailed(id, errorMessage, metadata) {
+  return apiRequest('patch', `/mail/queue/${encodeURIComponent(id)}/failed`, {
+    errorMessage: errorMessage || '',
+    metadata: metadata || {}
+  });
+}
+
+function markMailQueueSkipped(id, errorMessage, metadata) {
+  return apiRequest('patch', `/mail/queue/${encodeURIComponent(id)}/skipped`, {
+    errorMessage: errorMessage || '',
+    metadata: metadata || {}
+  });
+}
+
+function installMailQueueTrigger() {
+  const handler = 'processPendingMails';
+  ScriptApp.getProjectTriggers().forEach(trigger => {
+    if (trigger.getHandlerFunction && trigger.getHandlerFunction() === handler) {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+  ScriptApp.newTrigger(handler).timeBased().everyMinutes(5).create();
+  return { success: true, message: 'Mail queue trigger installed: every 5 minutes.' };
+}
+
 function sendLoginVerificationEmail(email, code, expiresAt) {
   const expiresText = expiresAt
     ? Utilities.formatDate(new Date(expiresAt), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')
     : '10 分鐘內';
-  MailApp.sendEmail({
-    to: email,
+  return enqueueMail({
+    moduleKey: 'auth',
+    businessId: email,
+    eventType: 'login_verification',
+    dedupeKey: `auth:login_verification:${email}:${code}`,
+    recipientEmail: email,
     subject: 'TopChurchPlus 登入驗證碼',
+    priority: 'HIGH',
     body:
 `您好：
 
@@ -345,9 +471,14 @@ function buildShortUrl_(shortCode) {
 function sendPublicFormEditLinkEmail_(formId, result) {
   if (!result || !result.respondentEmail || !result.editToken || !result.responseId) return;
   const editUrl = getPublicFormEditUrl(formId, result.responseId, result.editToken);
-  MailApp.sendEmail({
-    to: result.respondentEmail,
+  enqueueMail({
+    moduleKey: 'forms',
+    businessId: String(result.responseId),
+    eventType: 'public_form_edit_link',
+    dedupeKey: `forms:${result.responseId}:${result.respondentEmail}:edit_link`,
+    recipientEmail: result.respondentEmail,
     subject: `表單填寫完成：${result.formTitle || '卓越行道會表單'}`,
+    priority: 'NORMAL',
     body:
 `您好：
 
@@ -508,9 +639,65 @@ function getQtInventory(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory', null, {
     issueMonth: filters.issueMonth || '',
+    qtMonth: filters.qtMonth || '',
     churchId: filters.churchId || '',
-    productType: filters.productType || ''
+    productType: filters.productType || '',
+    qtType: filters.qtType || ''
   }, currentUser);
+}
+
+function createQtMonthlyInventory(payload) {
+  payload = payload || {};
+  return apiRequest('post', '/qt/inventory/monthly', payload);
+}
+
+function getQtInventoryReservations(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/inventory/reservations', null, {
+    reservationId: filters.reservationId || '',
+    inventoryId: filters.inventoryId || '',
+    qtMonth: filters.qtMonth || '',
+    issueMonth: filters.issueMonth || '',
+    qtType: filters.qtType || '',
+    productType: filters.productType || '',
+    churchId: filters.churchId || '',
+    orderId: filters.orderId || '',
+    orderItemId: filters.orderItemId || '',
+    memberId: filters.memberId || '',
+    status: filters.status || ''
+  }, currentUser);
+}
+
+function getQtInventoryReconciliation(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/qt/inventory/reconciliation', null, {
+    qtMonth: filters.qtMonth || '',
+    issueMonth: filters.issueMonth || '',
+    qtType: filters.qtType || '',
+    productType: filters.productType || '',
+    churchId: filters.churchId || ''
+  }, currentUser);
+}
+
+function createQtInventoryReservation(payload) {
+  payload = payload || {};
+  return apiRequest('post', '/qt/inventory/reservations', payload);
+}
+
+function releaseQtInventoryReservation(payload) {
+  payload = payload || {};
+  const body = {
+    currentUser: payload.currentUser || {},
+    release: payload.release || {
+      reason: payload.reason || '',
+      note: payload.note || ''
+    }
+  };
+  return apiRequest(
+    'post',
+    '/qt/inventory/reservations/' + encodeURIComponent(payload.reservationId || '') + '/release',
+    body
+  );
 }
 
 function getQtOrders(filters, currentUser) {
@@ -526,12 +713,127 @@ function getQtOrderDetail(orderId, currentUser) {
   return apiRequest('get', '/qt/orders/' + encodeURIComponent(orderId), null, null, currentUser);
 }
 
+function approveQtOrderPayment(payload) {
+  payload = payload || {};
+  if (!payload.orderId) throw new Error('缺少 QT 訂單編號');
+  return apiRequest(
+    'post',
+    '/qt/orders/' + encodeURIComponent(payload.orderId) + '/payment/approve',
+    {
+      currentUser: payload.currentUser || {},
+      payment: payload.payment || {
+        note: payload.note || ''
+      }
+    }
+  );
+}
+
+function fulfillQtOrderItem(payload) {
+  payload = payload || {};
+  if (!payload.orderItemId) throw new Error('缺少 QT 領取明細編號');
+  return apiRequest(
+    'post',
+    '/qt/order-items/' + encodeURIComponent(payload.orderItemId) + '/fulfill',
+    {
+      currentUser: payload.currentUser || {},
+      fulfillment: payload.fulfillment || {
+        churchId: payload.churchId || '',
+        receiverMemberId: payload.receiverMemberId || '',
+        note: payload.note || ''
+      }
+    }
+  );
+}
+
 function getQtReport(type, filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/reports/' + encodeURIComponent(type), null, {
     issueMonth: filters.issueMonth || '',
     pickupStatus: filters.pickupStatus || ''
   }, currentUser);
+}
+
+function previewQtNotification(payload) {
+  payload = payload || {};
+  return apiRequest(
+    'get',
+    '/qt/notifications/' + encodeURIComponent(payload.type || '') + '/preview',
+    null,
+    { issueMonth: payload.issueMonth || '' },
+    payload.currentUser
+  );
+}
+
+function sendQtNotification(payload) {
+  payload = payload || {};
+  const type = payload.type || '';
+  const preview = previewQtNotification(payload);
+  const recipients = preview.recipients || [];
+  const mails = [];
+  const results = recipients.map(recipient => {
+    const result = {
+      memberId: recipient.memberId || '',
+      memberName: recipient.memberName || '',
+      email: recipient.email || '',
+      orderId: recipient.orderId || '',
+      subject: recipient.subject || '',
+      body: recipient.body || '',
+      success: false,
+      error: ''
+    };
+
+    if (!recipient.email) {
+      result.error = 'Missing email';
+      return result;
+    }
+    mails.push({
+      moduleKey: 'qt',
+      businessId: String(recipient.orderId || recipient.memberId || ''),
+      eventType: `qt_${type}`,
+      dedupeKey: `qt:${type}:${payload.issueMonth || preview.issueMonth || ''}:${recipient.orderId || ''}:${recipient.email}`,
+      recipientEmail: recipient.email,
+      subject: recipient.subject || 'TopChurchPlus QT Notification',
+      body: recipient.body || '',
+      priority: 'LOW',
+      metadata: {
+        notificationType: type,
+        issueMonth: payload.issueMonth || preview.issueMonth || '',
+        memberId: recipient.memberId || '',
+        orderId: recipient.orderId || ''
+      }
+    });
+    result.success = true;
+    result.queued = true;
+    return result;
+  });
+
+  const queued = mails.length ? enqueueMails(mails, payload.currentUser) : { queuedCount: 0, duplicateCount: 0 };
+
+  const summary = {
+    recipientCount: recipients.length,
+    successCount: results.filter(row => row.success).length,
+    failedCount: results.filter(row => row.email && !row.success).length,
+    skippedCount: results.filter(row => !row.email).length
+  };
+
+  const recorded = apiRequest(
+    'post',
+    '/qt/notifications/' + encodeURIComponent(type) + '/results',
+    {
+      currentUser: payload.currentUser,
+      issueMonth: payload.issueMonth || preview.issueMonth || '',
+      batchId: `qt-${type}-${new Date().getTime()}`,
+      summary,
+      results
+    }
+  );
+
+  return Object.assign({}, recorded, {
+    recipients,
+    results,
+    queued,
+    message: `QT notification queued. Queued: ${queued.queuedCount || 0}, duplicate: ${queued.duplicateCount || 0}, skipped: ${summary.skippedCount}.`
+  });
 }
 
 function getLineBotDashboard(currentUser) {
@@ -760,8 +1062,12 @@ function getQtInventoryMovements(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/qt/inventory/movements', null, {
     issueMonth: filters.issueMonth || '',
+    qtMonth: filters.qtMonth || '',
     churchId: filters.churchId || '',
-    productType: filters.productType || ''
+    productType: filters.productType || '',
+    qtType: filters.qtType || '',
+    startDate: filters.startDate || '',
+    endDate: filters.endDate || ''
   }, currentUser);
 }
 
@@ -1293,6 +1599,26 @@ function saveIdRule(entityKey, payload) {
   );
 }
 
+function getSystemConfigKeys(filters, currentUser) {
+  filters = filters || {};
+  return apiRequest('get', '/system/config-keys', null, {
+    namespace: filters.namespace || '',
+    keyword: filters.keyword || ''
+  }, currentUser);
+}
+
+function saveSystemConfigKey(payload) {
+  const config = payload.config || {};
+  if (config.namespace && config.configKey) {
+    return apiRequest(
+      'put',
+      `/system/config-keys/${encodeURIComponent(config.namespace)}/${encodeURIComponent(config.configKey)}`,
+      payload
+    );
+  }
+  return apiRequest('post', '/system/config-keys', payload);
+}
+
 function getDevManagementIssues(filters, currentUser) {
   filters = filters || {};
   return apiRequest('get', '/dev-management/issues', null, {
@@ -1713,9 +2039,14 @@ function sendMeetingInvite(payload) {
   if (!emails.length) throw new Error('找不到可寄送的與會者信箱');
 
   const projectName = detail.project ? detail.project['專案名稱'] : '';
-  MailApp.sendEmail({
-    to: emails.join(','),
+  const mails = emails.map(email => ({
+    moduleKey: 'project',
+    businessId: String(payload.meetingId || ''),
+    eventType: 'meeting_invite',
+    dedupeKey: `project:meeting_invite:${payload.meetingId}:${email}`,
+    recipientEmail: email,
     subject: `會議邀請：${projectName}｜${meeting['會議主題']}`,
+    priority: 'HIGH',
     body:
 `您好：
 
@@ -1730,9 +2061,10 @@ ${meeting['討論議題'] || ''}
 
 與會者：
 ${String(meeting['與會者'] || '').split(',').map(name => `- ${name.trim()}`).join('\n')}`
-  });
+  }));
+  const queued = enqueueMails(mails, payload.currentUser);
 
-  return { success: true, message: '會議邀請已寄送' };
+  return { success: true, message: `會議邀請已加入郵件佇列（${queued.queuedCount || 0} queued, ${queued.duplicateCount || 0} duplicate）`, queued };
 }
 
 function apiRequest(method, path, body, query, currentUser) {

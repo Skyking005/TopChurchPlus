@@ -1,11 +1,13 @@
 <script>
-let qtOptions = { productTypes: [], pricePlans: [], churches: [] };
+let qtOptions = { qtTypes: [], productTypes: [], pricePlans: [], churches: [] };
 let qtInventoryRows = [];
 let qtMovementRows = [];
+let qtReconciliationRows = [];
 let qtOrderState = { page: 1, pageSize: 20, total: 0, rows: [] };
 let qtActiveTab = 'orders';
 let qtSettings = { openPickupMonth: '' };
 let qtMovementModalInstance = null;
+let qtMonthlyInventoryModalInstance = null;
 let qtTransferModalInstance = null;
 let qtOrderDetailModalInstance = null;
 
@@ -14,8 +16,9 @@ function openQtSystem() {
   document.getElementById('mainTitle').textContent = 'QT 管理系統';
   hideAllMainViews();
   document.getElementById('qtView').classList.remove('d-none');
-  const month = getCurrentIssueMonth();
-  if (!document.getElementById('qtIssueMonth').value) document.getElementById('qtIssueMonth').value = month;
+  const month = getDefaultQtInventoryYearMonth();
+  setupQtYearMonthControls();
+  setQtYearMonthControl('qtIssue', month);
   ['qtPickupReportMonth', 'qtFinanceReportMonth', 'qtAnalyticsReportMonth'].forEach(id => {
     const input = document.getElementById(id);
     if (input && !input.value) input.value = month;
@@ -29,7 +32,7 @@ function loadQtSystem() {
   loadQtDashboard();
   google.script.run
     .withSuccessHandler(options => {
-      qtOptions = options || { productTypes: [], pricePlans: [], churches: [] };
+      qtOptions = options || { qtTypes: [], productTypes: [], pricePlans: [], churches: [] };
       setupQtOptions();
       renderQtPricePlans();
       switchQtTab(qtActiveTab || 'orders');
@@ -179,13 +182,52 @@ function loadQtReportTo({ type, monthId, headId, bodyId, filters = {} }) {
     }, filters), currentUser);
 }
 
+function sendQtManualNotification(type) {
+  const month = document.getElementById('qtAnalyticsReportMonth')?.value || getCurrentIssueMonth();
+  const label = type === 'unreceived' ? '未領取通知' : '即將到期通知';
+  if (!confirm(`確認手動寄送 ${label}？\n月份：${month}`)) return;
+
+  const btn = document.getElementById(type === 'unreceived' ? 'qtNotifyUnreceivedBtn' : 'qtNotifyExpiringBtn');
+  const resultEl = document.getElementById('qtNotificationResult');
+  if (resultEl) resultEl.textContent = `${label}處理中...`;
+  setButtonLoading(btn, true, '處理中...');
+
+  google.script.run
+    .withSuccessHandler(result => {
+      setButtonLoading(btn, false);
+      renderQtNotificationResult(label, result || {});
+      loadQtAnalyticsReport();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      if (resultEl) resultEl.innerHTML = `<span class="text-danger">${escapeHtml(err.message || err)}</span>`;
+      showError(err);
+    })
+    .sendQtNotification({
+      currentUser,
+      type,
+      issueMonth: `${month}-01`
+    });
+}
+
+function renderQtNotificationResult(label, result) {
+  const el = document.getElementById('qtNotificationResult');
+  if (!el) return;
+  el.innerHTML = `
+    <span class="tc-badge-success">${escapeHtml(label)}已完成</span>
+    <span class="ms-2">成功 ${escapeHtml(result.successCount || 0)}，失敗 ${escapeHtml(result.failedCount || 0)}，略過 ${escapeHtml(result.skippedCount || 0)}</span>
+  `;
+}
+
 function setupQtOptions() {
   fillQtChurchSelect('qtChurchFilter', true);
   fillQtChurchSelect('qtMovementChurch', false);
+  fillQtChurchSelect('qtMonthlyChurch', false);
   fillQtChurchSelect('qtTransferFromChurch', false);
   fillQtChurchSelect('qtTransferToChurch', false);
-  fillQtProductSelect('qtProductFilter', true);
-  fillQtProductSelect('qtMovementProduct', false);
+  fillQtTypeSelect('qtTypeFilter', true);
+  fillQtTypeSelect('qtMovementQtType', false);
+  fillQtTypeSelect('qtMonthlyType', false);
   fillQtProductSelect('qtTransferProduct', false);
 }
 
@@ -224,7 +266,7 @@ function renderQtOrders() {
         <td>${escapeHtml(row.memberName)}</td>
         <td>${escapeHtml(row.mobilePhone)}</td>
         <td>${escapeHtml(formatQtMonthRange(row.startMonth, row.endMonth))}</td>
-        <td><button type="button" class="btn btn-sm btn-outline-secondary" onclick="openQtOrderDetail(${escapeAttr(row.orderId)})">詳情</button></td>
+        <td>${renderQtOrderActions(row)}</td>
         <td>${escapeHtml(row.planName)}</td>
         <td class="text-end">${escapeHtml(row.quantity)}</td>
         <td class="text-end">${escapeHtml(row.amount)}</td>
@@ -236,6 +278,77 @@ function renderQtOrders() {
   }
   const pageCount = Math.max(Math.ceil((qtOrderState.total || 0) / (qtOrderState.pageSize || 20)), 1);
   document.getElementById('qtOrderPageInfo').textContent = `第 ${qtOrderState.page} / ${pageCount} 頁，共 ${qtOrderState.total} 筆`;
+}
+
+function renderQtOrderActions(row) {
+  const detailButton = `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="openQtOrderDetail(${escapeAttr(row.orderId)})">詳情</button>`;
+  if (!isQtPaymentReviewCandidate(row)) return detailButton;
+  return `
+    <div class="btn-group btn-group-sm">
+      ${detailButton}
+      <button type="button" class="btn btn-outline-primary" id="qtApprovePaymentBtn${escapeAttr(row.orderId)}" onclick="approveQtPayment(${escapeAttr(row.orderId)})">審核付款</button>
+    </div>
+  `;
+}
+
+function isQtPaymentReviewCandidate(row) {
+  if (!row || row.orderStatus === 'cancelled' || row.financeStatus !== 'received') return false;
+  const endMonth = String(row.endMonth || '').slice(0, 7).replace('-', '');
+  const startMonth = String(row.startMonth || '').slice(0, 7).replace('-', '');
+  return (endMonth && endMonth >= '202609') || (startMonth && startMonth >= '202609');
+}
+
+function approveQtPayment(orderId) {
+  const row = (qtOrderState.rows || []).find(item => String(item.orderId) === String(orderId)) || {};
+  if (!isQtPaymentReviewCandidate(row) && !confirm('此訂單不在目前列表的 2026-09 後待審核範圍內，仍要送出受控審核？')) return;
+  if (!confirm(`確認將 QT 訂單 ${orderId} 審核為已付款，並建立 2026-09 以後的 Reserved Inventory？`)) return;
+
+  const btn = document.getElementById(`qtApprovePaymentBtn${orderId}`);
+  const resultEl = document.getElementById('qtPaymentReviewResult');
+  if (resultEl) resultEl.textContent = `訂單 ${orderId} 付款審核處理中...`;
+  setButtonLoading(btn, true, '審核中...');
+
+  google.script.run
+    .withSuccessHandler(result => {
+      setButtonLoading(btn, false);
+      renderQtPaymentReviewResult(result || {});
+      loadQtDashboard();
+      loadQtOrders(qtOrderState.page || 1);
+      if (qtActiveTab === 'finance') loadQtFinanceReport();
+      if (qtActiveTab === 'inventory') {
+        loadQtInventory();
+        loadQtReconciliation();
+      }
+      if (qtOrderDetailModalInstance) {
+        try { qtOrderDetailModalInstance.hide(); } catch (err) {}
+      }
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      if (resultEl) {
+        resultEl.innerHTML = `<span class="tc-badge-danger">付款審核未完成</span><span class="ms-2">${escapeHtml(err.message || err)}</span>`;
+      }
+      showError(err);
+    })
+    .approveQtOrderPayment({
+      currentUser,
+      orderId,
+      payment: {
+        note: 'Approved from QT admin payment review UI.'
+      }
+    });
+}
+
+function renderQtPaymentReviewResult(result) {
+  const el = document.getElementById('qtPaymentReviewResult');
+  if (!el) return;
+  const reservationCount = (result.reservations || []).length;
+  const movementCount = (result.movementIds || []).length;
+  const status = result.alreadyPaid ? '已是付款狀態' : '付款審核完成';
+  el.innerHTML = `
+    <span class="tc-badge-success">${escapeHtml(status)}</span>
+    <span class="ms-2">訂單 ${escapeHtml(result.orderId || '')}，Reservation ${escapeHtml(reservationCount)} 筆，Inventory Log ${escapeHtml(movementCount)} 筆，Audit Log ${result.auditLogCreated === false ? '未新增' : '已寫入'}</span>
+  `;
 }
 
 function changeQtOrderPage(delta) {
@@ -273,6 +386,11 @@ function renderQtOrderDetail(row) {
       <div class="col-12 col-md-4"><div class="text-muted small">狀態</div><div>${renderQtOrderStatus(row)}</div></div>
       <div class="col-12"><div class="text-muted small">訂購方案</div><div>${escapeHtml(row.planName)}，${escapeHtml(formatQtMonthRange(row.startMonth, row.endMonth))}，${escapeHtml(row.quantity)} 份，${escapeHtml(row.amount)} 元</div></div>
     </div>
+    ${isQtPaymentReviewCandidate(row) ? `
+      <div class="d-flex justify-content-end mb-3">
+        <button type="button" class="btn btn-primary btn-sm" id="qtApprovePaymentBtn${escapeAttr(row.orderId)}" onclick="approveQtPayment(${escapeAttr(row.orderId)})">審核付款並建立 Reservation</button>
+      </div>
+    ` : ''}
     <div class="table-responsive border rounded">
       <table class="table table-sm align-middle mb-0">
         <thead><tr><th>月份</th><th>領取狀態</th><th>領取人</th><th>領取時間</th></tr></thead>
@@ -295,8 +413,9 @@ function setupQtReportHead(type, headId) {
   const heads = {
     finance: ['會堂', '付款方式', '財務狀態', '訂單數', '數量', '金額'],
     expiring: ['訂單編號', '牧區', '姓名', '電話', '訂購區間', '方案', '狀態'],
-    pickup: ['會堂', '牧區', '姓名', '電話', '訂單編號', '方案', '領取狀態', '領取時間'],
-    'pastoral-summary': ['會堂', '牧區', '方案', '訂單數', '數量', '金額']
+    pickup: ['會堂', '牧區', '姓名', '電話', '訂單編號', '方案', '領取狀態', '領取時間', '操作'],
+    'pastoral-summary': ['會堂', '牧區', '方案', '訂單數', '數量', '金額'],
+    'pastoral-tree': ['牧區訂閱統計 Tree']
   };
   document.getElementById(headId).innerHTML = `<tr>${(heads[type] || []).map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>`;
 }
@@ -304,6 +423,10 @@ function setupQtReportHead(type, headId) {
 function renderQtReport(type, rows, bodyId) {
   const body = document.getElementById(bodyId);
   body.innerHTML = '';
+  if (type === 'pastoral-tree') {
+    renderQtPastoralTreeReport(rows, body);
+    return;
+  }
   if (!rows.length) {
     body.innerHTML = '<tr><td colspan="8" class="tc-empty-state">此月份沒有報表資料</td></tr>';
     return;
@@ -339,6 +462,7 @@ function renderQtReport(type, rows, bodyId) {
         <td>${escapeHtml(row.planName)}</td>
         <td>${row.isReceived ? '<span class="tc-badge-success">已領取</span>' : '<span class="tc-badge-warning">未領取</span>'}</td>
         <td>${escapeHtml(formatQtDateTime(row.receivedAt))}</td>
+        <td>${renderQtPickupActions(row)}</td>
       `;
     } else {
       tr.innerHTML = `
@@ -352,6 +476,127 @@ function renderQtReport(type, rows, bodyId) {
     }
     body.appendChild(tr);
   });
+}
+
+function renderQtPickupActions(row) {
+  if (row.isReceived) return '<span class="text-muted small">已完成</span>';
+  if (!row.orderItemId) return '<span class="text-muted small">缺少明細編號</span>';
+  return `<button type="button" class="btn btn-sm btn-outline-primary" id="qtFulfillItemBtn${escapeAttr(row.orderItemId)}" onclick="fulfillQtPickupItem(${escapeAttr(row.orderItemId)})">同堂領取</button>`;
+}
+
+function fulfillQtPickupItem(orderItemId) {
+  if (!confirm(`確認完成 QT 領取？\n明細編號：${orderItemId}\n此動作僅支援同堂領取，會扣 Physical Inventory 並將 reservation 轉為 fulfilled。`)) return;
+  const btn = document.getElementById(`qtFulfillItemBtn${orderItemId}`);
+  setButtonLoading(btn, true, '處理中...');
+  google.script.run
+    .withSuccessHandler(result => {
+      setButtonLoading(btn, false);
+      alert(result.message || 'QT 領取已完成');
+      loadQtDashboard();
+      loadQtPickupReport();
+      if (qtActiveTab === 'inventory') {
+        loadQtInventory();
+        loadQtReconciliation();
+      }
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      showError(err);
+    })
+    .fulfillQtOrderItem({
+      currentUser,
+      orderItemId,
+      fulfillment: {
+        note: 'Fulfilled from QT pickup management.'
+      }
+    });
+}
+
+function renderQtPastoralTreeReport(data, body) {
+  const tree = data?.tree || [];
+  if (!tree.length) {
+    body.innerHTML = '<tr><td colspan="1" class="tc-empty-state">此月份沒有牧區統計資料</td></tr>';
+    return;
+  }
+  const totals = data.totals || {};
+  body.innerHTML = `
+    <tr>
+      <td>
+        <div class="qt-tree-report">
+          <div class="qt-tree-summary">
+            訂單 ${escapeHtml(totals.orderCount || 0)} /
+            數量 ${escapeHtml(totals.quantity || 0)} /
+            金額 ${escapeHtml(totals.amount || 0)} /
+            已領 ${escapeHtml(totals.receivedCount || 0)} /
+            未領 ${escapeHtml(totals.unreceivedCount || 0)}
+          </div>
+          ${tree.map(node => renderQtTreeNode(node, 0)).join('')}
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function renderQtTreeNode(node, depth) {
+  const metrics = node.metrics || {};
+  const children = node.children || [];
+  const openAttr = depth < 1 ? ' open' : '';
+  return `
+    <details class="qt-tree-node qt-tree-depth-${depth}"${openAttr}>
+      <summary>
+        <span>${escapeHtml(node.label || '')}</span>
+        <span class="qt-tree-metrics">
+          訂單 ${escapeHtml(metrics.orderCount || 0)}
+          <span>數量 ${escapeHtml(metrics.quantity || 0)}</span>
+          <span>金額 ${escapeHtml(metrics.amount || 0)}</span>
+          <span>已領 ${escapeHtml(metrics.receivedCount || 0)}</span>
+          <span>未領 ${escapeHtml(metrics.unreceivedCount || 0)}</span>
+        </span>
+      </summary>
+      ${children.length ? `<div class="qt-tree-children">${children.map(child => renderQtTreeNode(child, depth + 1)).join('')}</div>` : ''}
+    </details>
+  `;
+}
+
+function getDefaultQtInventoryYearMonth() {
+  const current = getCurrentIssueMonth().replace('-', '');
+  const cutover = '202609';
+  const value = current < cutover ? cutover : current;
+  return `${value.slice(0, 4)}-${value.slice(4, 6)}`;
+}
+
+function setupQtYearMonthControls() {
+  ['qtIssue', 'qtMovement', 'qtMonthly'].forEach(prefix => {
+    const yearSelect = document.getElementById(`${prefix}Year`);
+    const monthSelect = document.getElementById(`${prefix}Month`);
+    if (!yearSelect || !monthSelect || yearSelect.dataset.ready === '1') return;
+    const currentYear = new Date().getFullYear();
+    yearSelect.innerHTML = [currentYear, currentYear + 1]
+      .map(year => `<option value="${year}">${year}</option>`)
+      .join('');
+    monthSelect.innerHTML = Array.from({ length: 12 }, (_, index) => {
+      const month = String(index + 1).padStart(2, '0');
+      return `<option value="${month}">${index + 1} 月</option>`;
+    }).join('');
+    yearSelect.dataset.ready = '1';
+  });
+}
+
+function setQtYearMonthControl(prefix, yearMonth) {
+  setupQtYearMonthControls();
+  const normalized = (yearMonth || getDefaultQtInventoryYearMonth()).replace('-', '');
+  const year = normalized.slice(0, 4);
+  const month = normalized.slice(4, 6);
+  const yearSelect = document.getElementById(`${prefix}Year`);
+  const monthSelect = document.getElementById(`${prefix}Month`);
+  if (yearSelect) yearSelect.value = year;
+  if (monthSelect) monthSelect.value = month;
+}
+
+function getQtYearMonthControl(prefix) {
+  const year = document.getElementById(`${prefix}Year`)?.value || getDefaultQtInventoryYearMonth().slice(0, 4);
+  const month = document.getElementById(`${prefix}Month`)?.value || getDefaultQtInventoryYearMonth().slice(5, 7);
+  return `${year}${month}`;
 }
 
 function fillQtChurchSelect(id, includeAll) {
@@ -374,6 +619,18 @@ function fillQtProductSelect(id, includeAll) {
     const opt = document.createElement('option');
     opt.value = type.productType;
     opt.textContent = type.productName;
+    select.appendChild(opt);
+  });
+}
+
+function fillQtTypeSelect(id, includeAll) {
+  const select = document.getElementById(id);
+  if (!select) return;
+  select.innerHTML = includeAll ? '<option value="">全部 QT 類型</option>' : '';
+  (qtOptions.qtTypes || []).forEach(type => {
+    const opt = document.createElement('option');
+    opt.value = type.qtType;
+    opt.textContent = type.label;
     select.appendChild(opt);
   });
 }
@@ -401,12 +658,78 @@ function loadQtMovements() {
     .getQtInventoryMovements(getQtFilters(), currentUser);
 }
 
+function loadQtReconciliation() {
+  const btn = document.getElementById('qtRunReconciliationBtn');
+  const body = document.getElementById('qtReconciliationTableBody');
+  if (body) body.innerHTML = '<tr><td colspan="9" class="tc-loading-state"><span class="spinner-border spinner-border-sm me-2"></span>只讀盤點中...</td></tr>';
+  setButtonLoading(btn, true, '盤點中...');
+  google.script.run
+    .withSuccessHandler(result => {
+      setButtonLoading(btn, false);
+      qtReconciliationRows = result?.rows || [];
+      renderQtReconciliation(result || {});
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      if (body) body.innerHTML = `<tr><td colspan="9" class="text-danger">${escapeHtml(err.message || err)}</td></tr>`;
+      showError(err);
+    })
+    .getQtInventoryReconciliation(getQtFilters(), currentUser);
+}
+
 function getQtFilters() {
+  const qtMonth = getQtYearMonthControl('qtIssue');
   return {
-    issueMonth: `${document.getElementById('qtIssueMonth').value || getCurrentIssueMonth()}-01`,
+    qtMonth,
+    issueMonth: `${qtMonth.slice(0, 4)}-${qtMonth.slice(4, 6)}-01`,
     churchId: document.getElementById('qtChurchFilter').value,
-    productType: document.getElementById('qtProductFilter').value
+    qtType: document.getElementById('qtTypeFilter').value,
+    startDate: document.getElementById('qtMovementStartDate')?.value || '',
+    endDate: document.getElementById('qtMovementEndDate')?.value || ''
   };
+}
+
+function renderQtReconciliation(result) {
+  const summary = result.summary || {};
+  const summaryEl = document.getElementById('qtReconciliationSummary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <span class="tc-badge-info">只讀盤點</span>
+      <span class="ms-2">總數 ${escapeHtml(summary.total || 0)}，正常 ${escapeHtml(summary.healthy || 0)}，警告 ${escapeHtml(summary.warning || 0)}，嚴重 ${escapeHtml(summary.critical || 0)}，例外 ${escapeHtml(summary.exceptionCount || 0)}</span>
+    `;
+  }
+
+  const body = document.getElementById('qtReconciliationTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!qtReconciliationRows.length) {
+    body.innerHTML = '<tr><td colspan="9" class="tc-empty-state">目前篩選條件沒有可盤點的 2026-09 後庫存資料</td></tr>';
+    return;
+  }
+  qtReconciliationRows.forEach(row => {
+    const tr = document.createElement('tr');
+    const exceptions = (row.exceptions || []).map(item => item.code).join(', ');
+    tr.innerHTML = `
+      <td>${formatQtReconciliationHealth(row.health)}</td>
+      <td>${escapeHtml(row.qtMonth || '')}</td>
+      <td>${escapeHtml(row.churchName || '')}</td>
+      <td>${escapeHtml(row.qtTypeLabel || row.qtType || '')}</td>
+      <td class="text-end">${escapeHtml(row.physicalQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.reservedQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.retailQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.activeReservationQuantity || 0)}</td>
+      <td>${escapeHtml(exceptions || 'OK')}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function formatQtReconciliationHealth(health) {
+  if (health === 'healthy') return '<span class="tc-badge-success">正常</span>';
+  if (health === 'warning') return '<span class="tc-badge-warning">警告</span>';
+  if (health === 'critical') return '<span class="tc-badge-danger">嚴重</span>';
+  if (health === 'legacyReview') return '<span class="tc-badge-secondary">Legacy Review</span>';
+  return `<span class="tc-badge-secondary">${escapeHtml(health || '')}</span>`;
 }
 
 function renderQtInventory() {
@@ -426,6 +749,30 @@ function renderQtInventory() {
       <td class="text-end">${escapeHtml(row.inboundQuantity || 0)}</td>
       <td class="text-end">${escapeHtml(row.outboundQuantity || 0)}</td>
       <td class="text-end ${stockClass}">${escapeHtml(row.availableQuantity || 0)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function renderQtInventory() {
+  const body = document.getElementById('qtInventoryTableBody');
+  body.innerHTML = '';
+  if (!qtInventoryRows.length) {
+    body.innerHTML = '<tr><td colspan="8" class="tc-empty-state">尚無 QT 月庫存資料</td></tr>';
+    return;
+  }
+  qtInventoryRows.forEach(row => {
+    const stockClass = row.retailQuantity <= 0 ? 'text-danger fw-bold' : 'text-success fw-bold';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(row.qtMonth || (row.issueMonth || '').slice(0, 7).replace('-', ''))}</td>
+      <td>${escapeHtml(row.churchName)}</td>
+      <td>${escapeHtml(row.qtTypeLabel || row.qtType || row.productName)}</td>
+      <td class="text-end">${escapeHtml(row.estimatedInboundQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.actualInboundQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.physicalQuantity || 0)}</td>
+      <td class="text-end">${escapeHtml(row.reservedQuantity || 0)}</td>
+      <td class="text-end ${stockClass}">${escapeHtml(row.retailQuantity || 0)}</td>
     `;
     body.appendChild(tr);
   });
@@ -469,10 +816,66 @@ function renderQtPricePlans() {
   });
 }
 
+function openQtMonthlyInventoryModal() {
+  setQtYearMonthControl('qtMonthly', `${getQtYearMonthControl('qtIssue').slice(0, 4)}-${getQtYearMonthControl('qtIssue').slice(4, 6)}`);
+  document.getElementById('qtMonthlyChurch').value = document.getElementById('qtChurchFilter').value || qtOptions.churches[0]?.churchId || '';
+  document.getElementById('qtMonthlyType').value = document.getElementById('qtTypeFilter').value || qtOptions.qtTypes[0]?.qtType || 'ADULT';
+  document.getElementById('qtEstimatedInboundQuantity').value = '0';
+  document.getElementById('qtActualInboundQuantity').value = '0';
+  document.getElementById('qtPhysicalQuantity').value = '';
+  document.getElementById('qtReservedQuantity').value = '0';
+  document.getElementById('qtRetailQuantity').value = '';
+  document.getElementById('qtMonthlyInventoryError').textContent = '';
+  qtMonthlyInventoryModalInstance = bootstrap.Modal.getOrCreateInstance(document.getElementById('qtMonthlyInventoryModal'));
+  qtMonthlyInventoryModalInstance.show();
+}
+
+function updateQtRetailQuantityPreview() {
+  const physical = Number(document.getElementById('qtPhysicalQuantity')?.value || 0);
+  const reserved = Number(document.getElementById('qtReservedQuantity')?.value || 0);
+  const retail = Math.max(physical - reserved, 0);
+  const input = document.getElementById('qtRetailQuantity');
+  if (input) input.value = retail;
+}
+
+function submitQtMonthlyInventory() {
+  updateQtRetailQuantityPreview();
+  const btn = document.getElementById('confirmQtMonthlyInventoryBtn');
+  const errorBox = document.getElementById('qtMonthlyInventoryError');
+  const inventory = {
+    qtMonth: getQtYearMonthControl('qtMonthly'),
+    qtType: document.getElementById('qtMonthlyType').value,
+    churchId: document.getElementById('qtMonthlyChurch').value,
+    estimatedInboundQuantity: Number(document.getElementById('qtEstimatedInboundQuantity').value || 0),
+    actualInboundQuantity: Number(document.getElementById('qtActualInboundQuantity').value || 0),
+    physicalQuantity: Number(document.getElementById('qtPhysicalQuantity').value || 0),
+    reservedQuantity: Number(document.getElementById('qtReservedQuantity').value || 0),
+    retailQuantity: Number(document.getElementById('qtRetailQuantity').value || 0)
+  };
+  errorBox.textContent = '';
+  if (!inventory.physicalQuantity && inventory.physicalQuantity !== 0) {
+    errorBox.textContent = '請輸入 Physical Inventory。';
+    return;
+  }
+  setButtonLoading(btn, true, '建立中...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      qtMonthlyInventoryModalInstance.hide();
+      alert(res.message || 'QT 月庫存已建立');
+      loadQtInventory();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      errorBox.textContent = err.message || err;
+    })
+    .createQtMonthlyInventory({ currentUser, inventory });
+}
+
 function openQtMovementModal() {
-  document.getElementById('qtMovementMonth').value = document.getElementById('qtIssueMonth').value || getCurrentIssueMonth();
+  setQtYearMonthControl('qtMovement', `${getQtYearMonthControl('qtIssue').slice(0, 4)}-${getQtYearMonthControl('qtIssue').slice(4, 6)}`);
   document.getElementById('qtMovementChurch').value = document.getElementById('qtChurchFilter').value || qtOptions.churches[0]?.churchId || '';
-  document.getElementById('qtMovementProduct').value = document.getElementById('qtProductFilter').value || qtOptions.productTypes[0]?.productType || '';
+  document.getElementById('qtMovementQtType').value = document.getElementById('qtTypeFilter').value || qtOptions.qtTypes[0]?.qtType || 'ADULT';
   document.getElementById('qtMovementType').value = 'receive';
   document.getElementById('qtMovementQuantity').value = '';
   document.getElementById('qtMovementNote').value = '';
@@ -484,10 +887,12 @@ function openQtMovementModal() {
 function submitQtMovement() {
   const btn = document.getElementById('confirmQtMovementBtn');
   const errorBox = document.getElementById('qtMovementError');
+  const qtMonth = getQtYearMonthControl('qtMovement');
   const movement = {
-    issueMonth: `${document.getElementById('qtMovementMonth').value}-01`,
+    qtMonth,
+    issueMonth: `${qtMonth.slice(0, 4)}-${qtMonth.slice(4, 6)}-01`,
     churchId: document.getElementById('qtMovementChurch').value,
-    productType: document.getElementById('qtMovementProduct').value,
+    qtType: document.getElementById('qtMovementQtType').value,
     movementType: document.getElementById('qtMovementType').value,
     quantity: Number(document.getElementById('qtMovementQuantity').value || 0),
     note: document.getElementById('qtMovementNote').value.trim()
@@ -513,8 +918,8 @@ function submitQtMovement() {
 }
 
 function openQtTransferModal() {
-  document.getElementById('qtTransferMonth').value = document.getElementById('qtIssueMonth').value || getCurrentIssueMonth();
-  document.getElementById('qtTransferProduct').value = document.getElementById('qtProductFilter').value || qtOptions.productTypes[0]?.productType || '';
+  document.getElementById('qtTransferMonth').value = `${getQtYearMonthControl('qtIssue').slice(0, 4)}-${getQtYearMonthControl('qtIssue').slice(4, 6)}`;
+  document.getElementById('qtTransferProduct').value = qtOptions.productTypes[0]?.productType || '';
   document.getElementById('qtTransferFromChurch').value = document.getElementById('qtChurchFilter').value || qtOptions.churches[0]?.churchId || '';
   document.getElementById('qtTransferToChurch').value = qtOptions.churches.find(church => String(church.churchId) !== String(document.getElementById('qtTransferFromChurch').value))?.churchId || '';
   document.getElementById('qtTransferQuantity').value = '';

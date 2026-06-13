@@ -6,6 +6,7 @@ let systemPastoralOptions = null;
 let shortLinks = [];
 let systemLogs = [];
 let idRules = [];
+let systemConfigKeys = [];
 
 const PARAMETER_TYPE_OPTIONS = [
   { key: 'projectTypes', label: '專案類型' },
@@ -52,6 +53,7 @@ function openSystemManagement() {
 }
 
 function setupSystemManagement() {
+  ensureConfigKeyManagementPane();
   hideSystemShortLinkTab();
   renderParameterTypeOptions();
   renderSystemPositionOptions();
@@ -63,6 +65,47 @@ function setupSystemManagement() {
 function hideSystemShortLinkTab() {
   const tab = document.querySelector('[data-bs-target="#shortLinkManagePane"]');
   if (tab) tab.closest('.nav-item')?.classList.add('d-none');
+}
+
+function ensureConfigKeyManagementPane() {
+  if (document.getElementById('configKeyManagePane')) return;
+  const tabs = document.querySelector('#systemView .nav-tabs');
+  const tabContent = document.querySelector('#systemView .tab-content');
+  if (!tabs || !tabContent) return;
+
+  const navItem = document.createElement('li');
+  navItem.className = 'nav-item';
+  navItem.setAttribute('role', 'presentation');
+  navItem.innerHTML = '<button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#configKeyManagePane" onclick="loadSystemConfigKeys()">Config Key Management</button>';
+  const logTab = tabs.querySelector('[data-bs-target="#systemLogPane"]')?.closest('.nav-item');
+  tabs.insertBefore(navItem, logTab || null);
+
+  const pane = document.createElement('div');
+  pane.id = 'configKeyManagePane';
+  pane.className = 'tab-pane fade';
+  pane.innerHTML = `
+    <div class="card mb-3"><div class="card-body">
+      <div class="row g-3 align-items-end">
+        <input id="configKeyEditingOriginal" type="hidden">
+        <div class="col-md-2"><label class="form-label">Namespace</label><input id="configKeyNamespace" class="form-control" placeholder="mail"></div>
+        <div class="col-md-2"><label class="form-label">Key</label><input id="configKeyName" class="form-control" placeholder="sender_email"></div>
+        <div class="col-md-2"><label class="form-label">Value Type</label><select id="configKeyValueType" class="form-select"><option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="json">json</option></select></div>
+        <div class="col-md-3"><label class="form-label">Value</label><input id="configKeyValue" class="form-control" autocomplete="off"></div>
+        <div class="col-md-3"><label class="form-label">Description</label><input id="configKeyDescription" class="form-control"></div>
+        <div class="col-md-2"><div class="form-check mt-4"><input id="configKeyIsSecret" class="form-check-input" type="checkbox" onchange="handleConfigKeySecretToggle()"><label class="form-check-label" for="configKeyIsSecret">Secret</label></div></div>
+        <div class="col-md-2"><div class="form-check mt-4"><input id="configKeyIsEnabled" class="form-check-input" type="checkbox" checked><label class="form-check-label" for="configKeyIsEnabled">Enabled</label></div></div>
+        <div class="col-md-8 d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary" onclick="resetSystemConfigKeyForm()">Reset</button><button id="saveConfigKeyBtn" type="button" class="btn btn-primary" onclick="saveSystemConfigKeyFromUI()">Save Config Key</button></div>
+      </div>
+    </div></div>
+    <div class="row g-2 align-items-end mb-2">
+      <div class="col-md-3"><label class="form-label">Namespace</label><select id="configKeyNamespaceFilter" class="form-select" onchange="loadSystemConfigKeys()"><option value="">All</option><option value="mail">mail</option><option value="calendar">calendar</option><option value="notification">notification</option><option value="apps_script">apps_script</option><option value="line">line</option><option value="qt">qt</option><option value="system">system</option></select></div>
+      <div class="col-md-5"><label class="form-label">Search</label><input id="configKeyKeyword" class="form-control" placeholder="namespace, key, description" onkeydown="handleConfigKeySearchKey(event)"></div>
+      <div class="col-md-2 d-grid"><button type="button" class="btn btn-outline-secondary" onclick="loadSystemConfigKeys()">Search</button></div>
+    </div>
+    <div id="configKeyError" class="text-danger small mb-2"></div>
+    <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Namespace</th><th>Key</th><th>Value</th><th>Type</th><th>Secret</th><th>Status</th><th>Description</th><th class="text-end">Action</th></tr></thead><tbody id="configKeyTableBody"></tbody></table></div></div>
+  `;
+  tabContent.appendChild(pane);
 }
 
 function getSystemFeatureOptions() {
@@ -241,6 +284,143 @@ function saveIdRule(entityKey) {
       if (errorBox) errorBox.textContent = err.message || err;
     })
     .saveIdRule(entityKey, payload);
+}
+
+function loadSystemConfigKeys() {
+  ensureConfigKeyManagementPane();
+  const errorBox = document.getElementById('configKeyError');
+  if (errorBox) errorBox.textContent = '';
+  setListLoading('configKeyTableBody', true, 'Loading config keys...');
+  google.script.run
+    .withSuccessHandler(data => {
+      systemConfigKeys = data?.rows || data?.data?.rows || [];
+      renderSystemConfigKeys();
+    })
+    .withFailureHandler(err => {
+      if (errorBox) errorBox.textContent = err.message || err;
+      setListLoading('configKeyTableBody', false);
+    })
+    .getSystemConfigKeys({
+      namespace: document.getElementById('configKeyNamespaceFilter')?.value || '',
+      keyword: document.getElementById('configKeyKeyword')?.value || ''
+    }, currentUser);
+}
+
+function renderSystemConfigKeys() {
+  const body = document.getElementById('configKeyTableBody');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!systemConfigKeys.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4">No config keys found.</td></tr>';
+    return;
+  }
+  systemConfigKeys.forEach(item => {
+    const ns = escapeAttr(item.namespace || '');
+    const key = escapeAttr(item.configKey || '');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="badge bg-light text-dark">${escapeHtml(item.namespace || '')}</span></td>
+      <td><code>${escapeHtml(item.configKey || '')}</code></td>
+      <td class="text-break" style="max-width: 280px;">${escapeHtml(formatConfigKeyValue(item))}</td>
+      <td>${escapeHtml(item.valueType || 'string')}</td>
+      <td>${item.isSecret ? '<span class="badge bg-warning text-dark">secret</span>' : '<span class="badge bg-secondary">plain</span>'}</td>
+      <td>${item.isEnabled ? '<span class="badge bg-success">enabled</span>' : '<span class="badge bg-secondary">disabled</span>'}</td>
+      <td>${escapeHtml(item.description || '')}</td>
+      <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="editSystemConfigKey('${ns}', '${key}')">Edit</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function formatConfigKeyValue(item) {
+  if (item.isSecret) return item.configValue || '********';
+  if (typeof item.configValue === 'object') return JSON.stringify(item.configValue);
+  return String(item.configValue ?? '');
+}
+
+function editSystemConfigKey(namespace, configKey) {
+  const item = systemConfigKeys.find(row => row.namespace === namespace && row.configKey === configKey);
+  if (!item) return;
+  document.getElementById('configKeyEditingOriginal').value = `${namespace}.${configKey}`;
+  document.getElementById('configKeyNamespace').value = item.namespace || '';
+  document.getElementById('configKeyNamespace').disabled = true;
+  document.getElementById('configKeyName').value = item.configKey || '';
+  document.getElementById('configKeyName').disabled = true;
+  document.getElementById('configKeyValueType').value = item.valueType || 'string';
+  document.getElementById('configKeyValue').value = item.isSecret ? '' : String(item.configValue ?? '');
+  document.getElementById('configKeyValue').placeholder = item.isSecret ? 'Leave blank to keep existing secret' : '';
+  document.getElementById('configKeyDescription').value = item.description || '';
+  document.getElementById('configKeyIsSecret').checked = Boolean(item.isSecret);
+  document.getElementById('configKeyIsEnabled').checked = item.isEnabled !== false;
+}
+
+function resetSystemConfigKeyForm() {
+  ['configKeyEditingOriginal', 'configKeyNamespace', 'configKeyName', 'configKeyValue', 'configKeyDescription'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['configKeyNamespace', 'configKeyName'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+  const type = document.getElementById('configKeyValueType');
+  if (type) type.value = 'string';
+  const secret = document.getElementById('configKeyIsSecret');
+  if (secret) secret.checked = false;
+  const enabled = document.getElementById('configKeyIsEnabled');
+  if (enabled) enabled.checked = true;
+  handleConfigKeySecretToggle();
+  const errorBox = document.getElementById('configKeyError');
+  if (errorBox) errorBox.textContent = '';
+}
+
+function handleConfigKeySecretToggle() {
+  const input = document.getElementById('configKeyValue');
+  const secret = document.getElementById('configKeyIsSecret');
+  if (!input || !secret) return;
+  input.type = secret.checked ? 'password' : 'text';
+  if (!secret.checked) input.placeholder = '';
+}
+
+function saveSystemConfigKeyFromUI() {
+  const btn = document.getElementById('saveConfigKeyBtn');
+  const errorBox = document.getElementById('configKeyError');
+  const configValueInput = document.getElementById('configKeyValue');
+  const isSecret = document.getElementById('configKeyIsSecret').checked;
+  const original = document.getElementById('configKeyEditingOriginal').value;
+  const keepExistingSecret = Boolean(original && isSecret && !configValueInput.value);
+  const config = {
+    namespace: document.getElementById('configKeyNamespace').value.trim(),
+    configKey: document.getElementById('configKeyName').value.trim(),
+    configValue: configValueInput.value,
+    valueType: document.getElementById('configKeyValueType').value,
+    isSecret,
+    isEnabled: document.getElementById('configKeyIsEnabled').checked,
+    description: document.getElementById('configKeyDescription').value.trim(),
+    keepExistingSecret
+  };
+  if (errorBox) errorBox.textContent = '';
+  if (!config.namespace || !config.configKey) {
+    if (errorBox) errorBox.textContent = 'Namespace and key are required.';
+    return;
+  }
+  setButtonLoading(btn, true, 'Saving...');
+  google.script.run
+    .withSuccessHandler(res => {
+      setButtonLoading(btn, false);
+      alert(res.message || 'Config key saved.');
+      resetSystemConfigKeyForm();
+      loadSystemConfigKeys();
+    })
+    .withFailureHandler(err => {
+      setButtonLoading(btn, false);
+      if (errorBox) errorBox.textContent = err.message || err;
+    })
+    .saveSystemConfigKey({ currentUser, config });
+}
+
+function handleConfigKeySearchKey(event) {
+  if (event.key === 'Enter') loadSystemConfigKeys();
 }
 
 function loadLocationItems() {
