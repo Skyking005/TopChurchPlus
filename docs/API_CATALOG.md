@@ -72,6 +72,7 @@ Rules:
 - `scheduled_at <= now()` and `retry_count < 3` for pending processing.
 - `remainingQuota <= 10` sends only HIGH priority mail.
 - Modules should enqueue mail; direct `MailApp.sendEmail()` is only allowed inside `processMailQueue()`.
+- Exception: login verification code email may send immediately through `sendLoginVerificationEmail()` because it is part of the login challenge flow.
 
 ### System
 

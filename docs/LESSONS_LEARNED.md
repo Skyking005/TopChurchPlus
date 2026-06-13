@@ -105,7 +105,7 @@ Treat MailApp quota as an execution-time guard. Record snapshots for monitoring,
 
 Recommended Action
 
-Use `MailQueueService.enqueueMail()` / `enqueueMails()` for module events, and let `processMailQueue()` perform actual `MailApp.sendEmail()` delivery. Keep each execution capped at 20 items, stop at zero quota, and send only HIGH priority mail when remaining quota is 10 or below.
+Use `MailQueueService.enqueueMail()` / `enqueueMails()` for module events, and let `processMailQueue()` perform actual `MailApp.sendEmail()` delivery. Keep each execution capped at 20 items, stop at zero quota, and send only HIGH priority mail when remaining quota is 10 or below. The only approved immediate-send exception is login verification code email, which must check quota before sending.
 
 ## PostgreSQL
 

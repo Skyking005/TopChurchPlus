@@ -336,14 +336,9 @@ function sendLoginVerificationEmail(email, code, expiresAt) {
   const expiresText = expiresAt
     ? Utilities.formatDate(new Date(expiresAt), Session.getScriptTimeZone(), 'yyyy/MM/dd HH:mm')
     : '10 分鐘內';
-  return enqueueMail({
-    moduleKey: 'auth',
-    businessId: email,
-    eventType: 'login_verification',
-    dedupeKey: `auth:login_verification:${email}:${code}`,
-    recipientEmail: email,
+  return sendImmediateLoginVerificationEmail_({
+    to: email,
     subject: 'TopChurchPlus 登入驗證碼',
-    priority: 'HIGH',
     body:
 `您好：
 
@@ -354,6 +349,24 @@ function sendLoginVerificationEmail(email, code, expiresAt) {
 
 如果這不是您本人操作，請立即通知系統管理員。`
   });
+}
+
+function sendImmediateLoginVerificationEmail_(message) {
+  const remainingQuota = MailApp.getRemainingDailyQuota();
+  if (remainingQuota <= 0) {
+    throw new Error('MailApp daily quota exhausted; cannot send login verification code.');
+  }
+  MailApp.sendEmail({
+    to: message.to,
+    subject: message.subject,
+    body: message.body
+  });
+  return {
+    success: true,
+    immediate: true,
+    reason: 'login_verification_code',
+    remainingQuota: MailApp.getRemainingDailyQuota()
+  };
 }
 
 function getInitialData() {

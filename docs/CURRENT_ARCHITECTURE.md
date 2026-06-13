@@ -57,7 +57,7 @@ LINE / LIFF / Public Forms
 
 - 不要把大型商業邏輯新增回 `程式碼.gs`。
 - 新 API 應優先放在 NAS API，Apps Script 只保留橋接。
-- 模組不得直接呼叫 `MailApp.sendEmail()`；必須寫入 `mail_queue` 後由 `processPendingMails()` 發送。
+- 模組不得直接呼叫 `MailApp.sendEmail()`；必須寫入 `mail_queue` 後由 `processPendingMails()` 發送。登入驗證碼為唯一核准的即時寄送例外。
 
 ## API Layer
 
@@ -262,7 +262,8 @@ Mail Queue is the centralized Email path for Apps Script MailApp delivery.
 
 Current rules:
 - Modules enqueue mail instead of calling `MailApp.sendEmail()` directly.
-- The only production `MailApp.sendEmail()` call should be inside `processMailQueue()`.
+- The normal production `MailApp.sendEmail()` call should be inside `processMailQueue()`.
+- Exception: login verification code email is sent immediately by `sendLoginVerificationEmail()` so the login challenge is not delayed by queue scheduling.
 - Each execution processes at most 20 queue items.
 - Pending selection is ordered by `HIGH`, `NORMAL`, then `LOW`.
 - Only `scheduled_at <= now()` and `retry_count < 3` items are processed.
