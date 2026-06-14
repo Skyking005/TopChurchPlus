@@ -16,6 +16,7 @@ Read these documents before major UI, navigation, module, member-facing, or work
 | `NAVIGATION_ARCHITECTURE_V2.md` | Formal Navigation Architecture V2 for categories, main nav, sub-nav, and responsive navigation. |
 | `DESIGN_SYSTEM_V2.md` | Shared Design System V2 tokens, color system, typography, spacing, and design rules. |
 | `UI_COMPONENT_STANDARD.md` | Component standards for page shell, buttons, badges, tables, forms, modals, states, and permissions. |
+| `UI_FOUNDATION_LAYER.md` | Reusable UI foundation classes, usage rules, and rollout guidance for future module UI work. |
 | `UI_ROLLOUT_STRATEGY.md` | Design System rollout sequence and QT / Email Service pilot strategy. |
 | `IDENTITY_BOUNDARY_UI_REVIEW.md` | UI and navigation review for Account, Pastoral, Line User, and future identity provider boundaries. |
 | `INFORMATION_ARCHITECTURE.md` | Product IA, navigation hierarchy, subsystem planning, and future expansion. |
@@ -50,5 +51,6 @@ Before implementing navigation or UI foundation changes, read these in order:
 1. `NAVIGATION_ARCHITECTURE_V2.md`
 2. `DESIGN_SYSTEM_V2.md`
 3. `UI_COMPONENT_STANDARD.md`
-4. `UI_ROLLOUT_STRATEGY.md`
-5. `IDENTITY_BOUNDARY_UI_REVIEW.md`
+4. `UI_FOUNDATION_LAYER.md`
+5. `UI_ROLLOUT_STRATEGY.md`
+6. `IDENTITY_BOUNDARY_UI_REVIEW.md`
