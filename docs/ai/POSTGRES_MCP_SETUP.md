@@ -7,6 +7,8 @@ This guide explains how to connect Codex or another MCP client to TopChurchPlus 
 
 No production code, schema, migration, or deployment change is required.
 
+Workflow rules live in `docs/ai/POSTGRES_MCP_WORKFLOW.md`.
+
 ## Phase 1 Inspection Result
 
 Current repository state:
@@ -152,4 +154,3 @@ After manual setup, verify that Codex can answer these using MCP:
 4. What are primary keys and foreign keys for `qt_*` tables?
 5. Which tables belong to the Pastoral Domain?
 6. Can schema be understood without scanning the whole repo?
-

@@ -7,6 +7,8 @@ Last updated: 2026-06-14
 
 PostgreSQL MCP is an AI development aid only. It must help Codex understand real schema without allowing data mutation, schema mutation, migration, or public exposure.
 
+Workflow usage rules live in `docs/ai/POSTGRES_MCP_WORKFLOW.md`.
+
 ## Mandatory Role
 
 Only use:
@@ -135,4 +137,3 @@ Also remove local MCP client config and clear local environment variables.
 * MCP is not public.
 * AI queries use `LIMIT` for sample data.
 * Database writes and migrations are impossible from both DB role permissions and MCP access mode.
-

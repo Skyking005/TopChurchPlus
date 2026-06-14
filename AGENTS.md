@@ -242,4 +242,22 @@ Reference docs:
 - `docs/ai/POSTGRES_MCP_SETUP.md`
 - `docs/ai/POSTGRES_MCP_SECURITY.md`
 - `docs/ai/POSTGRES_MCP_QUERIES.md`
+- `docs/ai/POSTGRES_MCP_WORKFLOW.md`
 - `docs/ai/POSTGRES_MCP_READONLY_USER.sql`
+
+## Database First Principle
+
+When a task involves PostgreSQL, API behavior, reports, QT, BPM, Pastoral, LINE Bot, migration planning, data repair, or data relationship analysis, Codex must first verify the real schema with PostgreSQL MCP when MCP is available.
+
+Rules:
+
+- Do not rely only on `docs/DATABASE_SCHEMA.md` or documentation guesses for database structure.
+- If MCP query results and documentation disagree, treat MCP query results as the source of truth.
+- When a mismatch is found, report it and recommend updating the affected docs.
+- MCP may only use the `topchurchplus_ai_reader` database user.
+- MCP must use `--access-mode=restricted`.
+- MCP queries must be SELECT-only.
+- Use `LIMIT 5` by default for sample data queries.
+- Never run `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `DROP`, `ALTER`, or `CREATE` through MCP.
+- Never query the contents of sensitive fields such as password, token, secret, credential, API key, or private key columns.
+- MCP is a Database Verification Tool Layer, not a migration tool, deployment tool, or production DB admin tool.
