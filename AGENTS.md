@@ -221,3 +221,25 @@ Every completed task must report:
 - External checks use `https://api.topchurchplus.com/health` and `https://api.topchurchplus.com/linebot/webhook`.
 - Do not test `59.120.6.172:3000`; external direct 3000 port is intentionally closed.
 - If LAN health works but official domain checks fail, investigate Synology Reverse Proxy / Web Station / Portal, DNS, SSL certificate, firewall or 443 forwarding, and accidental routing to DSM 5001.
+
+### PostgreSQL MCP Rules
+
+Use PostgreSQL MCP only as a local AI development aid for schema understanding.
+
+1. Only use the PostgreSQL role `topchurchplus_ai_reader`.
+2. Never write to the database through MCP.
+3. Never run migrations through MCP.
+4. Prefer MCP schema inspection over stale `docs/DATABASE_SCHEMA.md` when MCP is available.
+5. Query the real schema before making database assumptions.
+6. Use `--access-mode=restricted` for production or production-like databases.
+7. Never commit MCP credentials, `DATABASE_URI`, passwords, or client configs containing secrets.
+8. Never expose the MCP server publicly.
+9. Never use admin, app runtime, owner, superuser, or migration credentials through MCP.
+10. Use `LIMIT` for all sample data queries.
+
+Reference docs:
+
+- `docs/ai/POSTGRES_MCP_SETUP.md`
+- `docs/ai/POSTGRES_MCP_SECURITY.md`
+- `docs/ai/POSTGRES_MCP_QUERIES.md`
+- `docs/ai/POSTGRES_MCP_READONLY_USER.sql`
