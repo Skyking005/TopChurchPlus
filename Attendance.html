@@ -1,5 +1,5 @@
-<div id="attendanceView" class="d-none">
-  <div class="section-card">
+<div id="attendanceView" class="d-none tc-page">
+  <div class="section-card tc-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div>
         <h5 class="mb-1">聚會統計系統</h5>
@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <div class="row g-2 align-items-end mb-3">
+    <div class="row g-2 align-items-end mb-3 tc-page-filter-area">
       <div class="col-12 col-md-3 col-lg-2">
         <label class="form-label">起始日期</label>
         <input id="attendanceStartDate" type="date" class="form-control">
@@ -38,8 +38,8 @@
     </div>
 
     <div id="attendanceSmallGroupsPanel">
-      <div class="table-responsive">
-        <table class="table table-hover align-middle">
+      <div class="table-responsive tc-table-wrapper">
+        <table class="table table-hover tc-table align-middle">
           <thead>
             <tr>
               <th>會堂</th>
@@ -61,8 +61,8 @@
           <h6 class="mb-0" id="attendanceSmallGroupDetailTitle">小家成員出席</h6>
           <span class="text-muted small" id="attendanceSmallGroupEventHint"></span>
         </div>
-        <div class="table-responsive">
-          <table class="table table-sm align-middle">
+        <div class="table-responsive tc-table-wrapper">
+          <table class="table table-sm tc-table align-middle">
             <thead id="attendanceSmallGroupMemberHead"></thead>
             <tbody id="attendanceSmallGroupMemberBody"></tbody>
           </table>
@@ -73,26 +73,26 @@
     <div id="attendanceMeetingsPanel" class="d-none">
       <div class="row g-2 mb-3">
         <div class="col-12 col-md-4">
-          <div class="stat-card">
+          <div class="stat-card tc-kpi">
             <span>總出席人次</span>
             <strong id="attendanceTotalCount">0</strong>
           </div>
         </div>
         <div class="col-12 col-md-4">
-          <div class="stat-card">
+          <div class="stat-card tc-kpi">
             <span>平均每次</span>
             <strong id="attendanceAverageCount">0</strong>
           </div>
         </div>
         <div class="col-12 col-md-4">
-          <div class="stat-card">
+          <div class="stat-card tc-kpi">
             <span>最高出席</span>
             <strong id="attendanceMaxCount">0</strong>
           </div>
         </div>
       </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle">
+      <div class="table-responsive tc-table-wrapper">
+        <table class="table table-hover tc-table align-middle">
           <thead>
             <tr>
               <th>日期</th>

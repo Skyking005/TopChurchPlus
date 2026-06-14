@@ -1,6 +1,6 @@
-    <section id="purchaseView" class="d-none">
+    <section id="purchaseView" class="d-none tc-page">
       <section id="purchaseListView">
-        <div class="card mb-3">
+        <div class="card tc-card tc-page-filter-area mb-3">
           <div class="card-body">
             <div class="row g-2 align-items-end">
               <div class="col-md-8">
@@ -22,9 +22,9 @@
           <span id="purchasePageInfo" class="text-muted"></span>
         </div>
 
-        <div class="card desktop-only">
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <div class="card tc-card desktop-only">
+          <div class="table-responsive tc-table-wrapper">
+            <table class="table table-hover tc-table align-middle mb-0">
               <thead>
                 <tr>
                   <th>採購編號</th>
@@ -47,7 +47,7 @@
           <button class="btn btn-outline-secondary btn-sm" onclick="nextPurchasePage()">下一頁</button>
         </div>
 
-        <div class="card mt-4">
+        <div class="card tc-card mt-4">
           <div class="card-header section-header">
             <span>請款申請清單</span>
             <div class="d-flex gap-2">
@@ -55,8 +55,8 @@
               <button class="btn btn-sm btn-outline-primary" onclick="loadPaymentRequests()">重新整理</button>
             </div>
           </div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+          <div class="table-responsive tc-table-wrapper">
+            <table class="table table-hover tc-table align-middle mb-0">
               <thead>
                 <tr>
                   <th>請款編號</th>
@@ -89,7 +89,7 @@
           </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card tc-card mb-3">
           <div class="card-header">採購基本資料</div>
           <div class="card-body">
             <div class="row g-3">
@@ -143,13 +143,13 @@
           </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card tc-card mb-3">
           <div class="card-header section-header">
             <span>請購詳情</span>
             <button class="btn btn-sm btn-outline-primary purchase-edit-only" onclick="addPurchaseItemRow()">新增列</button>
           </div>
-          <div class="table-responsive">
-            <table class="table align-middle mb-0">
+          <div class="table-responsive tc-table-wrapper">
+            <table class="table tc-table align-middle mb-0">
               <thead>
                 <tr>
                   <th>項目</th>
@@ -167,7 +167,7 @@
 
         <div class="row g-3">
           <div class="col-lg-4">
-            <div class="card h-100">
+            <div class="card tc-card h-100">
               <div class="card-header section-header">
                 <span>預借申請清單</span>
                 <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openAdvanceModal()">新增</button>
@@ -178,7 +178,7 @@
             </div>
           </div>
           <div class="col-lg-4">
-            <div class="card h-100">
+            <div class="card tc-card h-100">
               <div class="card-header section-header">
                 <span>支出證明申請清單</span>
                 <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openExpenseProofModal()">新增</button>
@@ -189,7 +189,7 @@
             </div>
           </div>
           <div class="col-lg-4">
-            <div class="card h-100">
+            <div class="card tc-card h-100">
               <div class="card-header section-header">
                 <span>請款申請清單</span>
                 <button class="btn btn-sm btn-outline-primary purchase-open-only" onclick="openPaymentModal()">新增</button>
@@ -203,7 +203,7 @@
       </section>
     </section>
 
-    <div class="modal fade" id="advanceModal" tabindex="-1">
+    <div class="modal fade tc-modal" id="advanceModal" tabindex="-1">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -230,8 +230,8 @@
               <h6 class="mb-0">預借詳情</h6>
               <button class="btn btn-sm btn-outline-primary" onclick="addAdvanceItemRow()">新增列</button>
             </div>
-            <div class="table-responsive">
-              <table class="table align-middle">
+            <div class="table-responsive tc-table-wrapper">
+              <table class="table tc-table align-middle">
                 <thead><tr><th>項次</th><th>事由</th><th>金額</th><th>備註/說明</th><th></th></tr></thead>
                 <tbody id="advanceItemBody"></tbody>
               </table>
@@ -246,7 +246,7 @@
       </div>
     </div>
 
-    <div class="modal fade" id="expenseProofModal" tabindex="-1">
+    <div class="modal fade tc-modal" id="expenseProofModal" tabindex="-1">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -276,8 +276,8 @@
               <h6 class="mb-0">支出證明詳情</h6>
               <button class="btn btn-sm btn-outline-primary" onclick="addProofItemRow()">新增列</button>
             </div>
-            <div class="table-responsive">
-              <table class="table align-middle">
+            <div class="table-responsive tc-table-wrapper">
+              <table class="table tc-table align-middle">
                 <thead><tr><th>項次</th><th>項目</th><th>費用</th><th></th></tr></thead>
                 <tbody id="proofItemBody"></tbody>
               </table>
@@ -292,7 +292,7 @@
       </div>
     </div>
 
-    <div class="modal fade" id="paymentProofListModal" tabindex="-1">
+    <div class="modal fade tc-modal" id="paymentProofListModal" tabindex="-1">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -311,7 +311,7 @@
       </div>
     </div>
 
-    <div class="modal fade" id="paymentModal" tabindex="-1">
+    <div class="modal fade tc-modal" id="paymentModal" tabindex="-1">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
@@ -345,8 +345,8 @@
               <h6 class="mb-0">請款詳細內容</h6>
               <button class="btn btn-sm btn-outline-primary" onclick="addPaymentItemRow()">新增列</button>
             </div>
-            <div class="table-responsive">
-              <table class="table align-middle">
+            <div class="table-responsive tc-table-wrapper">
+              <table class="table tc-table align-middle">
                 <thead><tr><th>項目</th><th>數量</th><th>單價</th><th>總價</th><th>備註</th><th></th></tr></thead>
                 <tbody id="paymentItemBody"></tbody>
               </table>

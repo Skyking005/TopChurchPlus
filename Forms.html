@@ -1,5 +1,5 @@
-<div id="formsView" class="d-none">
-  <div class="section-card">
+<div id="formsView" class="d-none tc-page">
+  <div class="section-card tc-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div>
         <h5 class="mb-1">表單系統</h5>
@@ -17,7 +17,7 @@
     </div>
 
     <div id="formsListView">
-      <div class="row g-2 align-items-end mb-3">
+      <div class="row g-2 align-items-end mb-3 tc-page-filter-area">
         <div class="col-12 col-md-6">
           <label class="form-label">關鍵字</label>
           <input id="formsKeyword" class="form-control" placeholder="表單標題或說明" onkeydown="handleFormsSearchKey(event)">
@@ -37,8 +37,8 @@
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="table table-hover align-middle">
+      <div class="table-responsive tc-table-wrapper">
+        <table class="table table-hover tc-table align-middle">
           <thead>
             <tr>
               <th>表單</th>
@@ -184,8 +184,8 @@
           <button type="button" class="btn btn-outline-primary" onclick="loadCurrentFormResponses()">重新整理</button>
         </div>
       </div>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle">
+      <div class="table-responsive tc-table-wrapper">
+        <table class="table table-hover tc-table align-middle">
           <thead>
             <tr>
               <th>填寫者</th>
@@ -198,13 +198,13 @@
           <tbody id="formResponsesTableBody"></tbody>
         </table>
       </div>
-      <div class="card mt-3">
+      <div class="card tc-card mt-3">
         <div class="card-header section-header">
           <span>問題答覆統計表</span>
           <span id="formStatisticsSummary" class="text-muted small"></span>
         </div>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+        <div class="table-responsive tc-table-wrapper">
+          <table class="table table-hover tc-table align-middle mb-0">
             <thead>
               <tr>
                 <th>題目</th>
@@ -221,7 +221,7 @@
   </div>
 </div>
 
-<div class="modal fade" id="formAttachmentModal" tabindex="-1">
+<div class="modal fade tc-modal" id="formAttachmentModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">

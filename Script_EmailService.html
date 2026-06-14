@@ -251,31 +251,31 @@ function setEmailQueueMessage(message, type = 'info') {
 
 function renderEmailStatusBadge(status) {
   const map = {
-    PENDING: 'bg-info-subtle text-info',
-    SENT: 'bg-success-subtle text-success',
-    FAILED: 'bg-danger-subtle text-danger',
-    SKIPPED: 'bg-secondary-subtle text-secondary'
+    PENDING: 'tc-badge-info',
+    SENT: 'tc-badge-success',
+    FAILED: 'tc-badge-danger',
+    SKIPPED: 'tc-badge-secondary'
   };
-  return `<span class="badge ${map[status] || 'bg-secondary-subtle text-secondary'}">${escapeHtml(status || '-')}</span>`;
+  return `<span class="tc-badge ${map[status] || 'tc-badge-secondary'}">${escapeHtml(status || '-')}</span>`;
 }
 
 function renderEmailPriorityBadge(priority) {
   const map = {
-    HIGH: 'bg-danger-subtle text-danger',
-    NORMAL: 'bg-primary-subtle text-primary',
-    LOW: 'bg-secondary-subtle text-secondary'
+    HIGH: 'tc-badge-danger',
+    NORMAL: 'tc-badge-info',
+    LOW: 'tc-badge-secondary'
   };
-  return `<span class="badge ${map[priority] || 'bg-secondary-subtle text-secondary'}">${escapeHtml(priority || '-')}</span>`;
+  return `<span class="tc-badge ${map[priority] || 'tc-badge-secondary'}">${escapeHtml(priority || '-')}</span>`;
 }
 
 function renderEmailTriggerStatus(trigger) {
   if (trigger?.status === 'PERMISSION_REQUIRED') {
-    return '<span class="badge bg-warning-subtle text-warning">需要重新授權</span>';
+    return '<span class="tc-badge tc-badge-warning">需要重新授權</span>';
   }
   if (trigger?.installed) {
-    return '<span class="badge bg-success-subtle text-success">已安裝</span>';
+    return '<span class="tc-badge tc-badge-success">已安裝</span>';
   }
-  return '<span class="badge bg-warning-subtle text-warning">未安裝</span>';
+  return '<span class="tc-badge tc-badge-warning">未安裝</span>';
 }
 
 function formatEmailQueueDateTime(value) {

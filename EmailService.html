@@ -1,5 +1,5 @@
-<section id="emailServiceView" class="d-none">
-  <div class="section-card">
+<section id="emailServiceView" class="d-none tc-page">
+  <div class="section-card tc-card">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div>
         <h5 class="mb-1">Email 服務管理系統</h5>
@@ -18,56 +18,56 @@
 
     <div class="row g-3 mb-3">
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">今日剩餘 quota</div>
           <div id="emailQuotaRemaining" class="fs-4 fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">今日已寄出</div>
           <div id="emailSentToday" class="fs-4 fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">PENDING</div>
           <div id="emailPendingCount" class="fs-4 fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">FAILED</div>
           <div id="emailFailedCount" class="fs-4 fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">HIGH 待寄</div>
           <div id="emailHighPendingCount" class="fs-4 fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">最舊待寄時間</div>
           <div id="emailOldestPending" class="small fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">Trigger 狀態</div>
           <div id="emailTriggerStatus" class="small fw-semibold">-</div>
         </div>
       </div>
       <div class="col-6 col-lg-3">
-        <div class="tc-kpi-card">
+        <div class="tc-kpi tc-kpi-card">
           <div class="text-muted small">最後處理時間</div>
           <div id="emailLastProcessed" class="small fw-semibold">-</div>
         </div>
       </div>
     </div>
 
-    <div class="filter-panel mb-3">
+    <div class="filter-panel tc-page-filter-area mb-3">
       <div class="row g-2 align-items-end">
         <div class="col-12 col-md-2">
           <label class="form-label">狀態</label>
@@ -112,7 +112,7 @@
     </div>
 
     <div id="emailQueueMessage" class="small mb-2"></div>
-    <div class="table-responsive">
+    <div class="table-responsive tc-table-wrapper">
       <table class="table table-hover align-middle tc-table">
         <thead>
           <tr>
@@ -136,7 +136,7 @@
     <div id="emailQueuePager" class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2"></div>
   </div>
 
-  <div class="modal fade" id="emailQueueDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal fade tc-modal" id="emailQueueDetailModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">

@@ -1,6 +1,6 @@
 
-<section id="systemView" class="d-none">
-  <div class="d-flex justify-content-between align-items-center mb-3">
+<section id="systemView" class="d-none tc-page">
+  <div class="d-flex justify-content-between align-items-center mb-3 tc-page-header">
     <h5 class="mb-0">系統管理</h5>
   </div>
 
@@ -16,9 +16,9 @@
     <li class="nav-item" role="presentation"><button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#systemLogPane" onclick="loadSystemLogs()">系統日誌</button></li>
   </ul>
 
-  <div class="tab-content">
+  <div class="tab-content tc-page-content">
     <div id="parameterManagePane" class="tab-pane fade show active">
-      <div class="card mb-3"><div class="card-body">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
           <div class="col-md-5"><label class="form-label">參數類型</label><select id="parameterType" class="form-select" onchange="loadParameterItems()"></select></div>
           <div class="col-md-5"><label class="form-label">新增參數</label><input id="newParameterValue" class="form-control"></div>
@@ -26,14 +26,14 @@
         </div>
       </div></div>
       <div id="parameterModalError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>參數內容</th><th class="text-end">功能</th></tr></thead><tbody id="parameterTableBody"></tbody></table></div></div>
+      <div class="card tc-card"><div class="table-responsive tc-table-wrapper"><table class="table table-hover tc-table align-middle mb-0"><thead><tr><th>參數內容</th><th class="text-end">功能</th></tr></thead><tbody id="parameterTableBody"></tbody></table></div></div>
     </div>
 
     <div id="idRuleManagePane" class="tab-pane fade">
       <div id="idRuleError" class="text-danger small mb-2"></div>
-      <div class="card">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
+      <div class="card tc-card">
+        <div class="table-responsive tc-table-wrapper">
+          <table class="table table-hover tc-table align-middle mb-0">
             <thead>
               <tr>
                 <th>項目</th>
@@ -51,7 +51,7 @@
     </div>
 
     <div id="locationManagePane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
           <div class="col-md-2"><label class="form-label">會堂</label><input id="locationHall" class="form-control"></div>
           <div class="col-md-3"><label class="form-label">主位置</label><input id="locationMain" class="form-control"></div>
@@ -63,11 +63,11 @@
         </div>
       </div></div>
       <div id="locationModalError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>會堂</th><th>主位置</th><th>子位置</th><th>可借用</th><th class="text-end">功能</th></tr></thead><tbody id="locationTableBody"></tbody></table></div></div>
+      <div class="card tc-card"><div class="table-responsive tc-table-wrapper"><table class="table table-hover tc-table align-middle mb-0"><thead><tr><th>會堂</th><th>主位置</th><th>子位置</th><th>可借用</th><th class="text-end">功能</th></tr></thead><tbody id="locationTableBody"></tbody></table></div></div>
     </div>
 
     <div id="userManagePane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
           <div class="col-md-2"><label class="form-label">序號</label><input id="systemUserStaffId" class="form-control"></div>
           <div class="col-md-3"><label class="form-label">Email</label><input id="systemUserEmail" class="form-control"></div>
@@ -78,11 +78,11 @@
         </div>
       </div></div>
       <div id="systemUserError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>序號</th><th>姓名</th><th>Email</th><th>職稱</th><th>部門</th><th class="text-end">功能</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
+      <div class="card tc-card"><div class="table-responsive tc-table-wrapper"><table class="table table-hover tc-table align-middle mb-0"><thead><tr><th>序號</th><th>姓名</th><th>Email</th><th>職稱</th><th>部門</th><th class="text-end">功能</th></tr></thead><tbody id="systemUserTableBody"></tbody></table></div></div>
     </div>
 
     <div id="userRoleManagePane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body"><div class="row g-3">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body"><div class="row g-3">
         <div class="col-md-4"><label class="form-label">使用者</label><select id="roleUserSelect" class="form-select" onchange="renderSelectedUserRoles()"></select></div>
         <div class="col-md-8"><label class="form-label">權限身分</label><div id="roleCheckboxGroup" class="checkbox-group"></div></div>
         <div class="col-md-12 text-end"><button id="saveUserRolesBtn" type="button" class="btn btn-primary" onclick="saveSelectedUserRoles()">儲存權限</button></div>
@@ -91,7 +91,7 @@
     </div>
 
     <div id="pastoralPermissionPane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body"><div class="row g-3">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body"><div class="row g-3">
         <div class="col-md-4"><label class="form-label">使用者</label><select id="pastoralPermissionUserSelect" class="form-select" onchange="renderSelectedPastoralChurchPermissions()"></select></div>
         <div class="col-md-8"><label class="form-label">可檢視會堂</label><div id="pastoralChurchPermissionGroup" class="checkbox-group"></div></div>
         <div class="col-md-12 text-end"><button id="savePastoralChurchPermissionsBtn" type="button" class="btn btn-primary" onclick="saveSelectedPastoralChurchPermissions()">儲存牧養資料權限</button></div>
@@ -101,15 +101,15 @@
     </div>
 
     <div id="featurePermissionPane" class="tab-pane fade">
-      <div class="card mb-3">
+      <div class="card tc-card mb-3">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="mb-0">角色功能權限</h6>
             <button id="saveFeaturePermissionsBtn" type="button" class="btn btn-primary btn-sm" onclick="saveFeaturePermissionsFromUI()">儲存功能權限</button>
           </div>
           <div id="featurePermissionError" class="text-danger small mb-2"></div>
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+          <div class="table-responsive tc-table-wrapper">
+            <table class="table table-hover tc-table align-middle mb-0">
               <thead id="featurePermissionHead"></thead>
               <tbody id="featurePermissionBody"></tbody>
             </table>
@@ -119,7 +119,7 @@
     </div>
 
     <div id="shortLinkManagePane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
           <input id="shortLinkId" type="hidden">
           <div class="col-md-2"><label class="form-label">短碼</label><input id="shortLinkCode" class="form-control" placeholder="可空白自動產生"></div>
@@ -134,17 +134,17 @@
           <div class="col-md-12"><label class="form-label">說明</label><input id="shortLinkDescription" class="form-control"></div>
         </div>
       </div></div>
-      <div class="row g-2 align-items-end mb-2">
+      <div class="row g-2 align-items-end mb-2 tc-page-filter-area">
         <div class="col-md-4"><label class="form-label">搜尋</label><input id="shortLinkKeyword" class="form-control" placeholder="短碼、標題、網址" onkeydown="handleShortLinkSearchKey(event)"></div>
         <div class="col-md-2"><label class="form-label">狀態</label><select id="shortLinkStatusFilter" class="form-select" onchange="loadShortLinks()"><option value="">全部</option><option value="active">啟用</option><option value="disabled">停用</option><option value="expired">過期</option></select></div>
         <div class="col-md-2 d-grid"><button type="button" class="btn btn-outline-secondary" onclick="loadShortLinks()">搜尋</button></div>
       </div>
       <div id="shortLinkError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>短網址</th><th>標題</th><th>目的網址</th><th>來源</th><th>狀態</th><th class="text-end">點擊</th><th class="text-end">功能</th></tr></thead><tbody id="shortLinkTableBody"></tbody></table></div></div>
+      <div class="card tc-card"><div class="table-responsive tc-table-wrapper"><table class="table table-hover tc-table align-middle mb-0"><thead><tr><th>短網址</th><th>標題</th><th>目的網址</th><th>來源</th><th>狀態</th><th class="text-end">點擊</th><th class="text-end">功能</th></tr></thead><tbody id="shortLinkTableBody"></tbody></table></div></div>
     </div>
 
     <div id="systemLogPane" class="tab-pane fade">
-      <div class="card mb-3"><div class="card-body">
+      <div class="card tc-card tc-page-filter-area mb-3"><div class="card-body">
         <div class="row g-3 align-items-end">
           <div class="col-md-2"><label class="form-label">日誌類型</label><select id="systemLogType" class="form-select" onchange="loadSystemLogs()"><option value="audit">稽核紀錄</option><option value="login">登入紀錄</option><option value="usage">使用紀錄</option></select></div>
           <div class="col-md-2"><label class="form-label">系統</label><select id="systemLogSystemKey" class="form-select" onchange="loadSystemLogs()"></select></div>
@@ -155,7 +155,7 @@
         </div>
       </div></div>
       <div id="systemLogError" class="text-danger small mb-2"></div>
-      <div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>時間</th><th>類型</th><th>使用者</th><th>系統</th><th>動作</th><th>對象</th><th>來源</th><th>摘要</th></tr></thead><tbody id="systemLogTableBody"></tbody></table></div></div>
+      <div class="card tc-card"><div class="table-responsive tc-table-wrapper"><table class="table table-hover tc-table align-middle mb-0"><thead><tr><th>時間</th><th>類型</th><th>使用者</th><th>系統</th><th>動作</th><th>對象</th><th>來源</th><th>摘要</th></tr></thead><tbody id="systemLogTableBody"></tbody></table></div></div>
     </div>
   </div>
 </section>
