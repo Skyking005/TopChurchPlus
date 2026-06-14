@@ -37,6 +37,26 @@ This index is the first stop for humans, Codex, and other AI agents. It records 
 | `docs/architecture/UI_DESIGN_SYSTEM_V1.md` | Design tokens, layout, buttons, cards, tables, forms, status badges, notifications. | Active |
 | `UI_REFRESH_PHASE1_REPORT.md` | Phase 1 UI refresh report. | Completed report |
 
+## Product Design Governance
+
+| File | Purpose | Status |
+| --- | --- | --- |
+| `docs/product-design/README.md` | Product design documentation entry point. | Active |
+| `docs/product-design/PRODUCT_DESIGN_OVERVIEW.md` | Product positioning, surfaces, identity boundary, and product design workflow. | Active |
+| `docs/product-design/PRODUCT_DESIGN_REVIEW.md` | Product architecture, UX, UI consistency, domain boundary, and scalability review. | Active |
+| `docs/product-design/NAVIGATION_ARCHITECTURE_V2.md` | Navigation Architecture V2 for main nav, sub-nav, categories, and responsive recommendations. | Active |
+| `docs/product-design/DESIGN_SYSTEM_V2.md` | Shared design tokens, category colors, typography, spacing, and design system foundation. | Active |
+| `docs/product-design/UI_COMPONENT_STANDARD.md` | Component standard for buttons, badges, tables, forms, modals, loading, empty, error, and permission states. | Active |
+| `docs/product-design/UI_ROLLOUT_STRATEGY.md` | Rollout sequence and QT / Email Service pilot strategy. | Active |
+| `docs/product-design/IDENTITY_BOUNDARY_UI_REVIEW.md` | UI risks and standards for Account, Pastoral, Line User, and future identity boundaries. | Active |
+| `docs/product-design/INFORMATION_ARCHITECTURE.md` | Product IA, navigation hierarchy, subsystem planning, and expansion direction. | Active |
+| `docs/product-design/NAVIGATION_AND_MODULE_CLASSIFICATION.md` | Module classification and main navigation recommendations. | Active |
+| `docs/product-design/USER_ROLES_AND_JOURNEYS.md` | Role journeys, pain points, needs, and module mapping. | Active |
+| `docs/product-design/UI_DESIGN_PRINCIPLES.md` | Admin/member-facing UI principles and standard states. | Active |
+| `docs/product-design/UI_IMPROVEMENT_PLAN.md` | Incremental UI rollout plan. | Active |
+| `docs/product-design/FEATURE_PRIORITIZATION_GUIDE.md` | Feature priority model and roadmap framing. | Active |
+| `docs/product-design/PRODUCT_DESIGN_HANDOFF_TEMPLATE.md` | Feature design handoff template before implementation. | Active |
+
 ## Module Specifications
 
 | File | Purpose | Status |

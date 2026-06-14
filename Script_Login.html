@@ -440,38 +440,128 @@ function renderFeatureMenu() {
     return;
   }
 
+  renderFeatureCategorySections(grid, features);
+}
+
+function renderFeatureCategorySections(grid, features) {
+  const categories = getFeatureCategoryDefinitions();
+  const byKey = getFeatureCategoryMap();
   features.forEach((feature, index) => {
-    const card = document.createElement('div');
-    card.className = `feature-option${feature.pinned ? ' feature-option-pinned' : ''}${feature.key === lastMovedFeatureKey ? ' feature-option-moved' : ''}`;
-    card.tabIndex = 0;
-    card.role = 'button';
-    card.dataset.featureKey = feature.key;
-    card.onclick = () => window[feature.action](feature);
-    card.onkeydown = evt => {
-      if (evt.key === 'Enter' || evt.key === ' ') {
-        evt.preventDefault();
-        window[feature.action](feature);
-      }
-    };
-    card.innerHTML = `
-      <span class="feature-card-head">
-        <span class="feature-icon" aria-hidden="true">${getFeatureIconSvg(feature.icon || feature.key)}</span>
-        <span class="feature-title">${escapeHtml(feature.title)}</span>
-      </span>
-      <span class="feature-desc">${escapeHtml(feature.desc)}</span>
-      <span class="feature-meta">
-        ${feature.usageCount > 0 ? `<span class="feature-hint">常用：近 180 天 ${escapeHtml(feature.usageCount)} 次</span>` : ''}
-        ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
-        ${feature.action === 'openComingSoonSystem' ? '<span class="feature-soon">建置中</span>' : ''}
-      </span>
-      <span class="feature-custom-actions" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
-        <button type="button" class="feature-action-btn${feature.pinned ? ' feature-action-btn-active' : ''}" title="${feature.pinned ? '取消釘選' : '釘選'}" onclick="toggleFeaturePin('${escapeAttr(feature.key)}')">${feature.pinned ? '已釘選' : '釘選'}</button>
-        <button type="button" class="feature-action-icon" title="向前移動" ${index === 0 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', -1)">←</button>
-        <button type="button" class="feature-action-icon" title="向後移動" ${index === features.length - 1 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', 1)">→</button>
-      </span>
-    `;
-    grid.appendChild(card);
+    feature.renderIndex = index;
+    feature.renderTotal = features.length;
   });
+    const pinnedFeatures = features.filter(feature => !isFeatureComingSoon(feature) && (feature.pinned || feature.usageCount > 0));
+  const renderedKeys = new Set();
+
+  const quickCategory = categories.find(category => category.key === 'quick');
+  grid.appendChild(createFeatureCategorySection(quickCategory, pinnedFeatures, renderedKeys));
+
+  categories
+    .filter(category => category.key !== 'quick')
+    .forEach(category => {
+      const categoryFeatures = features.filter(feature => {
+        const categoryKey = isFeatureComingSoon(feature) ? 'coming_soon' : (byKey[feature.key] || 'admin');
+        return categoryKey === category.key && !renderedKeys.has(feature.key);
+      });
+      if (categoryFeatures.length) {
+        grid.appendChild(createFeatureCategorySection(category, categoryFeatures, renderedKeys));
+      }
+    });
+}
+
+function createFeatureCategorySection(category, features, renderedKeys) {
+  const safeCategory = category || { key: 'admin', title: '行政類', desc: '', className: 'feature-category-admin' };
+  const section = document.createElement('section');
+  section.className = `feature-category ${safeCategory.className || ''}`;
+  section.dataset.categoryKey = safeCategory.key;
+  section.innerHTML = `
+    <div class="feature-category-header">
+      <div>
+        <h4 class="feature-category-title">${escapeHtml(safeCategory.title || '')}</h4>
+        ${safeCategory.desc ? `<p class="feature-category-desc">${escapeHtml(safeCategory.desc)}</p>` : ''}
+      </div>
+      <span class="feature-category-count">${features.length}</span>
+    </div>
+    ${safeCategory.boundaryNote ? `<div class="feature-boundary-note">${escapeHtml(safeCategory.boundaryNote)}</div>` : ''}
+    <div class="feature-category-grid"></div>
+  `;
+  const group = section.querySelector('.feature-category-grid');
+  if (features.length) {
+    features.forEach(feature => {
+      group.appendChild(createFeatureCard(feature));
+      renderedKeys.add(feature.key);
+    });
+  } else {
+    group.innerHTML = '<div class="feature-category-empty">尚未有釘選或常用功能，可在功能卡片下方點選「釘選」。</div>';
+  }
+  return section;
+}
+
+function createFeatureCard(feature) {
+  const index = Number.isFinite(feature.renderIndex) ? feature.renderIndex : getSystemFeatureRank(feature.key);
+  const total = Number.isFinite(feature.renderTotal) ? feature.renderTotal : getRenderedFeatureKeys().length;
+  const card = document.createElement('div');
+  card.className = `feature-option${feature.pinned ? ' feature-option-pinned' : ''}${feature.key === lastMovedFeatureKey ? ' feature-option-moved' : ''}${isFeatureComingSoon(feature) ? ' feature-option-coming-soon' : ''}`;
+  card.tabIndex = 0;
+  card.role = 'button';
+  card.dataset.featureKey = feature.key;
+  card.onclick = () => window[feature.action](feature);
+  card.onkeydown = evt => {
+    if (evt.key === 'Enter' || evt.key === ' ') {
+      evt.preventDefault();
+      window[feature.action](feature);
+    }
+  };
+  const boundaryText = getFeatureBoundaryText(feature);
+  card.innerHTML = `
+    <span class="feature-card-head">
+      <span class="feature-icon" aria-hidden="true">${getFeatureIconSvg(feature.icon || feature.key)}</span>
+      <span class="feature-title">${escapeHtml(feature.title)}</span>
+    </span>
+    <span class="feature-desc">${escapeHtml(feature.desc)}</span>
+    ${boundaryText ? `<span class="feature-boundary-chip">${escapeHtml(boundaryText)}</span>` : ''}
+    <span class="feature-meta">
+      ${feature.usageCount > 0 ? `<span class="feature-hint">常用：近 180 天 ${escapeHtml(feature.usageCount)} 次</span>` : ''}
+      ${feature.mode ? `<span class="feature-access">${escapeHtml(feature.mode)}</span>` : ''}
+      ${isFeatureComingSoon(feature) ? '<span class="feature-soon">建置中</span>' : ''}
+    </span>
+    <span class="feature-custom-actions" onclick="event.stopPropagation()" onkeydown="event.stopPropagation()">
+      <button type="button" class="feature-action-btn${feature.pinned ? ' feature-action-btn-active' : ''}" title="${feature.pinned ? '取消釘選' : '釘選'}" onclick="toggleFeaturePin('${escapeAttr(feature.key)}')">${feature.pinned ? '已釘選' : '釘選'}</button>
+      <button type="button" class="feature-action-icon" title="向前移動" ${index <= 0 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', -1)">←</button>
+      <button type="button" class="feature-action-icon" title="向後移動" ${index < 0 || index === total - 1 ? 'disabled' : ''} onclick="moveFeatureOrder('${escapeAttr(feature.key)}', 1)">→</button>
+    </span>
+  `;
+  return card;
+}
+
+function getFeatureCategoryDefinitions() {
+  if (typeof FEATURE_CATEGORY_DEFINITIONS !== 'undefined') return FEATURE_CATEGORY_DEFINITIONS;
+  return [
+    { key: 'quick', title: 'Dashboard / 常用', desc: '', className: 'feature-category-quick' },
+    { key: 'admin', title: '行政類', desc: '', className: 'feature-category-admin' },
+    { key: 'pastoral', title: '牧養類', desc: '', className: 'feature-category-pastoral' },
+    { key: 'general_affairs', title: '總務類', desc: '', className: 'feature-category-general-affairs' },
+    { key: 'information', title: '資訊類', desc: '', className: 'feature-category-information' },
+    { key: 'media', title: '媒體類', desc: '', className: 'feature-category-media' },
+    { key: 'system', title: '系統管理類', desc: '', className: 'feature-category-system' },
+    { key: 'coming_soon', title: '建置中', desc: '', className: 'feature-category-coming-soon' }
+  ];
+}
+
+function getFeatureCategoryMap() {
+  return typeof FEATURE_CATEGORY_BY_KEY !== 'undefined' ? FEATURE_CATEGORY_BY_KEY : {};
+}
+
+function isFeatureComingSoon(feature) {
+  return feature && feature.action === 'openComingSoonSystem';
+}
+
+function getFeatureBoundaryText(feature) {
+  if (!feature) return '';
+  if (['pastoral', 'attendance', 'education'].includes(feature.key)) return 'Pastoral Member';
+  if (feature.key === 'linebot') return 'LINE / LIFF';
+  if (feature.key === 'forms') return '公開表單需確認身份邊界';
+  return '';
 }
 
 function renderFeatureToolbar(preferences) {

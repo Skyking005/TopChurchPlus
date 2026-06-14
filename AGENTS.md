@@ -193,6 +193,7 @@ Then read task-specific sources:
 
 - Architecture: `docs/architecture/README.md`
 - UI: `docs/ui/README.md` and `docs/architecture/UI_DESIGN_SYSTEM_V1.md`
+- Product design and navigation: `docs/product-design/README.md`
 - Modules: `docs/modules/README.md`
 - Operations: `docs/operations/README.md`
 - Planning: `plan/INDEX.md`
@@ -205,6 +206,21 @@ Then read task-specific sources:
 - Do not deploy unless the user explicitly asks for deployment.
 - Do not delete documents. Mark deprecated or move to an archive only with clear approval.
 - Preserve existing user changes. Always check `git status --short` before editing.
+
+### Product Design Governance
+
+For major UI, navigation, module, member-facing, LIFF, Line Bot, Pastoral, Forms, QT, Finance, BPM, or workflow changes, read `docs/product-design/README.md` before implementation.
+
+Use product design docs to clarify:
+
+1. Target users and journey.
+2. Module category and navigation placement.
+3. Data boundary.
+4. Permission boundary.
+5. Identity Boundary impact.
+6. UI states and acceptance criteria.
+
+Do not jump directly from feature idea to code when the user flow, module ownership, data boundary, or permission boundary is unclear.
 
 ### Completion Report Required
 

@@ -35,6 +35,42 @@ const ROLE_FEATURE_ACCESS = {
   '義工': ['counter', 'qt', 'serving']
 };
 
+const FEATURE_CATEGORY_DEFINITIONS = [
+  { key: 'quick', title: 'Dashboard / 常用', desc: '釘選與近期常用功能，保留個人化排序。', className: 'feature-category-quick' },
+  { key: 'admin', title: '行政類', desc: '專案、表單、財務、櫃台、活動與日常行政作業。', className: 'feature-category-admin' },
+  { key: 'pastoral', title: '牧養類', desc: '會友、牧區、出席、教育與關懷追蹤。', className: 'feature-category-pastoral', boundaryNote: 'Pastoral Member 是正式會友主體；LINE 使用者僅為入口身份。' },
+  { key: 'general_affairs', title: '總務類', desc: '資產、物資、場地、Zoom 與共享資源管理。', className: 'feature-category-general-affairs' },
+  { key: 'information', title: '資訊類', desc: 'Email、Line 技術設定、整合、系統監控與開發支援。', className: 'feature-category-information' },
+  { key: 'media', title: '媒體類', desc: '主日信息、媒體、敬拜與內容作業。', className: 'feature-category-media' },
+  { key: 'system', title: '系統管理類', desc: '使用者、角色、參數、權限、Config Key 與底層設定。', className: 'feature-category-system' },
+  { key: 'coming_soon', title: '建置中', desc: '入口已預留，但尚未正式開放的功能。', className: 'feature-category-coming-soon' }
+];
+
+const FEATURE_CATEGORY_BY_KEY = {
+  project: 'admin',
+  meeting: 'admin',
+  forms: 'admin',
+  finance: 'admin',
+  counter: 'admin',
+  qrcode: 'admin',
+  qt: 'admin',
+  pastoral: 'pastoral',
+  attendance: 'pastoral',
+  education: 'pastoral',
+  linebot: 'information',
+  email_service: 'information',
+  dev_management: 'information',
+  admin_supply: 'general_affairs',
+  asset: 'general_affairs',
+  venue: 'general_affairs',
+  zoom: 'general_affairs',
+  sunday_message: 'media',
+  media: 'media',
+  worship: 'media',
+  system: 'system',
+  serving: 'coming_soon'
+};
+
 const MAIN_VIEW_IDS = [
   'featureSelectionView',
   'overviewView',
